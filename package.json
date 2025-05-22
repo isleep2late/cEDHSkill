@@ -1,0 +1,24 @@
+{
+  "name": "cedh-ranking-bot",
+  "version": "1.0.0",
+  "description": "\"# cEDH-Ranking-Bot\" \r \"# cEDH-Ranking-Bot\"",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/isleep2late/cEDH-Ranking-Bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/isleep2late/cEDH-Ranking-Bot/issues"
+  },
+  "homepage": "https://github.com/isleep2late/cEDH-Ranking-Bot#readme",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "openskill": "^4.1.0"
+  }
+}
