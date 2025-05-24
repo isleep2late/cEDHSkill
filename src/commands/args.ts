@@ -57,4 +57,12 @@ export class Args {
             },
         ],
     };
+    public static readonly RANK_RESULTS_STRING: APIApplicationCommandBasicOption = { // New
+        name: Lang.getRef('arguments.results', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('arguments.results'),
+        description: Lang.getRef('argDescs.rankResults', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('argDescs.rankResults'),
+        type: ApplicationCommandOptionType.String,
+        required: true,
+    };
 }

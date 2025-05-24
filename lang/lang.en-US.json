@@ -125,6 +125,10 @@
                         ]
                     }
                 ]
+            },
+            "rankSuccess": {
+                "title": "Rankings Updated",
+                "description": "Player ratings have been successfully updated based on the match results."
             }
         },
         "validationEmbeds": {
@@ -175,6 +179,21 @@
             "notImplemented": {
                 "description": "This feature has not been implemented yet!",
                 "color": "{{COM:colors.warning}}"
+            },
+            "rankErrorParsing": {
+                "title": "Error Parsing Results",
+                "description": "Could not parse the match results. Please use the format: `@player1 w @player2 l ...`\n\nExample: `/rank results:@UserA w @UserB l`",
+                "color": "{{COM:colors.error}}"
+            },
+            "rankNotEnoughPlayers": {
+                "title": "Not Enough Players",
+                "description": "Please provide at least two players for a match.",
+                "color": "{{COM:colors.warning}}"
+            },
+            "rankInvalidOutcome": {
+                "title": "Invalid Match Outcome",
+                "description": "A match must have at least one winner and one loser, or be a draw (draws not yet supported by this command). All players cannot have the same outcome unless it's a tie for the same rank.",
+                "color": "{{COM:colors.warning}}"
             }
         },
         "channelRegexes": {
@@ -192,7 +211,8 @@
             "dev": "dev",
             "help": "help",
             "info": "info",
-            "test": "test"
+            "test": "test",
+            "rank": "rank"
         },
         "userCommands": {
             "viewDateJoined": "View Date Joined"
@@ -202,22 +222,26 @@
         },
         "arguments": {
             "command": "command",
-            "option": "option"
+            "option": "option",
+            "results": "results"
         },
         "commandDescs": {
             "dev": "Developer use only.",
             "help": "Find help or contact support.",
             "info": "View bot info.",
-            "test": "Run the test command."
+            "test": "Run the test command.",
+            "rank": "Update player ratings based on match results."
         },
         "argDescs": {
             "devCommand": "Command.",
             "helpOption": "Option.",
-            "infoOption": "Option."
+            "infoOption": "Option.",
+            "rankResults": "Match results (e.g., \"@player1 w @player2 l @player3 w\")"
         },
         "fields": {
             "commands": "Commands",
-            "links": "Links"
+            "links": "Links",
+            "updatedRatings": "Updated Ratings"
         },
         "permissions": {
             "AddReactions": "Add Reactions",

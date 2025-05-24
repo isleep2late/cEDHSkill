@@ -69,6 +69,21 @@ export const ChatCommandMetadata: {
         dm_permission: true,
         default_member_permissions: undefined,
     },
+    RANK: { // New Command
+        type: ApplicationCommandType.ChatInput,
+        name: Lang.getRef('chatCommands.rank', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('chatCommands.rank'),
+        description: Lang.getRef('commandDescs.rank', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('commandDescs.rank'),
+        dm_permission: false, // Ranking is typically guild-specific
+        default_member_permissions: undefined, // Everyone can use by default, adjust if needed
+        options: [
+            {
+                // Referencing the new Arg we created
+                ...Args.RANK_RESULTS_STRING,
+            },
+        ],
+    },
 };
 
 export const MessageCommandMetadata: {

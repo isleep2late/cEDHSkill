@@ -3,13 +3,20 @@ import { Options, Partials } from 'discord.js';
 import { createRequire } from 'node:module';
 
 import { Button } from './buttons/index.js';
-import { DevCommand, HelpCommand, InfoCommand, TestCommand } from './commands/chat/index.js';
+import {
+    DevCommand,
+    HelpCommand,
+    InfoCommand,
+    TestCommand,
+    RankCommand,
+} from './commands/chat/index.js';
 import {
     ChatCommandMetadata,
     Command,
     MessageCommandMetadata,
     UserCommandMetadata,
 } from './commands/index.js';
+import { initializeDatabase } from './db.js';
 import { ViewDateSent } from './commands/message/index.js';
 import { ViewDateJoined } from './commands/user/index.js';
 import {
@@ -37,9 +44,14 @@ const require = createRequire(import.meta.url);
 let Config = require('../config/config.json');
 let Logs = require('../lang/logs.json');
 
+// PlayerRating will be imported by commands/tests directly from db.ts
+// No need to export it from here anymore.
+
 async function start(): Promise<void> {
     // Services
     let eventDataService = new EventDataService();
+    // Initialize database and sync models
+    await initializeDatabase();
 
     // Client
     let client = new CustomClient({
@@ -60,6 +72,7 @@ async function start(): Promise<void> {
         new HelpCommand(),
         new InfoCommand(),
         new TestCommand(),
+        new RankCommand(),
 
         // Message Context Commands
         new ViewDateSent(),
