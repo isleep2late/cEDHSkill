@@ -83,7 +83,10 @@ describe('RankCommand', () => {
             },
             user: { id: 'testUser' },
             guild: { id: 'testGuild' },
-            client: { user: { id: 'botId' } },
+            client: { 
+                user: { id: 'botId' },
+                users: { fetch: vi.fn() } 
+            },
             reply: vi.fn().mockResolvedValue({}),
             editReply: vi.fn().mockResolvedValue({}),
             deferReply: vi.fn().mockResolvedValue({}),
@@ -106,6 +109,13 @@ describe('RankCommand', () => {
 
     it('should correctly parse input, update ratings for 1v1, and send success embed', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
+
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            return null;
+        });
 
         PlayerRating.findOne
             .mockResolvedValueOnce(null) // Player 123 is new
@@ -144,6 +154,12 @@ describe('RankCommand', () => {
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankSuccess');
         expect(sentEmbed.setTitle).toHaveBeenCalledWith('fields.updatedRatings');
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(2);
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(1, 
+            expect.objectContaining({ name: '<@User123> (Winner)' })
+        );
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(2, 
+            expect.objectContaining({ name: '<@User456> (Loser)' })
+        );
     });
 
     it('should send "not enough players" error for single player input', async () => {
@@ -171,6 +187,14 @@ describe('RankCommand', () => {
 
     it('should send "invalid outcome" if only winners are provided', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> w');
+        
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            return null;
+        });
+
         (PlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
         await rankCommand.execute(mockIntr, mockEventData);
         expect(InteractionUtils.send).toHaveBeenCalled();
@@ -183,6 +207,14 @@ describe('RankCommand', () => {
 
     it('should send "invalid outcome" if only losers are provided', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> l <@456> l');
+
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            return null;
+        });
+
         (PlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
         await rankCommand.execute(mockIntr, mockEventData);
         expect(InteractionUtils.send).toHaveBeenCalled();
@@ -197,6 +229,15 @@ describe('RankCommand', () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue(
             '<@123> w <@456> w <@789> l <@101> l'
         );
+
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            if (id === '789') return { id: '789', username: 'User789' };
+            if (id === '101') return { id: '101', username: 'User101' };
+            return null;
+        });
 
         PlayerRating.findOne
             .mockResolvedValueOnce(null) // P1
@@ -244,11 +285,31 @@ describe('RankCommand', () => {
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankSuccess');
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(4);
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(1, 
+            expect.objectContaining({ name: '<@User123> (Winner)' })
+        );
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(2, 
+            expect.objectContaining({ name: '<@User456> (Winner)' })
+        );
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(3, 
+            expect.objectContaining({ name: '<@User789> (Loser)' })
+        );
+        expect(sentEmbed.addFields).toHaveBeenNthCalledWith(4, 
+            expect.objectContaining({ name: '<@User101> (Loser)' })
+        );
     });
 
     // Test case for when PlayerRating.findOne rejects (database error)
     it('should handle database errors when fetching ratings', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
+
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            return null;
+        });
+
         PlayerRating.findOne.mockRejectedValue(new Error('Database connection error'));
 
         await expect(rankCommand.execute(mockIntr, mockEventData)).rejects.toThrow('Database connection error');
@@ -262,6 +323,14 @@ describe('RankCommand', () => {
     // Test case for when PlayerRating.upsert rejects (database error)
     it('should handle database errors when upserting ratings', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
+
+        // Mock client.users.fetch
+        (mockIntr.client.users.fetch as vi.Mock).mockImplementation(async (id: string) => {
+            if (id === '123') return { id: '123', username: 'User123' };
+            if (id === '456') return { id: '456', username: 'User456' };
+            return null;
+        });
+        
         PlayerRating.findOne.mockResolvedValue(null); // Both new players
 
         const mockInitialRating: OpenSkillRating = { mu: 25, sigma: 25 / 3 };
