@@ -11,7 +11,7 @@ interface ParsedPlayer {
     userId: string;
     status: 'w' | 'l'; // Winner or Loser
     initialRating: OpenSkillRating;
-    tag: string; // For display <@userId>
+    tag: string; // For display, e.g., <@username> or <@userId>
 }
 
 export class RankCommand implements Command {
@@ -24,8 +24,6 @@ export class RankCommand implements Command {
             Lang.getRef('arguments.results', data.lang), // Use data.lang for argument name if localized
             true // Argument is required
         );
-
-        console.log(resultsInput);
 
         const participantRegex = /<@!?(\d+)>_*\s+([wlWL])/gi;
         let match;
@@ -60,6 +58,11 @@ export class RankCommand implements Command {
 
         const playersData: ParsedPlayer[] = [];
         for (const pInput of parsedParticipantsInput) {
+            const user = await intr.client.users.fetch(pInput.userId).catch(() => null);
+            // pInput.tag is already in the format <@userId> from the initial regex parsing.
+            // Use this as a fallback if the user cannot be fetched or has no username.
+            const displayUserTag = user ? `<@${user.username}>` : pInput.tag;
+
             let dbRating = await PlayerRating.findOne({ where: { userId: pInput.userId } });
             let osRating: OpenSkillRating;
             if (dbRating) {
@@ -71,7 +74,7 @@ export class RankCommand implements Command {
                 userId: pInput.userId,
                 status: pInput.status,
                 initialRating: osRating,
-                tag: pInput.tag,
+                tag: displayUserTag, // Use the fetched username in the desired format
             });
         }
 
