@@ -25,6 +25,8 @@ export class RankCommand implements Command {
             true // Argument is required
         );
 
+        console.log(resultsInput);
+
         const participantRegex = /<@!?(\d+)>_*\s+([wlWL])/gi;
         let match;
         const parsedParticipantsInput: Array<{ userId: string; status: 'w' | 'l'; tag: string }> =
