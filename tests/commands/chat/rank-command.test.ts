@@ -107,7 +107,7 @@ describe('RankCommand', () => {
     it('should correctly parse input, update ratings for 1v1, and send success embed', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
 
-        MockedPlayerRating.findOne
+        PlayerRating.findOne
             .mockResolvedValueOnce(null) // Player 123 is new
             .mockResolvedValueOnce({ userId: '456', mu: 20, sigma: 5 } as unknown as PlayerRatingInstance); // Player 456 exists
 
@@ -128,16 +128,16 @@ describe('RankCommand', () => {
         await rankCommand.execute(mockIntr, mockEventData);
 
         expect(Lang.getRef).toHaveBeenCalledWith('arguments.results', mockEventData.lang);
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledWith({ where: { userId: '123' } });
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledWith({ where: { userId: '456' } });
+        expect(PlayerRating.findOne).toHaveBeenCalledWith({ where: { userId: '123' } });
+        expect(PlayerRating.findOne).toHaveBeenCalledWith({ where: { userId: '456' } });
 
         expect(rate).toHaveBeenCalledWith([
             [mockInitialRatingP1],
             [mockInitialRatingP2FromDB],
         ]);
 
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '123', mu: 28, sigma: 7 });
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '456', mu: 18, sigma: 4.8 });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '123', mu: 28, sigma: 7 });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '456', mu: 18, sigma: 4.8 });
 
         expect(InteractionUtils.send).toHaveBeenCalled();
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
@@ -153,9 +153,9 @@ describe('RankCommand', () => {
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankNotEnoughPlayers');
         // Also check that DB and rate functions were NOT called
-        expect(MockedPlayerRating.findOne).not.toHaveBeenCalled();
+        expect(PlayerRating.findOne).not.toHaveBeenCalled();
         expect(rate as vi.Mock).not.toHaveBeenCalled();
-        expect(MockedPlayerRating.upsert).not.toHaveBeenCalled();
+        expect(PlayerRating.upsert).not.toHaveBeenCalled();
     });
 
     it('should send "parsing error" if no players are parsed but input is not empty', async () => {
@@ -164,33 +164,33 @@ describe('RankCommand', () => {
         expect(InteractionUtils.send).toHaveBeenCalled();
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankErrorParsing');
-        expect(MockedPlayerRating.findOne).not.toHaveBeenCalled();
+        expect(PlayerRating.findOne).not.toHaveBeenCalled();
         expect(rate as vi.Mock).not.toHaveBeenCalled();
-        expect(MockedPlayerRating.upsert).not.toHaveBeenCalled();
+        expect(PlayerRating.upsert).not.toHaveBeenCalled();
     });
 
     it('should send "invalid outcome" if only winners are provided', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> w');
-        (MockedPlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
+        (PlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
         await rankCommand.execute(mockIntr, mockEventData);
         expect(InteractionUtils.send).toHaveBeenCalled();
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankInvalidOutcome');
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledTimes(2);
+        expect(PlayerRating.findOne).toHaveBeenCalledTimes(2);
         expect(rate as vi.Mock).not.toHaveBeenCalled();
-        expect(MockedPlayerRating.upsert).not.toHaveBeenCalled();
+        expect(PlayerRating.upsert).not.toHaveBeenCalled();
     });
 
     it('should send "invalid outcome" if only losers are provided', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> l <@456> l');
-        (MockedPlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
+        (PlayerRating.findOne).mockResolvedValue({ userId: 'someId', mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
         await rankCommand.execute(mockIntr, mockEventData);
         expect(InteractionUtils.send).toHaveBeenCalled();
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
         expect((sentEmbed as any)._key).toBe('displayEmbeds.rankInvalidOutcome');
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledTimes(2);
+        expect(PlayerRating.findOne).toHaveBeenCalledTimes(2);
         expect(rate as vi.Mock).not.toHaveBeenCalled();
-        expect(MockedPlayerRating.upsert).not.toHaveBeenCalled();
+        expect(PlayerRating.upsert).not.toHaveBeenCalled();
     });
 
     it('should correctly parse multiple winners and losers', async () => {
@@ -198,7 +198,7 @@ describe('RankCommand', () => {
             '<@123> w <@456> w <@789> l <@101> l'
         );
 
-        MockedPlayerRating.findOne
+        PlayerRating.findOne
             .mockResolvedValueOnce(null) // P1
             .mockResolvedValueOnce({ userId: '456', mu: 22, sigma: 6 } as unknown as PlayerRatingInstance) // P2
             .mockResolvedValueOnce({ userId: '789', mu: 28, sigma: 4 } as unknown as PlayerRatingInstance) // P3
@@ -235,10 +235,10 @@ describe('RankCommand', () => {
             [initialRatings.p3, initialRatings.p4],
         ]);
 
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '123', ...updatedRatingsMock[0] });
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '456', ...updatedRatingsMock[1] });
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '789', ...updatedRatingsMock[2] });
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledWith({ userId: '101', ...updatedRatingsMock[3] });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '123', ...updatedRatingsMock[0] });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '456', ...updatedRatingsMock[1] });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '789', ...updatedRatingsMock[2] });
+        expect(PlayerRating.upsert).toHaveBeenCalledWith({ userId: '101', ...updatedRatingsMock[3] });
 
         expect(InteractionUtils.send).toHaveBeenCalled();
         const sentEmbed = (InteractionUtils.send as vi.Mock).mock.calls[0][1];
@@ -249,20 +249,20 @@ describe('RankCommand', () => {
     // Test case for when PlayerRating.findOne rejects (database error)
     it('should handle database errors when fetching ratings', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
-        MockedPlayerRating.findOne.mockRejectedValue(new Error('Database connection error'));
+        PlayerRating.findOne.mockRejectedValue(new Error('Database connection error'));
 
         await expect(rankCommand.execute(mockIntr, mockEventData)).rejects.toThrow('Database connection error');
 
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledTimes(1);
+        expect(PlayerRating.findOne).toHaveBeenCalledTimes(1);
         expect(rate as vi.Mock).not.toHaveBeenCalled();
-        expect(MockedPlayerRating.upsert).not.toHaveBeenCalled();
+        expect(PlayerRating.upsert).not.toHaveBeenCalled();
         expect(InteractionUtils.send).not.toHaveBeenCalled();
     });
 
     // Test case for when PlayerRating.upsert rejects (database error)
     it('should handle database errors when upserting ratings', async () => {
         (mockIntr.options.getString as vi.Mock).mockReturnValue('<@123> w <@456> l');
-        MockedPlayerRating.findOne.mockResolvedValue(null); // Both new players
+        PlayerRating.findOne.mockResolvedValue(null); // Both new players
 
         const mockInitialRating: OpenSkillRating = { mu: 25, sigma: 25 / 3 };
         (rating as vi.Mock<[(OpenSkillRating | { mu: number; sigma: number } | undefined)?], OpenSkillRating>).mockReturnValue(mockInitialRating);
@@ -275,13 +275,13 @@ describe('RankCommand', () => {
             [mockNewRatingP2],
         ]);
 
-        MockedPlayerRating.upsert.mockRejectedValueOnce(new Error('Failed to upsert')); // First upsert fails
+        PlayerRating.upsert.mockRejectedValueOnce(new Error('Failed to upsert')); // First upsert fails
 
         await expect(rankCommand.execute(mockIntr, mockEventData)).rejects.toThrow('Failed to upsert');
 
-        expect(MockedPlayerRating.findOne).toHaveBeenCalledTimes(2);
+        expect(PlayerRating.findOne).toHaveBeenCalledTimes(2);
         expect(rate as vi.Mock).toHaveBeenCalledOnce();
-        expect(MockedPlayerRating.upsert).toHaveBeenCalledTimes(1);
+        expect(PlayerRating.upsert).toHaveBeenCalledTimes(1);
         expect(InteractionUtils.send).not.toHaveBeenCalled();
     });
 });
