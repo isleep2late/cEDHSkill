@@ -90,10 +90,7 @@ describe('ListCommand', () => {
 
         mockClientUsersFetch = vi.fn();
 
-        mockEventData = {
-            lang: Locale.EnglishUS,
-            langGuild: Locale.EnglishUS,
-        } as EventData;
+        mockEventData = new EventData(Locale.EnglishUS, Locale.EnglishUS);
 
         mockIntr = {
             options: {
@@ -130,7 +127,6 @@ describe('ListCommand', () => {
     });
 
     afterEach(() => {
-        vi.clearAllMocks();
         vi.restoreAllMocks();
     });
 

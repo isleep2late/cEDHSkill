@@ -51,7 +51,7 @@ export class RankCommand implements Command {
         if (parsedParticipantsInput.length === 0 && resultsInput.trim() !== '') {
             await InteractionUtils.send(
                 intr,
-                Lang.getEmbed('displayEmbeds.rankErrorParsing', data.lang),
+                Lang.getEmbed('validationEmbeds.rankErrorParsing', data.lang),
                 true
             );
             return;
@@ -60,7 +60,7 @@ export class RankCommand implements Command {
         if (parsedParticipantsInput.length < 2) {
             await InteractionUtils.send(
                 intr,
-                Lang.getEmbed('displayEmbeds.rankNotEnoughPlayers', data.lang),
+                Lang.getEmbed('validationEmbeds.rankNotEnoughPlayers', data.lang),
                 true
             );
             return;
@@ -92,7 +92,7 @@ export class RankCommand implements Command {
         if (winners.length === 0 || losers.length === 0) {
             await InteractionUtils.send(
                 intr,
-                Lang.getEmbed('displayEmbeds.rankInvalidOutcome', data.lang),
+                Lang.getEmbed('validationEmbeds.rankInvalidOutcome', data.lang),
                 true
             );
             return;

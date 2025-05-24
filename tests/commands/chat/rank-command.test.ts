@@ -130,7 +130,10 @@ describe('RankCommand', () => {
         rateMock.mockClear();
 
 
-        mockEventData = new EventData(Locale.EnglishUS, Locale.EnglishUS);
+        mockEventData = {
+            lang: Locale.EnglishUS,
+            langGuild: Locale.EnglishUS,
+        } as EventData;
 
         mockClientUsersFetch = vi.fn(async (id: string): Promise<User | null> => {
             if (id === '123') return { id: '123', username: 'User123' } as User;
@@ -179,7 +182,6 @@ describe('RankCommand', () => {
     });
 
     afterEach(() => {
-        vi.clearAllMocks(); // Use clearAllMocks to reset all mocks globally
         vi.restoreAllMocks(); // Restore original implementations
     });
 
@@ -251,7 +253,7 @@ describe('RankCommand', () => {
         (mockIntr.options.getString as MockedFunction<any>).mockReturnValue('<@123> w');
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankNotEnoughPlayers', mockEventData.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankNotEnoughPlayers', mockEventData.lang);
         expect(mockPlayerRatingFindOneFn).not.toHaveBeenCalled();
         expect(rateMock).not.toHaveBeenCalled();
         expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
@@ -261,7 +263,7 @@ describe('RankCommand', () => {
         (mockIntr.options.getString as MockedFunction<any>).mockReturnValue('this is not a valid result string');
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankErrorParsing', mockEventData.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankErrorParsing', mockEventData.lang);
         expect(mockPlayerRatingFindOneFn).not.toHaveBeenCalled();
         expect(rateMock).not.toHaveBeenCalled();
         expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
@@ -273,7 +275,7 @@ describe('RankCommand', () => {
         mockPlayerRatingFindOneFn.mockResolvedValue({ userId: 'someId', guildId: MOCK_GUILD_ID, mu: 25, sigma: 25/3 } as unknown as PlayerRatingInstance);
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankInvalidOutcome', mockEventData.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankInvalidOutcome', mockEventData.lang);
         expect(mockPlayerRatingFindOneFn).toHaveBeenCalledTimes(2);
         expect(rateMock).not.toHaveBeenCalled();
         expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
@@ -285,7 +287,7 @@ describe('RankCommand', () => {
 
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankInvalidOutcome', mockEventData.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankInvalidOutcome', mockEventData.lang);
         expect(mockPlayerRatingFindOneFn).toHaveBeenCalledTimes(2);
         expect(rateMock).not.toHaveBeenCalled();
         expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
