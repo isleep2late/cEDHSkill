@@ -27,7 +27,8 @@ export class RankCommand implements Command {
 
         const participantRegex = /<@!?(\d+)>_*\s+([wlWL])/gi;
         let match;
-        const parsedParticipantsInput: Array<{ userId: string; status: 'w' | 'l'; tag: string }> = [];
+        const parsedParticipantsInput: Array<{ userId: string; status: 'w' | 'l'; tag: string }> =
+            [];
 
         while ((match = participantRegex.exec(resultsInput)) !== null) {
             parsedParticipantsInput.push({
@@ -38,12 +39,20 @@ export class RankCommand implements Command {
         }
 
         if (parsedParticipantsInput.length === 0 && resultsInput.trim() !== '') {
-             await InteractionUtils.send(intr, Lang.getEmbed('displayEmbeds.rankErrorParsing', data.lang), true);
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('displayEmbeds.rankErrorParsing', data.lang),
+                true
+            );
             return;
         }
 
         if (parsedParticipantsInput.length < 2) {
-            await InteractionUtils.send(intr, Lang.getEmbed('displayEmbeds.rankNotEnoughPlayers', data.lang), true);
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('displayEmbeds.rankNotEnoughPlayers', data.lang),
+                true
+            );
             return;
         }
 
@@ -73,7 +82,11 @@ export class RankCommand implements Command {
             // or if all players are part of one large winning/losing group (e.g. co-op win/loss)
             // this logic might need adjustment based on how `openskill.rate` handles ranks/scores.
             // For a simple W/L, this check is appropriate.
-            await InteractionUtils.send(intr, Lang.getEmbed('displayEmbeds.rankInvalidOutcome', data.lang), true);
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('displayEmbeds.rankInvalidOutcome', data.lang),
+                true
+            );
             return;
         }
 
@@ -84,7 +97,7 @@ export class RankCommand implements Command {
         // The order of teams in the outer array matters for ranking (lower index = better rank).
         const [updatedWinningTeamRatings, updatedLosingTeamRatings] = rate([
             winningTeamRatings, // Team of winners (rank 1)
-            losingTeamRatings,  // Team of losers (rank 2)
+            losingTeamRatings, // Team of losers (rank 2)
         ]);
 
         const responseEmbed = Lang.getEmbed('displayEmbeds.rankSuccess', data.lang);
