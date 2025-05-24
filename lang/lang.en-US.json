@@ -150,6 +150,18 @@
                 "title": "Player Info: {{USER_TAG}}",
                 "description": "This player is currently unrated.",
                 "color": "{{COM:colors.default}}"
+            },
+            "listNoPlayers": {
+                "title": "No Rated Players",
+                "description": "There are no rated players in {{GUILD_NAME}} yet.",
+                "color": "{{COM:colors.warning}}"
+            },
+            "listPlayersTitle": {
+                "title": "Top Players in {{GUILD_NAME}}",
+                "description": "Showing the top players by Mu rating."
+            },
+            "listFooterTruncated": {
+                "text": "Showing top {{SHOWN_COUNT}} of {{REQUESTED_COUNT}} requested players due to Discord embed limits."
             }
         },
         "validationEmbeds": {
@@ -167,6 +179,11 @@
                     "",
                     "Required permissions: {{PERMISSIONS}}"
                 ],
+                "color": "{{COM:colors.warning}}"
+            },
+            "listCountInvalid": {
+                "title": "Invalid Count",
+                "description": "The number of players to list must be a positive integer.",
                 "color": "{{COM:colors.warning}}"
             }
         },
@@ -239,7 +256,8 @@
             "info": "info",
             "test": "test",
             "rank": "rank",
-            "playerinfo": "playerinfo"
+            "playerinfo": "playerinfo",
+            "list": "list"
         },
         "userCommands": {
             "viewDateJoined": "View Date Joined"
@@ -251,7 +269,8 @@
             "command": "command",
             "option": "option",
             "results": "results",
-            "user": "user"
+            "user": "user",
+            "count": "count"
         },
         "commandDescs": {
             "dev": "Developer use only.",
@@ -259,14 +278,16 @@
             "info": "View bot info.",
             "test": "Run the test command.",
             "rank": "Update player ratings based on match results.",
-            "playerinfo": "Display a player's rating information (Mu and Sigma)."
+            "playerinfo": "Display a player's rating information (Mu and Sigma).",
+            "list": "List the top N players by rating."
         },
         "argDescs": {
             "devCommand": "Command.",
             "helpOption": "Option.",
             "infoOption": "Option.",
             "rankResults": "Match results (e.g., \\\"@player1 w @player2 l @player3 w\\\")",
-            "playerinfoUser": "The user to get information for."
+            "playerinfoUser": "The user to get information for.",
+            "listCount": "Number of players to list (default: 10)."
         },
         "fields": {
             "commands": "Commands",

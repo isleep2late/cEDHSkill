@@ -10,6 +10,7 @@ import {
     TestCommand,
     RankCommand,
     PlayerInfoCommand,
+    ListCommand,
 } from './commands/chat/index.js';
 import {
     ChatCommandMetadata,
@@ -75,6 +76,7 @@ async function start(): Promise<void> {
         new TestCommand(),
         new RankCommand(),
         new PlayerInfoCommand(),
+        new ListCommand(),
 
         // Message Context Commands
         new ViewDateSent(),

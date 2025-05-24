@@ -84,6 +84,20 @@ export const ChatCommandMetadata: {
             },
         ],
     },
+    LIST: {
+        type: ApplicationCommandType.ChatInput,
+        name: Lang.getRef('chatCommands.list', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('chatCommands.list'),
+        description: Lang.getRef('commandDescs.list', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('commandDescs.list'),
+        dm_permission: false, // List is guild-specific
+        default_member_permissions: undefined, // Everyone can use by default
+        options: [
+            {
+                ...Args.LIST_COUNT_OPTION,
+            },
+        ],
+    },
     PLAYERINFO: {
         type: ApplicationCommandType.ChatInput,
         name: Lang.getRef('chatCommands.playerinfo', Language.Default),

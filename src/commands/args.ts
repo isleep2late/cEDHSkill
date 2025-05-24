@@ -65,6 +65,14 @@ export class Args {
         type: ApplicationCommandOptionType.String,
         required: true,
     };
+    public static readonly LIST_COUNT_OPTION: APIApplicationCommandBasicOption = {
+        name: Lang.getRef('arguments.count', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('arguments.count'),
+        description: Lang.getRef('argDescs.listCount', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('argDescs.listCount'),
+        type: ApplicationCommandOptionType.Integer,
+        required: false,
+    };
     public static readonly PLAYERINFO_USER: APIApplicationCommandBasicOption = {
         name: Lang.getRef('arguments.user', Language.Default),
         name_localizations: Lang.getRefLocalizationMap('arguments.user'),
