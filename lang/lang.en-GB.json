@@ -125,6 +125,31 @@
                         ]
                     }
                 ]
+            },
+            "rankSuccess": {
+                "title": "Rankings Updated",
+                "description": "Player ratings have been successfully updated based on the match results."
+            },
+            "playerInfoFound": {
+                "title": "Player Info: {{USER_TAG}}",
+                "fields": [
+                    {
+                        "name": "{{REF:terms.sigma}}",
+                        "value": "{{SIGMA}}",
+                        "inline": true
+                    },
+                    {
+                        "name": "{{REF:terms.mu}}",
+                        "value": "{{MU}}",
+                        "inline": true
+                    }
+                ],
+                "color": "{{COM:colors.default}}"
+            },
+            "playerInfoUnrated": {
+                "title": "Player Info: {{USER_TAG}}",
+                "description": "This player is currently unrated.",
+                "color": "{{COM:colors.default}}"
             }
         },
         "validationEmbeds": {
@@ -176,10 +201,6 @@
                 "description": "This feature has not been implemented yet!",
                 "color": "{{COM:colors.warning}}"
             },
-            "rankSuccess": {
-                "title": "Rankings Updated",
-                "description": "Player ratings have been successfully updated based on the match results."
-            },
             "rankErrorParsing": {
                 "title": "Error Parsing Results",
                 "description": "Could not parse the match results. Please use the format: `@player1 w @player2 l ...`\n\nExample: `/rank results:@UserA w @UserB l`",
@@ -212,7 +233,8 @@
             "help": "help",
             "info": "info",
             "test": "test",
-            "rank": "rank"
+            "rank": "rank",
+            "playerinfo": "playerinfo"
         },
         "userCommands": {
             "viewDateJoined": "View Date Joined"
@@ -223,25 +245,32 @@
         "arguments": {
             "command": "command",
             "option": "option",
-            "results": "results"
+            "results": "results",
+            "user": "user"
         },
         "commandDescs": {
             "dev": "Developer use only.",
             "help": "Find help or contact support.",
             "info": "View bot info.",
             "test": "Run the test command.",
-            "rank": "Update player ratings based on match results."
+            "rank": "Update player ratings based on match results.",
+            "playerinfo": "Display a player's rating information (Mu and Sigma)."
         },
         "argDescs": {
             "devCommand": "Command.",
             "helpOption": "Option.",
             "infoOption": "Option.",
-            "rankResults": "Match results (e.g., \"@player1 w @player2 l @player3 w\")"
+            "rankResults": "Match results (e.g., \"@player1 w @player2 l @player3 w\")",
+            "playerinfoUser": "The user to get information for."
         },
         "fields": {
             "commands": "Commands",
             "links": "Links",
             "updatedRatings": "Updated Ratings"
+        },
+        "terms": {
+            "sigma": "Sigma (σ)",
+            "mu": "Mu (μ)"
         },
         "permissions": {
             "AddReactions": "Add Reactions",

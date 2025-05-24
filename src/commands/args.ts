@@ -65,4 +65,12 @@ export class Args {
         type: ApplicationCommandOptionType.String,
         required: true,
     };
+    public static readonly PLAYERINFO_USER: APIApplicationCommandBasicOption = {
+        name: Lang.getRef('arguments.user', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('arguments.user'),
+        description: Lang.getRef('argDescs.playerinfoUser', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('argDescs.playerinfoUser'),
+        type: ApplicationCommandOptionType.User,
+        required: true,
+    };
 }

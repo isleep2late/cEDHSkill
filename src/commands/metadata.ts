@@ -84,6 +84,20 @@ export const ChatCommandMetadata: {
             },
         ],
     },
+    PLAYERINFO: {
+        type: ApplicationCommandType.ChatInput,
+        name: Lang.getRef('chatCommands.playerinfo', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('chatCommands.playerinfo'),
+        description: Lang.getRef('commandDescs.playerinfo', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('commandDescs.playerinfo'),
+        dm_permission: true, // Player ratings are global, not guild-specific
+        default_member_permissions: undefined, // Everyone can use by default
+        options: [
+            {
+                ...Args.PLAYERINFO_USER,
+            },
+        ],
+    },
 };
 
 export const MessageCommandMetadata: {
