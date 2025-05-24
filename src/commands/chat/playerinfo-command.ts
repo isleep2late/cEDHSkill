@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString, User } fr
 import { Command, CommandDeferType } from '../index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
 import { Lang } from '../../services/index.js';
-import { InteractionUtils } from '../../utils/index.js';
+import { InteractionUtils, RatingUtils } from '../../utils/index.js';
 import { EventData } from '../../models/internal-models.js';
 import { Language } from '../../models/enum-helpers/index.js';
 
@@ -32,8 +32,10 @@ export class PlayerInfoCommand implements Command {
         let embed: EmbedBuilder;
 
         if (playerRecord) {
+            const elo = RatingUtils.calculateElo(playerRecord.mu, playerRecord.sigma);
             embed = Lang.getEmbed('displayEmbeds.playerInfoFound', data.lang, {
                 USER_TAG: user.tag,
+                ELO: elo.toString(),
                 SIGMA: playerRecord.sigma.toFixed(4),
                 MU: playerRecord.mu.toFixed(4),
             });

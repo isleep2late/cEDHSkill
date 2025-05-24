@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString } from 'di
 import { Command, CommandDeferType } from '../index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
 import { Lang } from '../../services/index.js';
-import { InteractionUtils } from '../../utils/index.js';
+import { InteractionUtils, RatingUtils } from '../../utils/index.js';
 import { EventData } from '../../models/internal-models.js';
 import { Language } from '../../models/enum-helpers/index.js';
 import { DiscordLimits } from '../../constants/index.js';
@@ -69,7 +69,7 @@ export class ListCommand implements Command {
 
             embed.addFields({
                 name: `${i + 1}. ${userTag}`,
-                value: `μ: ${player.mu.toFixed(2)}, σ: ${player.sigma.toFixed(2)}`,
+                value: `Elo: ${RatingUtils.calculateElo(player.mu, player.sigma)}, μ: ${player.mu.toFixed(2)}, σ: ${player.sigma.toFixed(2)}`,
                 inline: false,
             });
         }

@@ -41,6 +41,16 @@ vi.mock('../../../src/services/lang.js', () => {
     };
 });
 
+// Mock for utils/rating-utils.ts - though for command tests, we might let it run if it's just pure functions
+// For now, assume we might want to spy or ensure it's called, or provide specific values if complex.
+// However, since calculateElo is straightforward, we'll likely test its output via the command.
+// vi.mock('../../../src/utils/rating-utils.js', () => ({
+// RatingUtils: {
+// calculateElo: vi.fn(),
+// calculateOrdinal: vi.fn(),
+// },
+// }));
+
 // Mock for utils/interaction-utils.js
 vi.mock('../../../src/utils/interaction-utils.js', () => ({
     InteractionUtils: {
@@ -115,14 +125,17 @@ describe('RankCommand', () => {
         interactionUtilsSendMock.mockClear();
 
         // Setup default mock for langGetRef to avoid undefined issues
-        langGetRefMock.mockImplementation((key: string) => {
+        langGetRefMock.mockImplementation((keyInput: unknown, _langInput?: unknown, varsInput?: unknown): string => {
+            const key = keyInput as string;
+            // Assuming Lang.getRef vars is Record<string, string | number>
+            const vars = varsInput as Record<string, string | number> | undefined; 
             if (key === 'fields.updatedRatings') {
                 return 'Updated Ratings'; // Default mock value
             }
             if (key === 'arguments.results') {
                 return 'results'; // Default mock value
             }
-            return key; // Fallback
+            return key || ''; // Fallback, ensure string return
         });
         mockPlayerRatingFindOneFn.mockReset();
         mockPlayerRatingUpsertFn.mockReset();
@@ -175,10 +188,13 @@ describe('RankCommand', () => {
             isChatInputCommand: () => true,
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        ratingMock.mockImplementation((r?: any) => ({
-            mu: r?.mu ?? 25,
-            sigma: r?.sigma ?? 25 / 3,
-        }));
+        ratingMock.mockImplementation((rInput?: unknown): OpenSkillRating => {
+            const r = rInput as { mu: number; sigma: number } | undefined;
+            return {
+                mu: r?.mu ?? 25,
+                sigma: r?.sigma ?? (25 / 3),
+            };
+        });
     });
 
     afterEach(() => {
@@ -194,7 +210,8 @@ describe('RankCommand', () => {
 
         const mockInitialRatingP1: OpenSkillRating = { mu: 25, sigma: 25 / 3 }; // Default for new player
         const mockInitialRatingP2FromDB: OpenSkillRating = { mu: 20, sigma: 5 }; // From DB for existing player
-        ratingMock.mockImplementation((config?: { mu: number; sigma: number }) => {
+        ratingMock.mockImplementation((configInput?: unknown): OpenSkillRating => {
+            const config = configInput as { mu: number; sigma: number } | undefined;
             if (config && config.mu === 20 && config.sigma === 5) {
                 return mockInitialRatingP2FromDB;
             }
@@ -229,6 +246,18 @@ describe('RankCommand', () => {
         expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankSuccess', mockEventData.lang);
         expect(sentEmbed.setTitle).toHaveBeenCalledWith('Updated Ratings');
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(2);
+        // Verify winner's field
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User123> (Winner)',
+            value: 'Old: Elo=1167, μ=25.00, σ=8.33\nNew: Elo=1575, μ=28.00, σ=7.00',
+            inline: false,
+        });
+        // Verify loser's field
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User456> (Loser)',
+            value: 'Old: Elo=1458, μ=20.00, σ=5.00\nNew: Elo=1377, μ=18.00, σ=4.80',
+            inline: false,
+        });
     });
 
     it('should send "guild only" error if command is used outside a guild', async () => {
@@ -310,7 +339,8 @@ describe('RankCommand', () => {
             p3: { mu: 28, sigma: 4 },
             p4: { mu: 25, sigma: 25 / 3 },
         };
-        ratingMock.mockImplementation((config?: { mu: number; sigma: number }) => {
+        ratingMock.mockImplementation((configInput?: unknown): OpenSkillRating => {
+            const config = configInput as { mu: number; sigma: number } | undefined;
             if (!config) return { mu: 25, sigma: 25 / 3 }; // Default for new players
             if (config.mu === 22 && config.sigma === 6) return initialRatings.p2;
             if (config.mu === 28 && config.sigma === 4) return initialRatings.p3;
@@ -345,6 +375,31 @@ describe('RankCommand', () => {
         const sentEmbed = (interactionUtilsSendMock as MockedFunction<any>).mock.calls[0][1] as EmbedBuilder;
         expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankSuccess', mockEventData.lang);
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(4);
+
+        // Player 123 (Winner 1)
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User123> (Winner)',
+            value: 'Old: Elo=1167, μ=25.00, σ=8.33\nNew: Elo=1517, μ=27.00, σ=7.00',
+            inline: false,
+        });
+        // Player 456 (Winner 2)
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User456> (Winner)',
+            value: 'Old: Elo=1400, μ=22.00, σ=6.00\nNew: Elo=1552, μ=24.00, σ=5.80',
+            inline: false,
+        });
+        // Player 789 (Loser 1)
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User789> (Loser)',
+            value: 'Old: Elo=2100, μ=28.00, σ=4.00\nNew: Elo=2001, μ=26.00, σ=3.90',
+            inline: false,
+        });
+        // Player 101 (Loser 2)
+        expect(sentEmbed.addFields).toHaveBeenCalledWith({
+            name: '<@User101> (Loser)',
+            value: 'Old: Elo=1167, μ=25.00, σ=8.33\nNew: Elo=1283, μ=23.00, σ=7.00',
+            inline: false,
+        });
     });
 
     it('should handle database errors when fetching ratings', async () => {

@@ -11,3 +11,4 @@ export { RegexUtils } from './regex-utils.js';
 export { ShardUtils } from './shard-utils.js';
 export { StringUtils } from './string-utils.js';
 export { ThreadUtils } from './thread-utils.js';
+export { RatingUtils } from './rating-utils.js';

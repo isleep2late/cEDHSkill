@@ -3,7 +3,7 @@ import { rating, rate, Rating as OpenSkillRating } from 'openskill';
 import { Command, CommandDeferType } from '../index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
 import { Lang } from '../../services/index.js';
-import { InteractionUtils } from '../../utils/index.js';
+import { InteractionUtils, RatingUtils } from '../../utils/index.js';
 import { EventData } from '../../models/internal-models.js';
 import { Language } from '../../models/enum-helpers/index.js';
 
@@ -11,6 +11,7 @@ interface ParsedPlayer {
     userId: string;
     status: 'w' | 'l'; // Winner or Loser
     initialRating: OpenSkillRating;
+    initialElo: number;
     tag: string; // For display, e.g., <@username> or <@userId>
 }
 
@@ -78,10 +79,12 @@ export class RankCommand implements Command {
             } else {
                 osRating = rating(); // Default openskill rating
             }
+            const initialElo = RatingUtils.calculateElo(osRating.mu, osRating.sigma);
             playersData.push({
                 userId: pInput.userId,
                 status: pInput.status,
                 initialRating: osRating,
+                initialElo: initialElo,
                 tag: displayUserTag,
             });
         }
@@ -118,9 +121,10 @@ export class RankCommand implements Command {
                 mu: newRating.mu,
                 sigma: newRating.sigma,
             });
+            const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
             responseEmbed.addFields({
                 name: `${player.tag} (Winner)`,
-                value: `Old: μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
+                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
                 inline: false,
             });
         }
@@ -134,9 +138,10 @@ export class RankCommand implements Command {
                 mu: newRating.mu,
                 sigma: newRating.sigma,
             });
+            const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
             responseEmbed.addFields({
                 name: `${player.tag} (Loser)`,
-                value: `Old: μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
+                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
                 inline: false,
             });
         }

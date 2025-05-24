@@ -6,6 +6,7 @@ import { PlayerInfoCommand } from '../../../src/commands/chat/playerinfo-command
 import type { PlayerRatingModelStatic, PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
+import { RatingUtils } from '../../../src/utils/rating-utils.js';
 
 // --- Mocking Section ---
 
@@ -152,6 +153,7 @@ describe('PlayerInfoCommand', () => {
             sigma: 8.3333,
         } as PlayerRatingInstance;
         mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
+        const expectedElo = RatingUtils.calculateElo(mockPlayerData.mu, mockPlayerData.sigma);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
@@ -163,6 +165,7 @@ describe('PlayerInfoCommand', () => {
             mockEventData.lang,
             {
                 USER_TAG: 'TestUser#1234',
+                ELO: expectedElo.toString(),
                 SIGMA: '8.3333',
                 MU: '25.0000',
             }
@@ -231,6 +234,7 @@ describe('PlayerInfoCommand', () => {
             sigma: 8.9876543,
         } as PlayerRatingInstance;
         mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
+        const expectedElo = RatingUtils.calculateElo(mockPlayerData.mu, mockPlayerData.sigma);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
@@ -239,6 +243,7 @@ describe('PlayerInfoCommand', () => {
             mockEventData.lang,
             {
                 USER_TAG: 'TestUser#1234',
+                ELO: expectedElo.toString(),
                 SIGMA: '8.9877',
                 MU: '25.1235',
             }

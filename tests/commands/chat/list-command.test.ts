@@ -5,6 +5,7 @@ import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Col
 import { ListCommand } from '../../../src/commands/chat/list-command.js';
 import type { PlayerRatingModelStatic, PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';
+import { RatingUtils } from '../../../src/utils/rating-utils.js';
 import { EventData } from '../../../src/models/internal-models.js';
 import { DiscordLimits } from '../../../src/constants/index.js';
 
@@ -119,10 +120,15 @@ describe('ListCommand', () => {
             isChatInputCommand: () => true,
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        langGetRefMock.mockImplementation((key: string, _lang: any, vars: any) => {
+        langGetRefMock.mockImplementation((keyInput: unknown, _langInput?: unknown, varsInput?: unknown): string => {
+            const key = keyInput as string;
+            // Assuming vars is Record<string, string | number> based on usage
+            const vars = varsInput as { SHOWN_COUNT?: string | number; REQUESTED_COUNT?: string | number } | undefined; 
             if (key === 'arguments.count') return 'count';
-            if (key === 'displayEmbeds.listFooterTruncated') return `Showing top ${vars.SHOWN_COUNT} of ${vars.REQUESTED_COUNT} requested players.`;
-            return key;
+            if (key === 'displayEmbeds.listFooterTruncated' && vars && vars.SHOWN_COUNT !== undefined && vars.REQUESTED_COUNT !== undefined) {
+                return `Showing top ${vars.SHOWN_COUNT} of ${vars.REQUESTED_COUNT} requested players.`;
+            }
+            return key || ''; // Ensure a string is always returned
         });
     });
 
@@ -137,8 +143,13 @@ describe('ListCommand', () => {
             mu: 50 - i,
             sigma: 5,
             user: { tag: `UserTag${i+1}#0000` }
+        }));
+        const mockPlayersWithElo = mockPlayers.slice(0, 10).map(p => ({
+            ...p,
+            elo: RatingUtils.calculateElo(p.mu, p.sigma),
         })) as unknown as PlayerRatingInstance[];
-        mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers.slice(0, 10) as any);
+
+        mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayersWithElo as any);
         mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
 
 
@@ -265,12 +276,12 @@ describe('ListCommand', () => {
 
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith({
             name: '1. FetchedUserTag#1234',
-            value: 'μ: 50.00, σ: 5.00',
+            value: `Elo: ${RatingUtils.calculateElo(50, 5)}, μ: 50.00, σ: 5.00`,
             inline: false,
         });
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith({
             name: '2. unfetchedUser', // Fallback to ID
-            value: 'μ: 48.00, σ: 6.00',
+            value: `Elo: ${RatingUtils.calculateElo(48, 6)}, μ: 48.00, σ: 6.00`,
             inline: false,
         });
     });

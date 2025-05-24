@@ -134,13 +134,18 @@
                 "title": "Player Info: {{USER_TAG}}",
                 "fields": [
                     {
-                        "name": "{{REF:terms.sigma}}",
-                        "value": "{{SIGMA}}",
+                        "name": "{{REF:terms.elo}}",
+                        "value": "{{ELO}}",
                         "inline": true
                     },
                     {
                         "name": "{{REF:terms.mu}}",
                         "value": "{{MU}}",
+                        "inline": true
+                    },
+                    {
+                        "name": "{{REF:terms.sigma}}",
+                        "value": "{{SIGMA}}",
                         "inline": true
                     }
                 ],
@@ -295,6 +300,7 @@
             "updatedRatings": "Updated Ratings"
         },
         "terms": {
+            "elo": "Elo",
             "sigma": "Sigma (σ)",
             "mu": "Mu (μ)"
         },
