@@ -20,6 +20,16 @@ export class RankCommand implements Command {
     public requireClientPerms: PermissionsString[] = ['SendMessages', 'EmbedLinks'];
 
     public async execute(intr: ChatInputCommandInteraction, data: EventData): Promise<void> {
+        if (!intr.guild) {
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang), // Assuming you'll add this embed key
+                true
+            );
+            return;
+        }
+        const guildId = intr.guild.id;
+
         const resultsInput = intr.options.getString(
             Lang.getRef('arguments.results', data.lang), // Use data.lang for argument name if localized
             true // Argument is required
@@ -59,11 +69,9 @@ export class RankCommand implements Command {
         const playersData: ParsedPlayer[] = [];
         for (const pInput of parsedParticipantsInput) {
             const user = await intr.client.users.fetch(pInput.userId).catch(() => null);
-            // pInput.tag is already in the format <@userId> from the initial regex parsing.
-            // Use this as a fallback if the user cannot be fetched or has no username.
             const displayUserTag = user ? `<@${user.username}>` : pInput.tag;
 
-            let dbRating = await PlayerRating.findOne({ where: { userId: pInput.userId } });
+            let dbRating = await PlayerRating.findOne({ where: { userId: pInput.userId, guildId: guildId } });
             let osRating: OpenSkillRating;
             if (dbRating) {
                 osRating = rating({ mu: dbRating.mu, sigma: dbRating.sigma });
@@ -74,7 +82,7 @@ export class RankCommand implements Command {
                 userId: pInput.userId,
                 status: pInput.status,
                 initialRating: osRating,
-                tag: displayUserTag, // Use the fetched username in the desired format
+                tag: displayUserTag,
             });
         }
 
@@ -82,11 +90,6 @@ export class RankCommand implements Command {
         const losers = playersData.filter(p => p.status === 'l');
 
         if (winners.length === 0 || losers.length === 0) {
-            // This check ensures there's at least one winner AND one loser.
-            // If a game can have multiple "winning" teams (e.g., 1st, 2nd place both "win" over 3rd, 4th)
-            // or if all players are part of one large winning/losing group (e.g. co-op win/loss)
-            // this logic might need adjustment based on how `openskill.rate` handles ranks/scores.
-            // For a simple W/L, this check is appropriate.
             await InteractionUtils.send(
                 intr,
                 Lang.getEmbed('displayEmbeds.rankInvalidOutcome', data.lang),
@@ -98,21 +101,20 @@ export class RankCommand implements Command {
         const winningTeamRatings: OpenSkillRating[] = winners.map(p => p.initialRating);
         const losingTeamRatings: OpenSkillRating[] = losers.map(p => p.initialRating);
 
-        // The 'rate' function expects an array of teams, where each team is an array of player ratings.
-        // The order of teams in the outer array matters for ranking (lower index = better rank).
         const [updatedWinningTeamRatings, updatedLosingTeamRatings] = rate([
-            winningTeamRatings, // Team of winners (rank 1)
-            losingTeamRatings, // Team of losers (rank 2)
+            winningTeamRatings,
+            losingTeamRatings,
         ]);
 
         const responseEmbed = Lang.getEmbed('displayEmbeds.rankSuccess', data.lang);
-        responseEmbed.setTitle(Lang.getRef('fields.updatedRatings', data.lang)); // Set title explicitly if needed
+        responseEmbed.setTitle(Lang.getRef('fields.updatedRatings', data.lang));
 
         for (let i = 0; i < winners.length; i++) {
             const player = winners[i];
             const newRating = updatedWinningTeamRatings[i];
             await PlayerRating.upsert({
                 userId: player.userId,
+                guildId: guildId, // Add guildId
                 mu: newRating.mu,
                 sigma: newRating.sigma,
             });
@@ -128,6 +130,7 @@ export class RankCommand implements Command {
             const newRating = updatedLosingTeamRatings[i];
             await PlayerRating.upsert({
                 userId: player.userId,
+                guildId: guildId, // Add guildId
                 mu: newRating.mu,
                 sigma: newRating.sigma,
             });

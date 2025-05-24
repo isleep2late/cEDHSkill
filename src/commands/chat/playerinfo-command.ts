@@ -12,12 +12,22 @@ export class PlayerInfoCommand implements Command {
     public requireClientPerms: PermissionsString[] = ['SendMessages', 'EmbedLinks'];
 
     public async execute(intr: ChatInputCommandInteraction, data: EventData): Promise<void> {
+        if (!intr.guild) {
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang), // Ensure this lang key exists
+                true
+            );
+            return;
+        }
+        const guildId = intr.guild.id;
+
         const user = intr.options.getUser(
             Lang.getRef('arguments.user', data.lang), // Use data.lang for argument name if localized
             true // Argument is required
         );
 
-        const playerRecord = await PlayerRating.findOne({ where: { userId: user.id } });
+        const playerRecord = await PlayerRating.findOne({ where: { userId: user.id, guildId: guildId } });
 
         let embed: EmbedBuilder;
 

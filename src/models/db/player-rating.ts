@@ -2,6 +2,7 @@ import { DataTypes, Model, Sequelize, ModelAttributes, ModelStatic } from 'seque
 
 export interface PlayerRatingAttributes {
     userId: string;
+    guildId: string;
     mu: number;
     sigma: number;
 }
@@ -16,7 +17,11 @@ export function definePlayerRatingModel(sequelize: Sequelize): PlayerRatingModel
     const attributes: ModelAttributes<PlayerRatingInstance, PlayerRatingAttributes> = {
         userId: {
             type: DataTypes.STRING,
-            unique: true,
+            primaryKey: true,
+            allowNull: false,
+        },
+        guildId: {
+            type: DataTypes.STRING,
             primaryKey: true,
             allowNull: false,
         },
@@ -32,5 +37,7 @@ export function definePlayerRatingModel(sequelize: Sequelize): PlayerRatingModel
 
     return sequelize.define<PlayerRatingInstance>('PlayerRating', attributes, {
         tableName: 'player_ratings',
+        // Sequelize automatically handles the composite primary key
+        // by having `primaryKey: true` on both `userId` and `guildId`.
     });
 }

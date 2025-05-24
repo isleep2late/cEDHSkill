@@ -215,6 +215,11 @@
                 "title": "Invalid Match Outcome",
                 "description": "A match must have at least one winner and one loser, or be a draw (draws not yet supported by this command). All players cannot have the same outcome unless it's a tie for the same rank.",
                 "color": "{{COM:colors.warning}}"
+            },
+            "guildOnlyCommand": {
+                "title": "Server Command Only",
+                "description": "This command can only be used inside a server.",
+                "color": "{{COM:colors.warning}}"
             }
         },
         "channelRegexes": {

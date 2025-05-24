@@ -1,97 +1,103 @@
 /// <reference types="vitest/globals" />
-import { describe, it, expect, vi, beforeEach, afterEach, Mocked } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 import { ChatInputCommandInteraction, EmbedBuilder, User, CacheType, Locale } from 'discord.js';
 
 import { PlayerInfoCommand } from '../../../src/commands/chat/playerinfo-command.js';
 import type { PlayerRatingModelStatic, PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
-// The PlayerRating will be the mocked version due to vi.mock below
 import { PlayerRating } from '../../../src/db.js';
-import { Lang } from '../../../src/services/lang.js';
-import { InteractionUtils } from '../../../src/utils/interaction-utils.js';
 import { EventData } from '../../../src/models/internal-models.js';
-import { Language } from '../../../src/models/enum-helpers/index.js';
 
-// Mock the PlayerRating model
+// --- Mocking Section ---
+
+// Mock for db.js
 vi.mock('../../../src/db.js', () => ({
     PlayerRating: {
         findOne: vi.fn(),
     },
 }));
 
-// Mock Lang service
-vi.mock('../../../src/services/lang.js', () => ({
-    Lang: {
-        getRef: vi.fn(),
-        getEmbed: vi.fn(),
-        getComRef: vi.fn((key: string) => key), // Simple mock, might need adjustment if complex com refs are used
-        getCom: vi.fn().mockReturnValue('{{COM_MOCK}}'),
-        getRefLocalizationMap: vi.fn(() => ({})), // Add mock for getRefLocalizationMap
-    },
-}));
+// Mock for services/lang.js
+vi.mock('../../../src/services/lang.js', () => {
+    const mockLangGetRef = vi.fn();
+    const mockLangGetEmbed = vi.fn();
+    return {
+        Lang: {
+            getRef: mockLangGetRef,
+            getEmbed: mockLangGetEmbed,
+            getComRef: vi.fn((key: string) => key),
+            getCom: vi.fn().mockReturnValue('{{COM_MOCK}}'),
+            getRefLocalizationMap: vi.fn(() => ({})),
+        },
+    };
+});
 
-// Mock InteractionUtils
+// Mock for utils/interaction-utils.js
 vi.mock('../../../src/utils/interaction-utils.js', () => ({
     InteractionUtils: {
         send: vi.fn(),
     },
 }));
 
-// Mock EmbedBuilder
+// Mock for discord.js (specifically EmbedBuilder and Locale)
 vi.mock('discord.js', async () => {
     const actual = await vi.importActual('discord.js');
+    const MockedEmbedBuilder = vi.fn(() => ({
+        setTitle: vi.fn().mockReturnThis(),
+        setDescription: vi.fn().mockReturnThis(),
+        addFields: vi.fn().mockReturnThis(),
+        setColor: vi.fn().mockReturnThis(),
+        setThumbnail: vi.fn().mockReturnThis(),
+        setAuthor: vi.fn().mockReturnThis(),
+        setFooter: vi.fn().mockReturnThis(),
+        setTimestamp: vi.fn().mockReturnThis(),
+    }));
     return {
         ...actual,
-        EmbedBuilder: vi.fn(() => ({
-            setTitle: vi.fn().mockReturnThis(),
-            setDescription: vi.fn().mockReturnThis(),
-            addFields: vi.fn().mockReturnThis(),
-            setColor: vi.fn().mockReturnThis(),
-            setThumbnail: vi.fn().mockReturnThis(),
-            setAuthor: vi.fn().mockReturnThis(),
-            setFooter: vi.fn().mockReturnThis(),
-            setTimestamp: vi.fn().mockReturnThis(),
-        })),
+        EmbedBuilder: MockedEmbedBuilder, // Use the correctly defined mock
+        Locale: actual.Locale,
     };
 });
 
+// --- Test Suite ---
 
 describe('PlayerInfoCommand', () => {
     let playerInfoCommand: PlayerInfoCommand;
     let mockIntr: ChatInputCommandInteraction<CacheType>;
     let mockEventData: EventData;
     let mockUser: User;
+    const MOCK_GUILD_ID = 'testGuildId';
 
-    const mockPlayerRatingFindOne = PlayerRating.findOne as Mocked<PlayerRatingModelStatic['findOne']>;
-    const mockLangGetRef = Lang.getRef as vi.Mock;
-    const mockLangGetEmbed = Lang.getEmbed as vi.Mock;
-    const mockInteractionUtilsSend = InteractionUtils.send as vi.Mock;
-    const mockEmbedBuilder = EmbedBuilder as unknown as vi.Mock<() => EmbedBuilder>;
-    let currentMockEmbed: Mocked<EmbedBuilder>;
+    let currentMockEmbed: EmbedBuilder;
+    let langGetRefMock: MockedFunction<any>;
+    let langGetEmbedMock: MockedFunction<any>;
+    let mockPlayerRatingFindOneFn: MockedFunction<typeof PlayerRating.findOne>;
+    let interactionUtilsSendMock: MockedFunction<any>;
 
 
-    beforeEach(() => {
+    beforeEach(async () => { // Make beforeEach async if it needs to await imports
         playerInfoCommand = new PlayerInfoCommand();
+        
+        // Dynamically import mocked modules to get their mock functions
+        const { PlayerRating: MockedPlayerRating } = await import('../../../src/db.js');
+        mockPlayerRatingFindOneFn = MockedPlayerRating.findOne as MockedFunction<typeof PlayerRating.findOne>;
 
-        // Reset mocks before each test
-        mockPlayerRatingFindOne.mockReset();
-        mockLangGetRef.mockClear();
-        mockLangGetEmbed.mockClear();
-        mockInteractionUtilsSend.mockClear();
-        mockEmbedBuilder.mockClear();
+        const { Lang } = await import('../../../src/services/lang.js');
+        langGetRefMock = Lang.getRef as MockedFunction<any>;
+        langGetEmbedMock = Lang.getEmbed as MockedFunction<any>;
 
-        // Setup a new mock embed for each test
-        currentMockEmbed = {
-            setTitle: vi.fn().mockReturnThis(),
-            setDescription: vi.fn().mockReturnThis(),
-            addFields: vi.fn().mockReturnThis(),
-            setColor: vi.fn().mockReturnThis(),
-            setThumbnail: vi.fn().mockReturnThis(),
-            setAuthor: vi.fn().mockReturnThis(),
-            setFooter: vi.fn().mockReturnThis(),
-            setTimestamp: vi.fn().mockReturnThis(),
-        } as Mocked<EmbedBuilder>;
-        // Lang.getEmbed will return this mock embed
-        mockLangGetEmbed.mockReturnValue(currentMockEmbed);
+        const { InteractionUtils: MockedInteractionUtils } = await import('../../../src/utils/interaction-utils.js');
+        interactionUtilsSendMock = MockedInteractionUtils.send as MockedFunction<any>;
+
+
+        // Clear mocks
+        langGetRefMock.mockClear();
+        langGetEmbedMock.mockClear();
+        interactionUtilsSendMock.mockClear();
+        mockPlayerRatingFindOneFn.mockReset();
+
+
+        currentMockEmbed = new EmbedBuilder(); // This will use the mocked EmbedBuilder
+        langGetEmbedMock.mockReturnValue(currentMockEmbed);
 
 
         mockUser = {
@@ -102,8 +108,7 @@ describe('PlayerInfoCommand', () => {
         } as User;
 
         mockEventData = {
-            lang: Language.Default,
-            // ... other event data properties if needed
+            lang: Locale.EnglishUS,
         } as EventData;
 
         mockIntr = {
@@ -112,50 +117,48 @@ describe('PlayerInfoCommand', () => {
             },
             user: mockUser,
             guild: {
-                id: 'mockGuildId',
+                id: MOCK_GUILD_ID,
                 name: 'Mock Server',
-                // ... other guild properties
             },
-            channel: {
-                // ... channel properties
-            },
-            locale: Locale.EnglishUS, // Default to en-US
-            reply: vi.fn(), // Mock reply if used directly
-            deferReply: vi.fn(), // Mock deferReply if used
-            editReply: vi.fn(), // Mock editReply if used
-            followUp: vi.fn(), // Mock followUp if used
+            channel: {},
+            locale: Locale.EnglishUS,
+            reply: vi.fn(),
+            deferReply: vi.fn(),
+            editReply: vi.fn(),
+            followUp: vi.fn(),
             channelId: 'mockChannelId',
             commandName: 'playerinfo',
+            isCommand: () => true,
+            isChatInputCommand: () => true,
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        // Mock Lang.getRef specifically for argument names
-        mockLangGetRef.mockImplementation((key, lang, _vars) => {
+        langGetRefMock.mockImplementation(((key: string, lang: Locale | undefined, _vars: any) => {
             if (key === 'arguments.user') {
-                return lang === 'fr' ? 'utilisateur' : 'user';
+                return lang === Locale.French ? 'utilisateur' : 'user';
             }
-            // For other keys, return the key itself, or a more specific mock if needed elsewhere
             return key;
-        });
+        }) as any);
     });
 
     afterEach(() => {
-        vi.restoreAllMocks(); // Restore all mocks to their original state
+        vi.restoreAllMocks();
     });
 
-    it('should correctly retrieve and display player info if player exists', async () => {
+    it('should correctly retrieve and display player info if player exists in the guild', async () => {
         const mockPlayerData = {
             userId: 'testUserId',
+            guildId: MOCK_GUILD_ID,
             mu: 25.0000,
             sigma: 8.3333,
         } as PlayerRatingInstance;
-        mockPlayerRatingFindOne.mockResolvedValue(mockPlayerData);
+        mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
         expect(mockIntr.options.getUser).toHaveBeenCalledWith('user', true);
-        expect(mockPlayerRatingFindOne).toHaveBeenCalledWith({ where: { userId: 'testUserId' } });
+        expect(mockPlayerRatingFindOneFn).toHaveBeenCalledWith({ where: { userId: 'testUserId', guildId: MOCK_GUILD_ID } });
 
-        expect(mockLangGetEmbed).toHaveBeenCalledWith(
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.playerInfoFound',
             mockEventData.lang,
             {
@@ -165,39 +168,55 @@ describe('PlayerInfoCommand', () => {
             }
         );
 
-        expect(InteractionUtils.send).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
+        expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
     });
 
-    it('should display "unrated" if player does not exist in the database', async () => {
-        mockPlayerRatingFindOne.mockResolvedValue(null); // Player not found
+    it('should display "unrated" if player does not exist in the database for the guild', async () => {
+        mockPlayerRatingFindOneFn.mockResolvedValue(null as any);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
         expect(mockIntr.options.getUser).toHaveBeenCalledWith('user', true);
-        expect(mockPlayerRatingFindOne).toHaveBeenCalledWith({ where: { userId: 'testUserId' } });
+        expect(mockPlayerRatingFindOneFn).toHaveBeenCalledWith({ where: { userId: 'testUserId', guildId: MOCK_GUILD_ID } });
 
-        expect(mockLangGetEmbed).toHaveBeenCalledWith(
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.playerInfoUnrated',
             mockEventData.lang,
             {
                 USER_TAG: 'TestUser#1234',
             }
         );
-        expect(InteractionUtils.send).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
+        expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
     });
 
-    it('should use data.lang for retrieving argument name if provided', async () => {
-        mockEventData.lang = 'fr' as Language; // Example other language
-        // Lang.getRef is already configured in beforeEach to handle 'fr' for 'arguments.user'
+    it('should send "guild only" error if command is used outside a guild', async () => {
+        const intrNoGuild = {
+            ...mockIntr,
+            guild: null,
+        } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        mockPlayerRatingFindOne.mockResolvedValue(null); // Player not found
+        await playerInfoCommand.execute(intrNoGuild, mockEventData);
+
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'errorEmbeds.commandNotInGuild', // Corrected key based on lang files
+            mockEventData.lang
+        );
+        expect(interactionUtilsSendMock).toHaveBeenCalledWith(intrNoGuild, currentMockEmbed, true);
+        expect(mockPlayerRatingFindOneFn).not.toHaveBeenCalled();
+    });
+
+
+    it('should use data.lang for retrieving argument name if provided', async () => {
+        mockEventData.lang = Locale.French;
+        mockPlayerRatingFindOneFn.mockResolvedValue(null as any);
+
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
         expect(mockIntr.options.getUser).toHaveBeenCalledWith('utilisateur', true);
-        expect(mockLangGetEmbed).toHaveBeenCalledWith(
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.playerInfoUnrated',
-            'fr', // ensure data.lang is used
+            Locale.French,
             {
                 USER_TAG: 'TestUser#1234',
             }
@@ -207,22 +226,23 @@ describe('PlayerInfoCommand', () => {
     it('should correctly format mu and sigma to 4 decimal places', async () => {
         const mockPlayerData = {
             userId: 'testUserId',
-            mu: 25.1234567, // will be 25.1235
-            sigma: 8.9876543, // will be 8.9877
+            guildId: MOCK_GUILD_ID,
+            mu: 25.1234567,
+            sigma: 8.9876543,
         } as PlayerRatingInstance;
-        mockPlayerRatingFindOne.mockResolvedValue(mockPlayerData);
+        mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
-        expect(mockLangGetEmbed).toHaveBeenCalledWith(
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.playerInfoFound',
             mockEventData.lang,
             {
                 USER_TAG: 'TestUser#1234',
-                SIGMA: '8.9877', 
+                SIGMA: '8.9877',
                 MU: '25.1235',
             }
         );
-        expect(InteractionUtils.send).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
+        expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
     });
 });
