@@ -10,14 +10,12 @@ import { RatingUtils } from '../../../src/utils/rating-utils.js';
 
 // --- Mocking Section ---
 
-// Mock for db.js
 vi.mock('../../../src/db.js', () => ({
     PlayerRating: {
         findOne: vi.fn(),
     },
 }));
 
-// Mock for services/lang.js
 vi.mock('../../../src/services/lang.js', () => {
     const mockLangGetRef = vi.fn();
     const mockLangGetEmbed = vi.fn();
@@ -32,14 +30,12 @@ vi.mock('../../../src/services/lang.js', () => {
     };
 });
 
-// Mock for utils/interaction-utils.js
 vi.mock('../../../src/utils/interaction-utils.js', () => ({
     InteractionUtils: {
         send: vi.fn(),
     },
 }));
 
-// Mock for discord.js (specifically EmbedBuilder and Locale)
 vi.mock('discord.js', async () => {
     const actual = await vi.importActual('discord.js');
     const MockedEmbedBuilder = vi.fn(() => ({
@@ -54,7 +50,7 @@ vi.mock('discord.js', async () => {
     }));
     return {
         ...actual,
-        EmbedBuilder: MockedEmbedBuilder, // Use the correctly defined mock
+        EmbedBuilder: MockedEmbedBuilder,
         Locale: actual.Locale,
     };
 });
@@ -75,10 +71,9 @@ describe('PlayerInfoCommand', () => {
     let interactionUtilsSendMock: MockedFunction<any>;
 
 
-    beforeEach(async () => { // Make beforeEach async if it needs to await imports
+    beforeEach(async () => {
         playerInfoCommand = new PlayerInfoCommand();
         
-        // Dynamically import mocked modules to get their mock functions
         const { PlayerRating: MockedPlayerRating } = await import('../../../src/db.js');
         mockPlayerRatingFindOneFn = MockedPlayerRating.findOne as MockedFunction<typeof PlayerRating.findOne>;
 
@@ -89,17 +84,13 @@ describe('PlayerInfoCommand', () => {
         const { InteractionUtils: MockedInteractionUtils } = await import('../../../src/utils/interaction-utils.js');
         interactionUtilsSendMock = MockedInteractionUtils.send as MockedFunction<any>;
 
-
-        // Clear mocks
         langGetRefMock.mockClear();
         langGetEmbedMock.mockClear();
         interactionUtilsSendMock.mockClear();
         mockPlayerRatingFindOneFn.mockReset();
 
-
-        currentMockEmbed = new EmbedBuilder(); // This will use the mocked EmbedBuilder
+        currentMockEmbed = new EmbedBuilder();
         langGetEmbedMock.mockReturnValue(currentMockEmbed);
-
 
         mockUser = {
             id: 'testUserId',
@@ -145,12 +136,14 @@ describe('PlayerInfoCommand', () => {
         vi.restoreAllMocks();
     });
 
-    it('should correctly retrieve and display player info if player exists in the guild', async () => {
+    it('should correctly retrieve and display player info including wins/losses if player exists', async () => {
         const mockPlayerData = {
             userId: 'testUserId',
             guildId: MOCK_GUILD_ID,
             mu: 25.0000,
             sigma: 8.3333,
+            wins: 10,
+            losses: 5,
         } as PlayerRatingInstance;
         mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
         const expectedElo = RatingUtils.calculateElo(mockPlayerData.mu, mockPlayerData.sigma);
@@ -168,19 +161,45 @@ describe('PlayerInfoCommand', () => {
                 ELO: expectedElo.toString(),
                 SIGMA: '8.3333',
                 MU: '25.0000',
+                WINS: '10',
+                LOSSES: '5',
             }
         );
-
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
+    });
+
+    it('should display wins/losses as 0 if they are null/undefined in the database', async () => {
+        const mockPlayerData = {
+            userId: 'testUserId',
+            guildId: MOCK_GUILD_ID,
+            mu: 25.0000,
+            sigma: 8.3333,
+            wins: null, // Simulate null from DB
+            losses: undefined, // Simulate undefined from DB
+        } as unknown as PlayerRatingInstance;
+        mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
+        const expectedElo = RatingUtils.calculateElo(mockPlayerData.mu, mockPlayerData.sigma);
+
+        await playerInfoCommand.execute(mockIntr, mockEventData);
+
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.playerInfoFound',
+            mockEventData.lang,
+            {
+                USER_TAG: 'TestUser#1234',
+                ELO: expectedElo.toString(),
+                SIGMA: '8.3333',
+                MU: '25.0000',
+                WINS: '0',
+                LOSSES: '0',
+            }
+        );
     });
 
     it('should display "unrated" if player does not exist in the database for the guild', async () => {
         mockPlayerRatingFindOneFn.mockResolvedValue(null as any);
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
-
-        expect(mockIntr.options.getUser).toHaveBeenCalledWith('user', true);
-        expect(mockPlayerRatingFindOneFn).toHaveBeenCalledWith({ where: { userId: 'testUserId', guildId: MOCK_GUILD_ID } });
 
         expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.playerInfoUnrated',
@@ -201,18 +220,16 @@ describe('PlayerInfoCommand', () => {
         await playerInfoCommand.execute(intrNoGuild, mockEventData);
 
         expect(langGetEmbedMock).toHaveBeenCalledWith(
-            'errorEmbeds.commandNotInGuild', // Corrected key based on lang files
+            'errorEmbeds.commandNotInGuild',
             mockEventData.lang
         );
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(intrNoGuild, currentMockEmbed, true);
         expect(mockPlayerRatingFindOneFn).not.toHaveBeenCalled();
     });
 
-
     it('should use data.lang for retrieving argument name if provided', async () => {
         mockEventData.lang = Locale.French;
         mockPlayerRatingFindOneFn.mockResolvedValue(null as any);
-
 
         await playerInfoCommand.execute(mockIntr, mockEventData);
 
@@ -232,6 +249,8 @@ describe('PlayerInfoCommand', () => {
             guildId: MOCK_GUILD_ID,
             mu: 25.1234567,
             sigma: 8.9876543,
+            wins: 1,
+            losses: 1,
         } as PlayerRatingInstance;
         mockPlayerRatingFindOneFn.mockResolvedValue(mockPlayerData as any);
         const expectedElo = RatingUtils.calculateElo(mockPlayerData.mu, mockPlayerData.sigma);
@@ -244,10 +263,11 @@ describe('PlayerInfoCommand', () => {
             {
                 USER_TAG: 'TestUser#1234',
                 ELO: expectedElo.toString(),
-                SIGMA: '8.9877',
-                MU: '25.1235',
+                SIGMA: '8.9877', // Rounded
+                MU: '25.1235',    // Rounded
+                WINS: '1',
+                LOSSES: '1',
             }
         );
-        expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
     });
 });

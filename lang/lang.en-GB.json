@@ -147,6 +147,16 @@
                         "name": "{{REF:terms.sigma}}",
                         "value": "{{SIGMA}}",
                         "inline": true
+                    },
+                    {
+                        "name": "{{REF:terms.wins}}",
+                        "value": "{{WINS}}",
+                        "inline": true
+                    },
+                    {
+                        "name": "{{REF:terms.losses}}",
+                        "value": "{{LOSSES}}",
+                        "inline": true
                     }
                 ],
                 "color": "{{COM:colors.default}}"
@@ -283,7 +293,7 @@
             "info": "View bot info.",
             "test": "Run the test command.",
             "rank": "Update player ratings based on match results.",
-            "playerinfo": "Display a player's rating information (Mu and Sigma).",
+            "playerinfo": "Display a player's rating information (Mu, Sigma, Wins, Losses).",
             "list": "List the top N players by rating."
         },
         "argDescs": {
@@ -302,7 +312,9 @@
         "terms": {
             "elo": "Elo",
             "sigma": "Sigma (σ)",
-            "mu": "Mu (μ)"
+            "mu": "Mu (μ)",
+            "wins": "Wins",
+            "losses": "Losses"
         },
         "permissions": {
             "AddReactions": "Add Reactions",

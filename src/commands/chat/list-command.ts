@@ -63,13 +63,14 @@ export class ListCommand implements Command {
                 userTag = user.tag;
             } catch (error) {
                 // User might not be fetchable, keep userTag as ID
-                // Consider logging this error if it's important for debugging
-                // Logger.warn(`Could not fetch user ${player.userId} for list command: ${error.message}`);
             }
+
+            const wins = player.wins || 0;
+            const losses = player.losses || 0;
 
             embed.addFields({
                 name: `${i + 1}. ${userTag}`,
-                value: `Elo: ${RatingUtils.calculateElo(player.mu, player.sigma)}, μ: ${player.mu.toFixed(2)}, σ: ${player.sigma.toFixed(2)}`,
+                value: `Elo: ${RatingUtils.calculateElo(player.mu, player.sigma)}, μ: ${player.mu.toFixed(2)}, σ: ${player.sigma.toFixed(2)}, W/L: ${wins}/${losses}`,
                 inline: false,
             });
         }
@@ -79,7 +80,6 @@ export class ListCommand implements Command {
                 SHOWN_COUNT: DiscordLimits.FIELDS_PER_EMBED.toString(),
                 REQUESTED_COUNT: count.toString(),
             });
-             // Lang.getEmbed should return an EmbedBuilder instance
             const currentFooter = embed.data.footer?.text;
             embed.setFooter({ text: currentFooter ? `${currentFooter} - ${footerText}` : footerText });
         }

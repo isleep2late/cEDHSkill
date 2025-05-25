@@ -5,6 +5,8 @@ export interface PlayerRatingAttributes {
     guildId: string;
     mu: number;
     sigma: number;
+    wins: number;
+    losses: number;
 }
 
 export interface PlayerRatingInstance
@@ -32,6 +34,16 @@ export function definePlayerRatingModel(sequelize: Sequelize): PlayerRatingModel
         sigma: {
             type: DataTypes.DOUBLE,
             allowNull: false,
+        },
+        wins: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        losses: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
         },
     };
 

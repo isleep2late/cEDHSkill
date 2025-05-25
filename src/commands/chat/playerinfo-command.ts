@@ -15,7 +15,7 @@ export class PlayerInfoCommand implements Command {
         if (!intr.guild) {
             await InteractionUtils.send(
                 intr,
-                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang), // Ensure this lang key exists
+                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang),
                 true
             );
             return;
@@ -23,8 +23,8 @@ export class PlayerInfoCommand implements Command {
         const guildId = intr.guild.id;
 
         const user = intr.options.getUser(
-            Lang.getRef('arguments.user', data.lang), // Use data.lang for argument name if localized
-            true // Argument is required
+            Lang.getRef('arguments.user', data.lang),
+            true
         );
 
         const playerRecord = await PlayerRating.findOne({ where: { userId: user.id, guildId: guildId } });
@@ -33,11 +33,15 @@ export class PlayerInfoCommand implements Command {
 
         if (playerRecord) {
             const elo = RatingUtils.calculateElo(playerRecord.mu, playerRecord.sigma);
+            const wins = playerRecord.wins || 0;
+            const losses = playerRecord.losses || 0;
             embed = Lang.getEmbed('displayEmbeds.playerInfoFound', data.lang, {
                 USER_TAG: user.tag,
                 ELO: elo.toString(),
                 SIGMA: playerRecord.sigma.toFixed(4),
                 MU: playerRecord.mu.toFixed(4),
+                WINS: wins.toString(),
+                LOSSES: losses.toString(),
             });
         } else {
             embed = Lang.getEmbed('displayEmbeds.playerInfoUnrated', data.lang, {

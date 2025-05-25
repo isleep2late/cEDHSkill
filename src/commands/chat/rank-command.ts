@@ -12,6 +12,8 @@ interface ParsedPlayer {
     status: 'w' | 'l'; // Winner or Loser
     initialRating: OpenSkillRating;
     initialElo: number;
+    initialWins: number;
+    initialLosses: number;
     tag: string; // For display, e.g., <@username> or <@userId>
 }
 
@@ -24,7 +26,7 @@ export class RankCommand implements Command {
         if (!intr.guild) {
             await InteractionUtils.send(
                 intr,
-                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang), // Assuming you'll add this embed key
+                Lang.getEmbed('errorEmbeds.commandNotInGuild', data.lang),
                 true
             );
             return;
@@ -32,8 +34,8 @@ export class RankCommand implements Command {
         const guildId = intr.guild.id;
 
         const resultsInput = intr.options.getString(
-            Lang.getRef('arguments.results', data.lang), // Use data.lang for argument name if localized
-            true // Argument is required
+            Lang.getRef('arguments.results', data.lang),
+            true
         );
 
         const participantRegex = /<@!?(\d+)>_*\s+([wlWL])/gi;
@@ -70,12 +72,17 @@ export class RankCommand implements Command {
         const playersData: ParsedPlayer[] = [];
         for (const pInput of parsedParticipantsInput) {
             const user = await intr.client.users.fetch(pInput.userId).catch(() => null);
-            const displayUserTag = user ? `<@${user.username}>` : pInput.tag;
+            const displayUserTag = user ? user.tag : pInput.tag; // Use user.tag for better display
 
             let dbRating = await PlayerRating.findOne({ where: { userId: pInput.userId, guildId: guildId } });
             let osRating: OpenSkillRating;
+            let wins = 0;
+            let losses = 0;
+
             if (dbRating) {
                 osRating = rating({ mu: dbRating.mu, sigma: dbRating.sigma });
+                wins = dbRating.wins || 0; // Default to 0 if null/undefined
+                losses = dbRating.losses || 0; // Default to 0 if null/undefined
             } else {
                 osRating = rating(); // Default openskill rating
             }
@@ -85,6 +92,8 @@ export class RankCommand implements Command {
                 status: pInput.status,
                 initialRating: osRating,
                 initialElo: initialElo,
+                initialWins: wins,
+                initialLosses: losses,
                 tag: displayUserTag,
             });
         }
@@ -115,16 +124,19 @@ export class RankCommand implements Command {
         for (let i = 0; i < winners.length; i++) {
             const player = winners[i];
             const newRating = updatedWinningTeamRatings[i];
+            const newWins = player.initialWins + 1;
             await PlayerRating.upsert({
                 userId: player.userId,
-                guildId: guildId, // Add guildId
+                guildId: guildId,
                 mu: newRating.mu,
                 sigma: newRating.sigma,
+                wins: newWins,
+                losses: player.initialLosses,
             });
             const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
             responseEmbed.addFields({
                 name: `${player.tag} (Winner)`,
-                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
+                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}, W/L: ${newWins}/${player.initialLosses}`,
                 inline: false,
             });
         }
@@ -132,16 +144,19 @@ export class RankCommand implements Command {
         for (let i = 0; i < losers.length; i++) {
             const player = losers[i];
             const newRating = updatedLosingTeamRatings[i];
+            const newLosses = player.initialLosses + 1;
             await PlayerRating.upsert({
                 userId: player.userId,
-                guildId: guildId, // Add guildId
+                guildId: guildId,
                 mu: newRating.mu,
                 sigma: newRating.sigma,
+                wins: player.initialWins,
+                losses: newLosses,
             });
             const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
             responseEmbed.addFields({
                 name: `${player.tag} (Loser)`,
-                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}`,
+                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${newLosses}`,
                 inline: false,
             });
         }

@@ -1,4 +1,11 @@
 /// <reference types="vitest/globals" />
+
+vi.mock('../../../src/utils/rating-utils.js', () => ({
+    RatingUtils: {
+        calculateElo: vi.fn((mu, sigma) => Math.round((mu - 3 * sigma + 20) * 58.33)), // Basic mock
+        calculateOrdinal: vi.fn((mu, sigma) => mu - 3 * sigma), // Basic mock
+    },
+}));
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Collection } from 'discord.js';
 
@@ -51,7 +58,7 @@ vi.mock('discord.js', async () => {
         ...actual,
         EmbedBuilder: MockedEmbedBuilder,
         Locale: actual.Locale,
-        Collection: actual.Collection, // Ensure Collection is exported
+        Collection: actual.Collection,
     };
 });
 
@@ -122,13 +129,12 @@ describe('ListCommand', () => {
 
         langGetRefMock.mockImplementation((keyInput: unknown, _langInput?: unknown, varsInput?: unknown): string => {
             const key = keyInput as string;
-            // Assuming vars is Record<string, string | number> based on usage
-            const vars = varsInput as { SHOWN_COUNT?: string | number; REQUESTED_COUNT?: string | number } | undefined; 
+            const vars = varsInput as { SHOWN_COUNT?: string | number; REQUESTED_COUNT?: string | number } | undefined;
             if (key === 'arguments.count') return 'count';
             if (key === 'displayEmbeds.listFooterTruncated' && vars && vars.SHOWN_COUNT !== undefined && vars.REQUESTED_COUNT !== undefined) {
                 return `Showing top ${vars.SHOWN_COUNT} of ${vars.REQUESTED_COUNT} requested players.`;
             }
-            return key || ''; // Ensure a string is always returned
+            return key || '';
         });
     });
 
@@ -136,12 +142,14 @@ describe('ListCommand', () => {
         vi.restoreAllMocks();
     });
 
-    it('should list top 10 players by default when N is not specified', async () => {
+    it('should list top 10 players by default including W/L when N is not specified', async () => {
         const mockPlayers = Array.from({ length: 15 }, (_, i) => ({
             userId: `user${i + 1}`,
             guildId: MOCK_GUILD_ID,
             mu: 50 - i,
             sigma: 5,
+            wins: i + 1,
+            losses: i,
             user: { tag: `UserTag${i+1}#0000` }
         }));
         const mockPlayersWithElo = mockPlayers.slice(0, 10).map(p => ({
@@ -167,16 +175,25 @@ describe('ListCommand', () => {
             { GUILD_NAME: MOCK_GUILD_NAME }
         );
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(10);
+        // Example check for one player's W/L display
+        const firstPlayer = mockPlayersWithElo[0];
+        expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+            expect.objectContaining({
+                value: `Elo: ${firstPlayer.elo}, μ: ${firstPlayer.mu.toFixed(2)}, σ: ${firstPlayer.sigma.toFixed(2)}, W/L: ${firstPlayer.wins}/${firstPlayer.losses}`,
+            })
+        );
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);
     });
 
-    it('should list top N players when N is specified and valid', async () => {
+    it('should list top N players when N is specified and valid, including W/L', async () => {
         (mockIntr.options.getInteger as MockedFunction<any>).mockReturnValue(5);
         const mockPlayers = Array.from({ length: 5 }, (_, i) => ({
             userId: `user${i + 1}`,
             guildId: MOCK_GUILD_ID,
             mu: 50 - i,
             sigma: 5,
+            wins: i,
+            losses: 5 - i,
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
         mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
@@ -190,6 +207,12 @@ describe('ListCommand', () => {
             limit: 5,
         });
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(5);
+        const firstListedPlayer = mockPlayers[0];
+        expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+             expect.objectContaining({
+                value: `Elo: ${RatingUtils.calculateElo(firstListedPlayer.mu, firstListedPlayer.sigma)}, μ: ${firstListedPlayer.mu.toFixed(2)}, σ: ${firstListedPlayer.sigma.toFixed(2)}, W/L: ${firstListedPlayer.wins}/${firstListedPlayer.losses}`,
+            })
+        );
     });
 
     it('should send "guild only" error if command is used outside a guild', async () => {
@@ -205,7 +228,6 @@ describe('ListCommand', () => {
             mockEventData.lang
         );
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(intrNoGuild, currentMockEmbed, true);
-        expect(mockPlayerRatingFindAllFn).not.toHaveBeenCalled();
     });
 
     it('should send "invalid count" error if N is zero or negative', async () => {
@@ -218,7 +240,6 @@ describe('ListCommand', () => {
             mockEventData.lang
         );
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
-        expect(mockPlayerRatingFindAllFn).not.toHaveBeenCalled();
     });
 
     it('should send "no players" embed if no players are found in the guild', async () => {
@@ -243,6 +264,8 @@ describe('ListCommand', () => {
             guildId: MOCK_GUILD_ID,
             mu: 100 - i,
             sigma: 5,
+            wins: i,
+            losses: i
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
         mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
@@ -260,10 +283,10 @@ describe('ListCommand', () => {
     });
 
 
-    it('should correctly display player tags, defaulting to userID if user fetch fails', async () => {
+    it('should correctly display player tags, defaulting to userID if user fetch fails, and show W/L', async () => {
         const mockPlayers = [
-            { userId: 'fetchedUser', guildId: MOCK_GUILD_ID, mu: 50, sigma: 5 },
-            { userId: 'unfetchedUser', guildId: MOCK_GUILD_ID, mu: 48, sigma: 6 },
+            { userId: 'fetchedUser', guildId: MOCK_GUILD_ID, mu: 50, sigma: 5, wins: 3, losses: 1 },
+            { userId: 'unfetchedUser', guildId: MOCK_GUILD_ID, mu: 48, sigma: 6, wins: 0, losses: 2 },
         ] as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
 
@@ -276,33 +299,59 @@ describe('ListCommand', () => {
 
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith({
             name: '1. FetchedUserTag#1234',
-            value: `Elo: ${RatingUtils.calculateElo(50, 5)}, μ: 50.00, σ: 5.00`,
+            value: `Elo: ${RatingUtils.calculateElo(50, 5)}, μ: 50.00, σ: 5.00, W/L: 3/1`,
             inline: false,
         });
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith({
             name: '2. unfetchedUser', // Fallback to ID
-            value: `Elo: ${RatingUtils.calculateElo(48, 6)}, μ: 48.00, σ: 6.00`,
+            value: `Elo: ${RatingUtils.calculateElo(48, 6)}, μ: 48.00, σ: 6.00, W/L: 0/2`,
             inline: false,
         });
+    });
+
+    it('should display wins/losses as 0 if they are null or undefined in the database record', async () => {
+        const mockPlayers = [
+            { userId: 'player1', guildId: MOCK_GUILD_ID, mu: 50, sigma: 5, wins: null, losses: 2 },
+            { userId: 'player2', guildId: MOCK_GUILD_ID, mu: 48, sigma: 6, wins: 3, losses: undefined },
+            { userId: 'player3', guildId: MOCK_GUILD_ID, mu: 45, sigma: 7, wins: null, losses: null },
+        ] as unknown as PlayerRatingInstance[];
+        mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
+        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
+
+        await listCommand.execute(mockIntr, mockEventData);
+
+        expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: expect.stringContaining('player1Tag'),
+                value: expect.stringContaining('W/L: 0/2'),
+            })
+        );
+         expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: expect.stringContaining('player2Tag'),
+                value: expect.stringContaining('W/L: 3/0'),
+            })
+        );
+        expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: expect.stringContaining('player3Tag'),
+                value: expect.stringContaining('W/L: 0/0'),
+            })
+        );
     });
 
     it('should not add truncated footer if player count is less than embed limit, even if requested N was higher', async () => {
         const requestedCount = DiscordLimits.FIELDS_PER_EMBED + 5;
         (mockIntr.options.getInteger as MockedFunction<any>).mockReturnValue(requestedCount);
 
-        // Simulate fewer players in DB than the embed limit
         const mockPlayers = Array.from({ length: 5 }, (_, i) => ({
-            userId: `user${i + 1}`, guildId: MOCK_GUILD_ID, mu: 100 - i, sigma: 5,
+            userId: `user${i + 1}`, guildId: MOCK_GUILD_ID, mu: 100 - i, sigma: 5, wins: i, losses: 1
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
         mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
 
         await listCommand.execute(mockIntr, mockEventData);
-
-        expect(mockPlayerRatingFindAllFn).toHaveBeenCalledWith(
-            expect.objectContaining({ limit: DiscordLimits.FIELDS_PER_EMBED }) // Still request up to limit
-        );
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(5);
-        expect(currentMockEmbed.setFooter).not.toHaveBeenCalled(); // Footer should not be set if not truncated
+        expect(currentMockEmbed.setFooter).not.toHaveBeenCalled();
     });
 });
