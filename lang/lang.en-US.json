@@ -177,6 +177,16 @@
             },
             "listFooterTruncated": {
                 "text": "Showing top {{SHOWN_COUNT}} of {{REQUESTED_COUNT}} requested players due to Discord embed limits."
+            },
+            "rankProvisional": {
+                "title": "{{REF:fields.provisionalRatings}}",
+                "description": "{{REF:rankMessages.initialProvisionalDesc}}",
+                "color": "{{COM:colors.warning}}"
+            },
+            "rankConfirmed": {
+                "title": "{{REF:fields.confirmedRatings}}",
+                "description": "Player ratings have been successfully updated after confirmation.",
+                "color": "{{COM:colors.success}}"
             }
         },
         "validationEmbeds": {
@@ -252,6 +262,21 @@
                 "title": "Server Command Only",
                 "description": "This command can only be used inside a server.",
                 "color": "{{COM:colors.warning}}"
+            },
+            "rankSetupFailed": {
+                "title": "Rank Confirmation Setup Failed",
+                "description": "Could not set up the confirmation message properly. Please try the command again.",
+                "color": "{{COM:colors.error}}"
+            },
+            "messageSendFailed": {
+                "title": "Message Not Sent",
+                "description": "Could not send the required message. Please try again.",
+                "color": "{{COM:colors.error}}"
+            },
+            "rankUpdateFailed": {
+                "title": "Rank Update Failed",
+                "description": "The rank update could not be finalized even after confirmation. Please contact support or try again later.",
+                "color": "{{COM:colors.error}}"
             }
         },
         "channelRegexes": {
@@ -261,6 +286,10 @@
     "refs": {
         "meta": {
             "translators": "[TranslatorName#1234](https://github.com/)"
+        },
+        "rankMessages": {
+            "initialProvisionalDesc": "The following rating changes are proposed. React with {{UPVOTE_EMOJI}} to confirm. {{UPVOTES_REQUIRED}} unique reactions are needed.\\\\nCurrent upvotes: {{CURRENT_UPVOTES}}",
+            "updateProvisionalDesc": "React with {{UPVOTE_EMOJI}} to confirm. {{UPVOTES_REQUIRED}} unique reactions are needed.\\\\nCurrent upvotes: {{CURRENT_UPVOTES}} / {{UPVOTES_REQUIRED}}"
         },
         "bot": {
             "description": "{{REF:links.templateEmbed}} helps give developers a starting point for new Discord bots, so that much of the initial setup can be avoided and developers can instead focus on meaningful bot features."
@@ -307,14 +336,18 @@
         "fields": {
             "commands": "Commands",
             "links": "Links",
-            "updatedRatings": "Updated Ratings"
+            "updatedRatings": "Updated Ratings",
+            "provisionalRatings": "Provisional Ratings (Pending Confirmation)",
+            "confirmedRatings": "Confirmed Ratings (Applied)"
         },
         "terms": {
             "elo": "Elo",
             "sigma": "Sigma (σ)",
             "mu": "Mu (μ)",
             "wins": "Wins",
-            "losses": "Losses"
+            "losses": "Losses",
+            "winner": "Winner",
+            "loser": "Loser"
         },
         "permissions": {
             "AddReactions": "Add Reactions",

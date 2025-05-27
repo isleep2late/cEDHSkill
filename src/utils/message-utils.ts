@@ -168,4 +168,20 @@ export class MessageUtils {
             }
         }
     }
+
+    public static async clearReactions(msg: Message): Promise<Message | void> {
+        try {
+            return await msg.reactions.removeAll();
+        } catch (error) {
+            if (
+                error instanceof DiscordAPIError &&
+                typeof error.code == 'number' &&
+                IGNORED_ERRORS.includes(error.code)
+            ) {
+                return;
+            } else {
+                throw error;
+            }
+        }
+    }
 }

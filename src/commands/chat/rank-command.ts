@@ -1,13 +1,14 @@
-import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message, Locale } from 'discord.js';
 import { rating, rate, Rating as OpenSkillRating } from 'openskill';
 import { Command, CommandDeferType } from '../index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
 import { Lang } from '../../services/index.js';
-import { InteractionUtils, RatingUtils } from '../../utils/index.js';
+import { InteractionUtils, RatingUtils, MessageUtils } from '../../utils/index.js';
 import { EventData } from '../../models/internal-models.js';
 import { Language } from '../../models/enum-helpers/index.js';
+import { GameConstants } from '../../constants/index.js';
 
-interface ParsedPlayer {
+export interface ParsedPlayer { // Exporting for use in Reaction Handler
     userId: string;
     status: 'w' | 'l'; // Winner or Loser
     initialRating: OpenSkillRating;
@@ -15,9 +16,21 @@ interface ParsedPlayer {
     initialWins: number;
     initialLosses: number;
     tag: string; // For display, e.g., <@username> or <@userId>
+    newRating: OpenSkillRating; // Store the calculated new rating
+    newWins: number;
+    newLosses: number;
+}
+
+export interface PendingRankUpdate {
+    guildId: string;
+    playersToUpdate: ParsedPlayer[];
+    interaction: ChatInputCommandInteraction; // To edit the original message
+    lang: Locale;
+    upvoters: Set<string>; // Store user IDs who have upvoted
 }
 
 export class RankCommand implements Command {
+    public static pendingRankUpdates = new Map<string, PendingRankUpdate>(); // messageId -> PendingRankUpdate
     public names = [Lang.getRef('chatCommands.rank', Language.Default)];
     public deferType = CommandDeferType.PUBLIC;
     public requireClientPerms: PermissionsString[] = ['SendMessages', 'EmbedLinks'];
@@ -95,6 +108,9 @@ export class RankCommand implements Command {
                 initialWins: wins,
                 initialLosses: losses,
                 tag: displayUserTag,
+                newRating: osRating, // Placeholder, will be updated
+                newWins: wins, // Placeholder
+                newLosses: losses, // Placeholder
             });
         }
 
@@ -118,49 +134,67 @@ export class RankCommand implements Command {
             losingTeamRatings,
         ]);
 
-        const responseEmbed = Lang.getEmbed('displayEmbeds.rankSuccess', data.lang);
-        responseEmbed.setTitle(Lang.getRef('fields.updatedRatings', data.lang));
+        // Prepare playersToUpdate with new ratings and W/L but don't save yet
+        const playersToUpdate: ParsedPlayer[] = [];
 
         for (let i = 0; i < winners.length; i++) {
             const player = winners[i];
-            const newRating = updatedWinningTeamRatings[i];
-            const newWins = player.initialWins + 1;
-            await PlayerRating.upsert({
-                userId: player.userId,
-                guildId: guildId,
-                mu: newRating.mu,
-                sigma: newRating.sigma,
-                wins: newWins,
-                losses: player.initialLosses,
-            });
-            const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
-            responseEmbed.addFields({
-                name: `${player.tag} (Winner)`,
-                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}, W/L: ${newWins}/${player.initialLosses}`,
-                inline: false,
-            });
+            player.newRating = updatedWinningTeamRatings[i];
+            player.newWins = player.initialWins + 1;
+            player.newLosses = player.initialLosses; // Losses don't change for winners
+            playersToUpdate.push(player);
         }
 
         for (let i = 0; i < losers.length; i++) {
             const player = losers[i];
-            const newRating = updatedLosingTeamRatings[i];
-            const newLosses = player.initialLosses + 1;
-            await PlayerRating.upsert({
-                userId: player.userId,
-                guildId: guildId,
-                mu: newRating.mu,
-                sigma: newRating.sigma,
-                wins: player.initialWins,
-                losses: newLosses,
-            });
-            const newElo = RatingUtils.calculateElo(newRating.mu, newRating.sigma);
-            responseEmbed.addFields({
-                name: `${player.tag} (Loser)`,
-                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${newRating.mu.toFixed(2)}, σ=${newRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${newLosses}`,
+            player.newRating = updatedLosingTeamRatings[i];
+            player.newWins = player.initialWins; // Wins don't change for losers
+            player.newLosses = player.initialLosses + 1;
+            playersToUpdate.push(player);
+        }
+
+        const provisionalEmbed = Lang.getEmbed('displayEmbeds.rankProvisional', data.lang, {
+            UPVOTES_REQUIRED: GameConstants.RANK_UPVOTES_REQUIRED.toString(),
+            UPVOTE_EMOJI: GameConstants.RANK_UPVOTE_EMOJI,
+            CURRENT_UPVOTES: '0'
+        });
+        provisionalEmbed.setTitle(Lang.getRef('fields.provisionalRatings', data.lang));
+
+
+        for (const player of playersToUpdate) {
+            const newElo = RatingUtils.calculateElo(player.newRating.mu, player.newRating.sigma);
+            const outcome = player.status === 'w' ? Lang.getRef('terms.winner', data.lang) : Lang.getRef('terms.loser', data.lang);
+            provisionalEmbed.addFields({
+                name: `${player.tag} (${outcome})`,
+                value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${player.newRating.mu.toFixed(2)}, σ=${player.newRating.sigma.toFixed(2)}, W/L: ${player.newWins}/${player.newLosses}`,
                 inline: false,
             });
         }
 
-        await InteractionUtils.send(intr, responseEmbed);
+        const sentMessage = await InteractionUtils.send(intr, provisionalEmbed);
+
+        if (sentMessage) {
+            try {
+                await MessageUtils.react(sentMessage, GameConstants.RANK_UPVOTE_EMOJI);
+                RankCommand.pendingRankUpdates.set(sentMessage.id, {
+                    guildId,
+                    playersToUpdate,
+                    interaction: intr,
+                    lang: data.lang,
+                    upvoters: new Set(),
+                });
+            } catch (error) {
+                console.error("Failed to add initial reaction or set pending update:", error);
+                // Optionally, inform the user that the confirmation setup failed
+                await InteractionUtils.send(intr, Lang.getEmbed('errorEmbeds.rankSetupFailed', data.lang), true);
+                // Clean up if necessary
+                if (RankCommand.pendingRankUpdates.has(sentMessage.id)) {
+                    RankCommand.pendingRankUpdates.delete(sentMessage.id);
+                }
+            }
+        } else {
+            // Handle case where message sending failed
+             await InteractionUtils.send(intr, Lang.getEmbed('errorEmbeds.messageSendFailed', data.lang), true);
+        }
     }
 }

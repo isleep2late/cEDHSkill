@@ -33,7 +33,7 @@ import {
 import { CustomClient } from './extensions/index.js';
 import { Job } from './jobs/index.js';
 import { Bot } from './models/bot.js';
-import { Reaction } from './reactions/index.js';
+import { RankConfirmationReaction, Reaction } from './reactions/index.js';
 import {
     CommandRegistrationService,
     EventDataService,
@@ -94,6 +94,7 @@ async function start(): Promise<void> {
 
     // Reactions
     let reactions: Reaction[] = [
+        new RankConfirmationReaction(),
         // TODO: Add new reactions here
     ];
 

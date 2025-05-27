@@ -177,9 +177,10 @@ describe('ListCommand', () => {
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(10);
         // Example check for one player's W/L display
         const firstPlayer = mockPlayersWithElo[0];
+        const expectedElo = RatingUtils.calculateElo(firstPlayer.mu, firstPlayer.sigma);
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
             expect.objectContaining({
-                value: `Elo: ${firstPlayer.elo}, μ: ${firstPlayer.mu.toFixed(2)}, σ: ${firstPlayer.sigma.toFixed(2)}, W/L: ${firstPlayer.wins}/${firstPlayer.losses}`,
+                value: `Elo: ${expectedElo}, μ: ${firstPlayer.mu.toFixed(2)}, σ: ${firstPlayer.sigma.toFixed(2)}, W/L: ${firstPlayer.wins}/${firstPlayer.losses}`,
             })
         );
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed);

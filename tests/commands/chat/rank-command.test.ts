@@ -1,9 +1,9 @@
 /// <reference types="vitest/globals" />
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
-import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User } from 'discord.js';
+import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Message } from 'discord.js';
 import { rating, rate, Rating as OpenSkillRating } from 'openskill';
 
-import { RankCommand } from '../../../src/commands/chat/rank-command.js';
+import { RankCommand, PendingRankUpdate } from '../../../src/commands/chat/rank-command.js';
 import type { PlayerRatingModelStatic, PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
@@ -46,8 +46,27 @@ vi.mock('../../../src/services/lang.js', () => {
 vi.mock('../../../src/utils/interaction-utils.js', () => ({
     InteractionUtils: {
         send: vi.fn(),
+        editReply: vi.fn(), // Added for potential use in reaction handler tests
     },
 }));
+
+vi.mock('../../../src/utils/message-utils.js', () => ({
+    MessageUtils: {
+        react: vi.fn().mockResolvedValue(undefined),
+        clearReactions: vi.fn().mockResolvedValue(undefined),
+    }
+}));
+
+vi.mock('../../../src/constants/index.js', async () => {
+    const actual = await vi.importActual('../../../src/constants/index.js');
+    return {
+        ...actual, // Spread actual to keep other constants like DiscordLimits
+        GameConstants: {
+            RANK_UPVOTES_REQUIRED: 3,
+            RANK_UPVOTE_EMOJI: '👍',
+        },
+    };
+});
 
 // Mock for discord.js
 vi.mock('discord.js', async () => {
@@ -80,15 +99,18 @@ describe('RankCommand', () => {
     let langGetRefMock: MockedFunction<any>;
     let langGetEmbedMock: MockedFunction<any>;
     let interactionUtilsSendMock: MockedFunction<any>;
+    let messageUtilsReactMock: MockedFunction<any>;
     let ratingMock: MockedFunction<any>;
     let rateMock: MockedFunction<any>;
     let mockClientUsersFetch: MockedFunction<(id: string) => Promise<User | null>>;
     let currentMockEmbed: EmbedBuilder;
     let mockPlayerRatingFindOneFn: MockedFunction<typeof PlayerRating.findOne>;
     let mockPlayerRatingUpsertFn: MockedFunction<typeof PlayerRating.upsert>;
+    const MOCK_MESSAGE_ID = 'mockMessageId123';
 
 
     beforeEach(async () => {
+        RankCommand.pendingRankUpdates.clear(); // Clear pending updates before each test
         rankCommand = new RankCommand();
 
         const { PlayerRating: MockedPlayerRating } = await import('../../../src/db.js');
@@ -101,6 +123,12 @@ describe('RankCommand', () => {
 
         const { InteractionUtils } = await import('../../../src/utils/interaction-utils.js');
         interactionUtilsSendMock = InteractionUtils.send as MockedFunction<any>;
+        interactionUtilsSendMock.mockResolvedValue({ id: MOCK_MESSAGE_ID } as Message);
+
+
+        const { MessageUtils: MockedMessageUtils } = await import('../../../src/utils/message-utils.js');
+        messageUtilsReactMock = MockedMessageUtils.react as MockedFunction<any>;
+
 
         const { rating, rate } = await import('openskill');
         ratingMock = rating as MockedFunction<any>;
@@ -109,10 +137,16 @@ describe('RankCommand', () => {
         currentMockEmbed = new EmbedBuilder();
         langGetEmbedMock.mockReturnValue(currentMockEmbed);
 
-        langGetRefMock.mockImplementation((keyInput: unknown): string => {
+        langGetRefMock.mockImplementation((keyInput: unknown, _lang?: Locale, vars?: any): string => {
             const key = keyInput as string;
-            if (key === 'fields.updatedRatings') return 'Updated Ratings';
+            if (key === 'fields.provisionalRatings') return 'Provisional Ratings';
+            if (key === 'fields.confirmedRatings') return 'Confirmed Ratings';
             if (key === 'arguments.results') return 'results';
+            if (key === 'terms.winner') return 'Winner';
+            if (key === 'terms.loser') return 'Loser';
+            if (key === 'displayEmbeds.rankProvisional.description') {
+                return `Proposed. React with ${vars.UPVOTE_EMOJI}. ${vars.UPVOTES_REQUIRED} needed. Current: ${vars.CURRENT_UPVOTES}`;
+            }
             return key || '';
         });
         mockPlayerRatingFindOneFn.mockReset();
@@ -167,14 +201,17 @@ describe('RankCommand', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        RankCommand.pendingRankUpdates.clear();
     });
 
-    it('should correctly parse input, update ratings, wins/losses for 1v1, and send success embed', async () => {
+    it('should parse input, send provisional embed, react, and store pending update for 1v1', async () => {
         (mockIntr.options.getString as MockedFunction<any>).mockReturnValue('<@123> w <@456> l');
+        const { GameConstants } = await import('../../../src/constants/index.js');
 
+        const existingPlayerDbData = { userId: '456', guildId: MOCK_GUILD_ID, mu: 20, sigma: 5, wins: 2, losses: 3 };
         mockPlayerRatingFindOneFn
             .mockResolvedValueOnce(null as any) // P1 new player
-            .mockResolvedValueOnce({ userId: '456', guildId: MOCK_GUILD_ID, mu: 20, sigma: 5, wins: 2, losses: 3 } as unknown as PlayerRatingInstance); // P2 existing
+            .mockResolvedValueOnce(existingPlayerDbData as unknown as PlayerRatingInstance); // P2 existing
 
         const mockInitialRatingP1: OpenSkillRating = { mu: 25, sigma: 25 / 3 };
         const mockInitialRatingP2FromDB: OpenSkillRating = { mu: 20, sigma: 5 };
@@ -192,16 +229,21 @@ describe('RankCommand', () => {
 
         expect(mockPlayerRatingFindOneFn).toHaveBeenCalledWith({ where: { userId: '123', guildId: MOCK_GUILD_ID } });
         expect(mockPlayerRatingFindOneFn).toHaveBeenCalledWith({ where: { userId: '456', guildId: MOCK_GUILD_ID } });
-
         expect(rateMock).toHaveBeenCalledWith([[mockInitialRatingP1], [mockInitialRatingP2FromDB]]);
 
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith({ userId: '123', guildId: MOCK_GUILD_ID, mu: 28, sigma: 7, wins: 1, losses: 0 });
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith({ userId: '456', guildId: MOCK_GUILD_ID, mu: 18, sigma: 4.8, wins: 2, losses: 4 });
+        // Ensure DB upsert is NOT called directly
+        expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
 
+        // Check provisional embed
         const sentEmbed = interactionUtilsSendMock.mock.calls[0][1] as EmbedBuilder;
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankSuccess', mockEventData.lang);
-        expect(sentEmbed.setTitle).toHaveBeenCalledWith('Updated Ratings');
+        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankProvisional', mockEventData.lang, {
+            UPVOTES_REQUIRED: GameConstants.RANK_UPVOTES_REQUIRED.toString(),
+            UPVOTE_EMOJI: GameConstants.RANK_UPVOTE_EMOJI,
+            CURRENT_UPVOTES: '0',
+        });
+        expect(sentEmbed.setTitle).toHaveBeenCalledWith('Provisional Ratings'); // From langGetRefMock
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(2);
+
         // Player 123 (Winner)
         expect(sentEmbed.addFields).toHaveBeenCalledWith({
             name: 'User123#0001 (Winner)',
@@ -214,6 +256,35 @@ describe('RankCommand', () => {
             value: `Old: Elo=${RatingUtils.calculateElo(20,5)}, μ=20.00, σ=5.00, W/L: 2/3\nNew: Elo=${RatingUtils.calculateElo(18,4.8)}, μ=18.00, σ=4.80, W/L: 2/4`,
             inline: false,
         });
+
+        // Check reaction
+        expect(messageUtilsReactMock).toHaveBeenCalledWith({ id: MOCK_MESSAGE_ID }, GameConstants.RANK_UPVOTE_EMOJI);
+
+        // Check pending update storage
+        expect(RankCommand.pendingRankUpdates.has(MOCK_MESSAGE_ID)).toBe(true);
+        const pendingUpdate = RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID);
+        expect(pendingUpdate).toBeDefined();
+        expect(pendingUpdate?.guildId).toBe(MOCK_GUILD_ID);
+        expect(pendingUpdate?.interaction).toBe(mockIntr);
+        expect(pendingUpdate?.lang).toBe(mockEventData.lang);
+        expect(pendingUpdate?.upvoters.size).toBe(0);
+        expect(pendingUpdate?.playersToUpdate).toHaveLength(2);
+        
+        const player1Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '123');
+        expect(player1Update).toEqual(expect.objectContaining({
+            userId: '123', status: 'w', tag: 'User123#0001',
+            initialRating: mockInitialRatingP1, initialElo: RatingUtils.calculateElo(25, 25/3),
+            initialWins: 0, initialLosses: 0,
+            newRating: mockNewRatingP1, newWins: 1, newLosses: 0,
+        }));
+
+        const player2Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '456');
+        expect(player2Update).toEqual(expect.objectContaining({
+            userId: '456', status: 'l', tag: 'User456#0002',
+            initialRating: mockInitialRatingP2FromDB, initialElo: RatingUtils.calculateElo(20, 5),
+            initialWins: existingPlayerDbData.wins, initialLosses: existingPlayerDbData.losses,
+            newRating: mockNewRatingP2, newWins: existingPlayerDbData.wins, newLosses: existingPlayerDbData.losses + 1,
+        }));
     });
 
     it('should send "guild only" error if command is used outside a guild', async () => {
@@ -228,6 +299,7 @@ describe('RankCommand', () => {
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(intrNoGuild, currentMockEmbed, true);
         expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.commandNotInGuild', mockEventData.lang);
         expect(mockPlayerRatingFindOneFn).not.toHaveBeenCalled();
+        expect(RankCommand.pendingRankUpdates.size).toBe(0);
     });
 
     it('should send "not enough players" error for single player input', async () => {
@@ -235,6 +307,7 @@ describe('RankCommand', () => {
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
         expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankNotEnoughPlayers', mockEventData.lang);
+        expect(RankCommand.pendingRankUpdates.size).toBe(0);
     });
 
     it('should send "parsing error" if no players are parsed but input is not empty', async () => {
@@ -242,6 +315,7 @@ describe('RankCommand', () => {
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
         expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankErrorParsing', mockEventData.lang);
+        expect(RankCommand.pendingRankUpdates.size).toBe(0);
     });
 
     it('should send "invalid outcome" if only winners are provided', async () => {
@@ -250,39 +324,38 @@ describe('RankCommand', () => {
         await rankCommand.execute(mockIntr, mockEventData);
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, currentMockEmbed, true);
         expect(langGetEmbedMock).toHaveBeenCalledWith('validationEmbeds.rankInvalidOutcome', mockEventData.lang);
+        expect(RankCommand.pendingRankUpdates.size).toBe(0);
     });
 
-    it('should correctly parse multiple winners and losers, updating W/L records', async () => {
+    it('should correctly parse multiple winners/losers, store pending update', async () => {
         (mockIntr.options.getString as MockedFunction<any>).mockReturnValue(
             '<@123> w <@456> w <@789> l <@101> l'
         );
+        const { GameConstants } = await import('../../../src/constants/index.js');
 
-        // P1 (123): New, P2 (456): Exists, P3 (789): Exists, P4 (101): New
+        const dbDataP2 = { userId: '456', guildId: MOCK_GUILD_ID, mu: 22, sigma: 6, wins: 5, losses: 2 };
+        const dbDataP3 = { userId: '789', guildId: MOCK_GUILD_ID, mu: 28, sigma: 4, wins: 10, losses: 1 };
         mockPlayerRatingFindOneFn
             .mockResolvedValueOnce(null as any) // P1
-            .mockResolvedValueOnce({ userId: '456', guildId: MOCK_GUILD_ID, mu: 22, sigma: 6, wins: 5, losses: 2 } as unknown as PlayerRatingInstance) // P2
-            .mockResolvedValueOnce({ userId: '789', guildId: MOCK_GUILD_ID, mu: 28, sigma: 4, wins: 10, losses: 1 } as unknown as PlayerRatingInstance) // P3
+            .mockResolvedValueOnce(dbDataP2 as unknown as PlayerRatingInstance) // P2
+            .mockResolvedValueOnce(dbDataP3 as unknown as PlayerRatingInstance) // P3
             .mockResolvedValueOnce(null as any); // P4
 
         const initialRatingsMap: { [key: string]: OpenSkillRating } = {
-            '123': { mu: 25, sigma: 25 / 3 },
-            '456': { mu: 22, sigma: 6 },
-            '789': { mu: 28, sigma: 4 },
-            '101': { mu: 25, sigma: 25 / 3 },
+            '123': { mu: 25, sigma: 25 / 3 }, '456': { mu: 22, sigma: 6 },
+            '789': { mu: 28, sigma: 4 }, '101': { mu: 25, sigma: 25 / 3 },
         };
         ratingMock.mockImplementation((configInput?: unknown): OpenSkillRating => {
             const config = configInput as { mu: number; sigma: number } | undefined;
-            if (!config) return initialRatingsMap['123']; // Default for new player
+            if (!config) return initialRatingsMap['123'];
             if (config.mu === 22 && config.sigma === 6) return initialRatingsMap['456'];
             if (config.mu === 28 && config.sigma === 4) return initialRatingsMap['789'];
-            return initialRatingsMap['101']; // Default for other new player
+            return initialRatingsMap['101'];
         });
 
         const updatedRatingsMock: { [key: string]: OpenSkillRating } = {
-            '123': { mu: 27, sigma: 7 },    // Winner
-            '456': { mu: 24, sigma: 5.8 }, // Winner
-            '789': { mu: 26, sigma: 3.9 }, // Loser
-            '101': { mu: 23, sigma: 7 },   // Loser
+            '123': { mu: 27, sigma: 7 }, '456': { mu: 24, sigma: 5.8 },
+            '789': { mu: 26, sigma: 3.9 }, '101': { mu: 23, sigma: 7 },
         };
         rateMock.mockReturnValue([
             [updatedRatingsMock['123'], updatedRatingsMock['456']],
@@ -295,78 +368,82 @@ describe('RankCommand', () => {
             [initialRatingsMap['123'], initialRatingsMap['456']],
             [initialRatingsMap['789'], initialRatingsMap['101']],
         ]);
-
-        // P1 (winner)
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(expect.objectContaining({ userId: '123', wins: 1, losses: 0, ...updatedRatingsMock['123'] }));
-        // P2 (winner)
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(expect.objectContaining({ userId: '456', wins: 6, losses: 2, ...updatedRatingsMock['456'] }));
-        // P3 (loser)
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(expect.objectContaining({ userId: '789', wins: 10, losses: 2, ...updatedRatingsMock['789'] }));
-        // P4 (loser)
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(expect.objectContaining({ userId: '101', wins: 0, losses: 1, ...updatedRatingsMock['101'] }));
+        expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
 
         const sentEmbed = interactionUtilsSendMock.mock.calls[0][1] as EmbedBuilder;
+        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankProvisional', mockEventData.lang, expect.any(Object));
         expect(sentEmbed.addFields).toHaveBeenCalledTimes(4);
 
-        // Spot check one winner and one loser for W/L display
-        expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
-            name: 'User123#0001 (Winner)',
-            value: expect.stringContaining('W/L: 0/0') && expect.stringContaining('W/L: 1/0'),
-        }));
-        expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
-            name: 'User456#0002 (Winner)',
-            value: expect.stringContaining('W/L: 5/2') && expect.stringContaining('W/L: 6/2'),
-        }));
-        expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
-            name: 'User789#0003 (Loser)',
-            value: expect.stringContaining('W/L: 10/1') && expect.stringContaining('W/L: 10/2'),
-        }));
-        expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
-            name: 'User101#0004 (Loser)',
-            value: expect.stringContaining('W/L: 0/0') && expect.stringContaining('W/L: 0/1'),
-        }));
+        expect(messageUtilsReactMock).toHaveBeenCalledWith({ id: MOCK_MESSAGE_ID }, GameConstants.RANK_UPVOTE_EMOJI);
+        expect(RankCommand.pendingRankUpdates.has(MOCK_MESSAGE_ID)).toBe(true);
+        const pendingUpdate = RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID);
+        expect(pendingUpdate?.playersToUpdate).toHaveLength(4);
 
+        // P1 (winner)
+        const p1Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '123');
+        expect(p1Update).toEqual(expect.objectContaining({ newWins: 1, newLosses: 0, newRating: updatedRatingsMock['123'] }));
+        // P2 (winner)
+        const p2Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '456');
+        expect(p2Update).toEqual(expect.objectContaining({ newWins: dbDataP2.wins + 1, newLosses: dbDataP2.losses, newRating: updatedRatingsMock['456'] }));
+        // P3 (loser)
+        const p3Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '789');
+        expect(p3Update).toEqual(expect.objectContaining({ newWins: dbDataP3.wins, newLosses: dbDataP3.losses + 1, newRating: updatedRatingsMock['789'] }));
+        // P4 (loser)
+        const p4Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '101');
+        expect(p4Update).toEqual(expect.objectContaining({ newWins: 0, newLosses: 1, newRating: updatedRatingsMock['101'] }));
     });
 
-    it('should default wins/losses to 0 if db record has them as null/undefined', async () => {
+    it('should default wins/losses to 0 in pending update if db record has them as null/undefined', async () => {
         (mockIntr.options.getString as MockedFunction<any>).mockReturnValue('<@123> w <@456> l');
 
         mockPlayerRatingFindOneFn
-            .mockResolvedValueOnce({ userId: '123', guildId: MOCK_GUILD_ID, mu: 25, sigma: 8, wins: null, losses: undefined } as unknown as PlayerRatingInstance)
+            .mockResolvedValueOnce({ userId: '123', guildId: MOCK_GUILD_ID, mu: 25, sigma: 8, wins: null, losses: undefined } as unknown as PlayerRatingInstance) // P1 existing with null/undefined W/L
             .mockResolvedValueOnce(null as any); // P2 new player
 
-        const mockInitialRatingP1: OpenSkillRating = { mu: 25, sigma: 8 };
-        const mockInitialRatingP2: OpenSkillRating = { mu: 25, sigma: 25/3 };
+        const mockInitialRatingP1FromDB: OpenSkillRating = { mu: 25, sigma: 8 };
+        const mockInitialRatingP2New: OpenSkillRating = { mu: 25, sigma: 25/3 };
          ratingMock.mockImplementation((configInput?: unknown): OpenSkillRating => {
             const config = configInput as { mu: number; sigma: number } | undefined;
-            if (config && config.mu === 25 && config.sigma === 8) return mockInitialRatingP1;
-            return mockInitialRatingP2;
+            if (config && config.mu === 25 && config.sigma === 8) return mockInitialRatingP1FromDB;
+            return mockInitialRatingP2New;
         });
-
 
         const mockNewRatingP1: OpenSkillRating = { mu: 28, sigma: 7 };
         const mockNewRatingP2: OpenSkillRating = { mu: 22, sigma: 7.5 };
         rateMock.mockReturnValue([[mockNewRatingP1], [mockNewRatingP2]]);
 
         await rankCommand.execute(mockIntr, mockEventData);
+        expect(mockPlayerRatingUpsertFn).not.toHaveBeenCalled();
 
-        expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(
-            expect.objectContaining({ userId: '123', wins: 1, losses: 0 }) // initial wins/losses were 0/0
-        );
-         expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith(
-            expect.objectContaining({ userId: '456', wins: 0, losses: 1 }) // initial wins/losses were 0/0
-        );
+        const pendingUpdate = RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID);
+        expect(pendingUpdate).toBeDefined();
+
+        const player1Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '123');
+        expect(player1Update).toEqual(expect.objectContaining({
+            initialWins: 0, // Defaulted from null
+            initialLosses: 0, // Defaulted from undefined
+            newWins: 1,
+            newLosses: 0,
+        }));
+
+        const player2Update = pendingUpdate?.playersToUpdate.find(p => p.userId === '456');
+        expect(player2Update).toEqual(expect.objectContaining({
+            initialWins: 0, // New player
+            initialLosses: 0, // New player
+            newWins: 0,
+            newLosses: 1,
+        }));
 
         const sentEmbed = interactionUtilsSendMock.mock.calls[0][1] as EmbedBuilder;
         // Player 123 (Winner) - initial W/L was 0/0
         expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
             name: 'User123#0001 (Winner)',
-            value: expect.stringContaining('W/L: 0/0') && expect.stringContaining('W/L: 1/0'),
+            value: expect.stringContaining('Old: Elo=1225, μ=25.00, σ=8.00, W/L: 0/0') && expect.stringContaining('New: Elo=1575, μ=28.00, σ=7.00, W/L: 1/0'),
         }));
         // Player 456 (Loser) - initial W/L was 0/0
         expect(sentEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({
             name: 'User456#0002 (Loser)',
-            value: expect.stringContaining('W/L: 0/0') && expect.stringContaining('W/L: 0/1'),
+            value: expect.stringContaining('Old: Elo=1167, μ=25.00, σ=8.33, W/L: 0/0') && expect.stringContaining('New: Elo=1137, μ=22.00, σ=7.50, W/L: 0/1'),
         }));
     });
 });
