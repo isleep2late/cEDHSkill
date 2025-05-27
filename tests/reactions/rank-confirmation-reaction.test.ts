@@ -1,14 +1,27 @@
 /// <reference types="vitest/globals" />
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
-import { Message, MessageReaction, User, EmbedBuilder, Locale, ChatInputCommandInteraction, PartialMessageReaction, PartialUser } from 'discord.js';
+import {
+    Message,
+    MessageReaction,
+    User,
+    EmbedBuilder,
+    Locale,
+    ChatInputCommandInteraction,
+    PartialMessageReaction,
+    PartialUser,
+} from 'discord.js';
 import { Rating as OpenSkillRating } from 'openskill';
 
-import { RankConfirmationReaction } from '../../../src/reactions/rank-confirmation-reaction.ts';
-import { RankCommand, PendingRankUpdate, ParsedPlayer } from '../../../src/commands/chat/rank-command.js';
-import { GameConstants } from '../../../src/constants/index.js';
-import { PlayerRating } from '../../../src/db.js';
-import { EventData } from '../../../src/models/internal-models.js';
-import { RatingUtils } from '../../../src/utils/rating-utils.js';
+import { RankConfirmationReaction } from '../../src/reactions/rank-confirmation-reaction.ts';
+import {
+    RankCommand,
+    PendingRankUpdate,
+    ParsedPlayer,
+} from '../../src/commands/chat/rank-command.js';
+import { GameConstants } from '../../src/constants/index.js';
+import { PlayerRating } from '../../src/db.js';
+import { EventData } from '../../src/models/internal-models.js';
+import { RatingUtils } from '../../src/utils/rating-utils.js';
 
 // --- Mocking Section ---
 vi.mock('../../../src/db.js', () => ({
@@ -102,14 +115,28 @@ describe('RankConfirmationReaction', () => {
     const MOCK_REACTOR_ID_3 = 'reactorId3';
 
     const mockPlayer1: ParsedPlayer = {
-        userId: 'p1', status: 'w', tag: 'Player1#0001', initialWins: 0, initialLosses: 0,
-        initialRating: { mu: 25, sigma: 8.33 }, initialElo: 0,
-        newRating: { mu: 28, sigma: 7 }, newWins: 1, newLosses: 0,
+        userId: 'p1',
+        status: 'w',
+        tag: 'Player1#0001',
+        initialWins: 0,
+        initialLosses: 0,
+        initialRating: { mu: 25, sigma: 8.33 },
+        initialElo: 0,
+        newRating: { mu: 28, sigma: 7 },
+        newWins: 1,
+        newLosses: 0,
     };
     const mockPlayer2: ParsedPlayer = {
-        userId: 'p2', status: 'l', tag: 'Player2#0002', initialWins: 1, initialLosses: 1,
-        initialRating: { mu: 20, sigma: 5 }, initialElo: -29,
-        newRating: { mu: 18, sigma: 4.8 }, newWins: 1, newLosses: 2,
+        userId: 'p2',
+        status: 'l',
+        tag: 'Player2#0002',
+        initialWins: 1,
+        initialLosses: 1,
+        initialRating: { mu: 20, sigma: 5 },
+        initialElo: -29,
+        newRating: { mu: 18, sigma: 4.8 },
+        newWins: 1,
+        newLosses: 2,
     };
 
     beforeEach(async () => {
@@ -117,19 +144,24 @@ describe('RankConfirmationReaction', () => {
         RankCommand.pendingRankUpdates.clear();
 
         const { PlayerRating: MockedPlayerRatingDB } = await import('../../../src/db.js');
-        mockPlayerRatingUpsertFn = MockedPlayerRatingDB.upsert as MockedFunction<typeof PlayerRating.upsert>;
-        
+        mockPlayerRatingUpsertFn = MockedPlayerRatingDB.upsert as MockedFunction<
+            typeof PlayerRating.upsert
+        >;
+
         const { Lang: MockedLang } = await import('../../../src/services/lang.js');
         langGetRefMock = MockedLang.getRef as MockedFunction<any>;
         langGetEmbedMock = MockedLang.getEmbed as MockedFunction<any>;
 
-        const { InteractionUtils: MockedInteractionUtils } = await import('../../../src/utils/interaction-utils.js');
+        const { InteractionUtils: MockedInteractionUtils } = await import(
+            '../../../src/utils/interaction-utils.js'
+        );
         interactionUtilsEditReplyMock = MockedInteractionUtils.editReply as MockedFunction<any>;
 
-        const { MessageUtils: MockedMessageUtils } = await import('../../../src/utils/message-utils.js');
+        const { MessageUtils: MockedMessageUtils } = await import(
+            '../../../src/utils/message-utils.js'
+        );
         messageUtilsClearReactionsMock = MockedMessageUtils.clearReactions as MockedFunction<any>;
         messageUtilsEditMock = MockedMessageUtils.edit as MockedFunction<any>;
-
 
         currentMockEmbed = new EmbedBuilder();
         langGetEmbedMock.mockReturnValue(currentMockEmbed);
@@ -138,13 +170,16 @@ describe('RankConfirmationReaction', () => {
             if (key === 'terms.winner') return 'Winner';
             if (key === 'terms.loser') return 'Loser';
             if (key === 'displayEmbeds.rankProvisional.descriptionUpdate') {
-                 return `React with ${vars.UPVOTE_EMOJI}. ${vars.UPVOTES_REQUIRED} needed. Current: ${vars.CURRENT_UPVOTES} / ${vars.UPVOTES_REQUIRED}`;
+                return `React with ${vars.UPVOTE_EMOJI}. ${vars.UPVOTES_REQUIRED} needed. Current: ${vars.CURRENT_UPVOTES} / ${vars.UPVOTES_REQUIRED}`;
             }
             return key;
         });
 
-
-        mockReactor = new User(null as any, { id: MOCK_REACTOR_ID_1, bot: false, tag: 'Reactor#0001' });
+        mockReactor = new User(null as any, {
+            id: MOCK_REACTOR_ID_1,
+            bot: false,
+            tag: 'Reactor#0001',
+        });
         mockEventData = new EventData(Locale.EnglishUS, Locale.EnglishUS);
 
         mockMsg = {
@@ -154,9 +189,9 @@ describe('RankConfirmationReaction', () => {
             embeds: [currentMockEmbed.toJSON() as any], // Simulate an existing embed
             reactions: {
                 removeAll: messageUtilsClearReactionsMock,
-            }
+            },
         } as unknown as Message;
-        
+
         mockMsgReaction = {
             emoji: { name: GameConstants.RANK_UPVOTE_EMOJI },
             message: mockMsg,
@@ -231,20 +266,29 @@ describe('RankConfirmationReaction', () => {
         // Check DB upserts
         expect(mockPlayerRatingUpsertFn).toHaveBeenCalledTimes(2);
         expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith({
-            userId: mockPlayer1.userId, guildId: MOCK_GUILD_ID,
-            mu: mockPlayer1.newRating.mu, sigma: mockPlayer1.newRating.sigma,
-            wins: mockPlayer1.newWins, losses: mockPlayer1.newLosses,
+            userId: mockPlayer1.userId,
+            guildId: MOCK_GUILD_ID,
+            mu: mockPlayer1.newRating.mu,
+            sigma: mockPlayer1.newRating.sigma,
+            wins: mockPlayer1.newWins,
+            losses: mockPlayer1.newLosses,
         });
         expect(mockPlayerRatingUpsertFn).toHaveBeenCalledWith({
-            userId: mockPlayer2.userId, guildId: MOCK_GUILD_ID,
-            mu: mockPlayer2.newRating.mu, sigma: mockPlayer2.newRating.sigma,
-            wins: mockPlayer2.newWins, losses: mockPlayer2.newLosses,
+            userId: mockPlayer2.userId,
+            guildId: MOCK_GUILD_ID,
+            mu: mockPlayer2.newRating.mu,
+            sigma: mockPlayer2.newRating.sigma,
+            wins: mockPlayer2.newWins,
+            losses: mockPlayer2.newLosses,
         });
 
         // Check message edit for confirmation
         expect(interactionUtilsEditReplyMock).toHaveBeenCalledTimes(1);
         const confirmedEmbed = interactionUtilsEditReplyMock.mock.calls[0][1] as EmbedBuilder;
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.rankConfirmed', mockPendingUpdate.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.rankConfirmed',
+            mockPendingUpdate.lang
+        );
         expect(confirmedEmbed.setTitle).toHaveBeenCalledWith('Confirmed Ratings');
         expect(confirmedEmbed.addFields).toHaveBeenCalledTimes(2); // For player1 and player2
 
@@ -264,13 +308,16 @@ describe('RankConfirmationReaction', () => {
 
         expect(interactionUtilsEditReplyMock).toHaveBeenCalledTimes(1);
         const errorEmbed = interactionUtilsEditReplyMock.mock.calls[0][1] as EmbedBuilder;
-        expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.rankUpdateFailed', mockPendingUpdate.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'errorEmbeds.rankUpdateFailed',
+            mockPendingUpdate.lang
+        );
         expect(RankCommand.pendingRankUpdates.has(MOCK_MESSAGE_ID)).toBe(false); // Cleaned up even on error
     });
-    
+
     it('should correctly try to edit the message directly if editing interaction reply fails when updating count', async () => {
         // Simulate InteractionUtils.editReply failing
-        interactionUtilsEditReplyMock.mockRejectedValueOnce(new Error("Interaction edit failed"));
+        interactionUtilsEditReplyMock.mockRejectedValueOnce(new Error('Interaction edit failed'));
         messageUtilsEditMock.mockResolvedValueOnce({} as Message); // Simulate direct message edit succeeding
 
         await reactionHandler.execute(mockMsgReaction, mockMsg, mockReactor, mockEventData);
@@ -278,9 +325,10 @@ describe('RankConfirmationReaction', () => {
         expect(mockPendingUpdate.upvoters.size).toBe(1);
         expect(interactionUtilsEditReplyMock).toHaveBeenCalledTimes(1); // Attempted
         expect(messageUtilsEditMock).toHaveBeenCalledTimes(1); // Fallback attempted and succeeded
-        
-        const updatedEmbedForMessage = messageUtilsEditMock.mock.calls[0][1].embeds[0] as EmbedBuilder;
-         expect(updatedEmbedForMessage.setDescription).toHaveBeenCalledWith(
+
+        const updatedEmbedForMessage = messageUtilsEditMock.mock.calls[0][1]
+            .embeds[0] as EmbedBuilder;
+        expect(updatedEmbedForMessage.setDescription).toHaveBeenCalledWith(
             `React with ${GameConstants.RANK_UPVOTE_EMOJI}. ${GameConstants.RANK_UPVOTES_REQUIRED} needed. Current: 1 / ${GameConstants.RANK_UPVOTES_REQUIRED}`
         );
     });
