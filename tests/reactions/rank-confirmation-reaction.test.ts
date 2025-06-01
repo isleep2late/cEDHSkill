@@ -111,17 +111,13 @@ vi.mock('discord.js', async () => {
     };
 });
 
-import {
-    RankCommand,
-    PendingRankUpdate,
-    ParsedPlayer,
-} from '../../src/commands/chat/rank-command.ts';
-import { GameConstants } from '../../src/constants/index.ts';
-import { PlayerRating } from '../../src/db.ts';
-import { EventData } from '../../src/models/internal-models.ts';
-import { RankConfirmationReaction } from '../../src/reactions/rank-confirmation-reaction.ts';
-import { Lang } from '../../src/services/lang.ts';
-import { InteractionUtils, MessageUtils, RatingUtils } from '../../src/utils/index.ts';
+import { RankCommand, PendingRankUpdate, ParsedPlayer } from '../../src/commands/chat/rank-command';
+import { GameConstants } from '../../src/constants/index';
+import { PlayerRating } from '../../src/db';
+import { EventData } from '../../src/models/internal-models';
+import { RankConfirmationReaction } from '../../src/reactions/rank-confirmation-reaction';
+import { Lang } from '../../src/services/lang';
+import { InteractionUtils, MessageUtils, RatingUtils } from '../../src/utils/index';
 
 // --- Test Suite ---
 describe('RankConfirmationReaction', () => {
@@ -160,16 +156,24 @@ describe('RankConfirmationReaction', () => {
 
         // --- Dynamic Imports for Mocking ---
         const DiscordJS = vi.mocked(await import('discord.js'));
-        const { RankCommand: MockedRankCommandModule } = await import('../../src/commands/chat/rank-command.ts');
-        const { Lang: MockLangModule } = await import('../../src/services/lang.ts');
-        const { InteractionUtils: MockInteractionUtilsModule } = await import('../../src/utils/interaction-utils.ts');
-        const { MessageUtils: MockMessageUtilsModule } = await import('../../src/utils/message-utils.ts');
-        const { PlayerRating: MockPlayerRatingModule } = await import('../../src/db.ts');
-        const { RatingUtils: MockRatingUtilsModule } = await import('../../src/utils/rating-utils.ts');
+        const { RankCommand: MockedRankCommandModule } = await import(
+            '../../src/commands/chat/rank-command'
+        );
+        const { Lang: MockLangModule } = await import('../../src/services/lang');
+        const { InteractionUtils: MockInteractionUtilsModule } = await import(
+            '../../src/utils/interaction-utils'
+        );
+        const { MessageUtils: MockMessageUtilsModule } = await import(
+            '../../src/utils/message-utils'
+        );
+        const { PlayerRating: MockPlayerRatingModule } = await import('../../src/db');
+        const { RatingUtils: MockRatingUtilsModule } = await import('../../src/utils/rating-utils');
 
         // --- Assign Mocks from Imported Modules ---
         // Note: `as any` is used because RankCommand.pendingRankUpdates is static and readonly
-        (RankCommand.pendingRankUpdates as any) = (MockedRankCommandModule as any).pendingRankUpdates; 
+        (RankCommand.pendingRankUpdates as any) = (
+            MockedRankCommandModule as any
+        ).pendingRankUpdates;
         RankCommand.pendingRankUpdates.clear(); // Ensure it's cleared again if the above re-assigns it.
 
         langGetRefMock = vi.mocked(MockLangModule.getRef);
@@ -206,7 +210,6 @@ describe('RankConfirmationReaction', () => {
         interactionUtilsSendMock.mockResolvedValue({} as Message); // Default success
         messageUtilsClearReactionsMock.mockResolvedValue(undefined); // Default success
         messageUtilsEditMock.mockResolvedValue({} as Message); // Default success
-
 
         // --- Initialize Parsed Players (dependent on ratingUtilsCalculateEloMock) ---
         parsedPlayer1 = {
@@ -393,11 +396,15 @@ describe('RankConfirmationReaction', () => {
         // Mock the first call to editReply (for confirmedEmbed) to fail
         interactionUtilsEditReplyMock.mockRejectedValueOnce(new Error('Original edit failed'));
         // Mock the second call to editReply (for errorEmbed) to also fail, triggering the send fallback
-        interactionUtilsEditReplyMock.mockRejectedValueOnce(new Error('Error embed edit also failed'));
+        interactionUtilsEditReplyMock.mockRejectedValueOnce(
+            new Error('Error embed edit also failed')
+        );
 
         await reactionInstance.execute(mockMsgReaction, mockMsg, mockReactor, mockEventData);
 
-        expect(playerRatingUpsertMock).toHaveBeenCalledTimes(mockPendingUpdate.playersToUpdate.length); // Ensure upsert still happens
+        expect(playerRatingUpsertMock).toHaveBeenCalledTimes(
+            mockPendingUpdate.playersToUpdate.length
+        ); // Ensure upsert still happens
 
         // Check that Lang.getEmbed was called for the error message
         expect(langGetEmbedMock).toHaveBeenCalledWith(
@@ -413,7 +420,7 @@ describe('RankConfirmationReaction', () => {
             1,
             mockPendingUpdate.interaction,
             expect.objectContaining({
-                 data: expect.objectContaining({ title: 'Confirmed Ratings' }) 
+                data: expect.objectContaining({ title: 'Confirmed Ratings' }),
             })
         );
         // The second call to editReply (should be for the error embed)
