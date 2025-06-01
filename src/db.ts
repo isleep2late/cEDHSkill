@@ -1,5 +1,5 @@
-import { Sequelize } from 'sequelize';
 import { createRequire } from 'node:module';
+import { Sequelize } from 'sequelize';
 
 import { definePlayerRatingModel } from './models/db/player-rating.js';
 import { Logger } from './services/index.js';

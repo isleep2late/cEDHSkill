@@ -1,11 +1,12 @@
 import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString } from 'discord.js';
-import { Command, CommandDeferType } from '../index.js';
+
+import { DiscordLimits } from '../../constants/index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
+import { Language } from '../../models/enum-helpers/index.js';
+import { EventData } from '../../models/internal-models.js';
 import { Lang } from '../../services/index.js';
 import { InteractionUtils, RatingUtils } from '../../utils/index.js';
-import { EventData } from '../../models/internal-models.js';
-import { Language } from '../../models/enum-helpers/index.js';
-import { DiscordLimits } from '../../constants/index.js';
+import { Command, CommandDeferType } from '../index.js';
 
 export class ListCommand implements Command {
     public names = [Lang.getRef('chatCommands.list', Language.Default)];

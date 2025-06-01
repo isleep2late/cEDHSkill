@@ -1,12 +1,13 @@
 import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message } from 'discord.js';
-import { Command, CommandDeferType } from '../index.js';
-import { PlayerRating } from '../../db.js';
-import { Lang } from '../../services/index.js';
-import { InteractionUtils, RatingUtils, MessageUtils } from '../../utils/index.js';
-import { EventData } from '../../models/internal-models.js';
-import { Language } from '../../models/enum-helpers/index.js';
+
 import { RankCommand, PendingRankUpdate, ParsedPlayer } from './rank-command.js'; // To access static properties
 import { GameConstants } from '../../constants/index.js';
+import { PlayerRating } from '../../db.js';
+import { Language } from '../../models/enum-helpers/index.js';
+import { EventData } from '../../models/internal-models.js';
+import { Lang } from '../../services/index.js';
+import { InteractionUtils, RatingUtils, MessageUtils } from '../../utils/index.js';
+import { Command, CommandDeferType } from '../index.js';
 
 export class UndoCommand implements Command {
     public names = [Lang.getRef('chatCommands.undo', Language.Default)];
@@ -119,7 +120,7 @@ export class UndoCommand implements Command {
                         disabledEmbed.setColor(0x808080); 
 
                         await InteractionUtils.editReply(pendingCtx.interaction, disabledEmbed);
-                        await MessageUtils.clearReactions(originalMessage as Message); // Clear reactions
+                        await MessageUtils.clearReactions(originalMessage); // Clear reactions
 
                         await InteractionUtils.send(intr, Lang.getEmbed('displayEmbeds.undoPendingSuccess', data.lang));
                         RankCommand.latestPendingRankContext = null; // Clear after successful disable

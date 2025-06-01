@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import {
     ChannelType,
     GuildChannel,
@@ -8,6 +7,7 @@ import {
     ThreadChannel,
     User,
 } from 'discord.js';
+import { vi } from 'vitest';
 
 /**
  * Creates a mock Discord.js User that correctly passes instanceof checks

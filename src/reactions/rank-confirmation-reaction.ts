@@ -1,11 +1,11 @@
 import { Message, MessageReaction, User, EmbedBuilder } from 'discord.js';
 
 import { Reaction } from './reaction.js';
-import { EventData } from '../models/internal-models.js';
 import { RankCommand, PendingRankUpdate, ParsedPlayer } from '../commands/chat/rank-command.js';
 import { GameConstants } from '../constants/index.js';
-import { Lang } from '../services/index.js';
 import { PlayerRating } from '../db.js';
+import { EventData } from '../models/internal-models.js';
+import { Lang } from '../services/index.js';
 import { InteractionUtils, MessageUtils, RatingUtils } from '../utils/index.js';
 
 export class RankConfirmationReaction implements Reaction {

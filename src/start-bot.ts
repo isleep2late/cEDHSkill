@@ -19,9 +19,9 @@ import {
     MessageCommandMetadata,
     UserCommandMetadata,
 } from './commands/index.js';
-import { initializeDatabase } from './db.js';
 import { ViewDateSent } from './commands/message/index.js';
 import { ViewDateJoined } from './commands/user/index.js';
+import { initializeDatabase } from './db.js';
 import {
     ButtonHandler,
     CommandHandler,

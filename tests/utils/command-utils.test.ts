@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CommandUtils } from '../../src/utils/command-utils.js';
+
 import { Command } from '../../src/commands/index.js';
+import { CommandUtils } from '../../src/utils/command-utils.js';
 import {
     createMockCommand,
     createMockCommandInteraction,

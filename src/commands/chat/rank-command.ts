@@ -1,12 +1,13 @@
 import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message, Locale } from 'discord.js';
 import { rating, rate, Rating as OpenSkillRating } from 'openskill';
-import { Command, CommandDeferType } from '../index.js';
+
+import { GameConstants } from '../../constants/index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
+import { Language } from '../../models/enum-helpers/index.js';
+import { EventData } from '../../models/internal-models.js';
 import { Lang } from '../../services/index.js';
 import { InteractionUtils, RatingUtils, MessageUtils } from '../../utils/index.js';
-import { EventData } from '../../models/internal-models.js';
-import { Language } from '../../models/enum-helpers/index.js';
-import { GameConstants } from '../../constants/index.js';
+import { Command, CommandDeferType } from '../index.js';
 
 export interface ParsedPlayer { // Exporting for use in Reaction Handler
     userId: string;
@@ -218,7 +219,7 @@ export class RankCommand implements Command {
                 };
 
             } catch (error) {
-                console.error("Failed to add initial reaction or set pending update:", error);
+                console.error('Failed to add initial reaction or set pending update:', error);
                 // Optionally, inform the user that the confirmation setup failed
                 await InteractionUtils.send(intr, Lang.getEmbed('errorEmbeds.rankSetupFailed', data.lang), true);
                 // Clean up if necessary

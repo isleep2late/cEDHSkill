@@ -1,5 +1,4 @@
 /// <reference types="vitest/globals" />
-import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 import {
     MessageReaction,
     Message,
@@ -9,6 +8,7 @@ import {
     ChatInputCommandInteraction,
 } from 'discord.js';
 import { Rating as OpenSkillRating } from 'openskill';
+import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
 // --- Mocking Section ---
 
@@ -111,17 +111,17 @@ vi.mock('discord.js', async () => {
     };
 });
 
-import { RankConfirmationReaction } from '../../src/reactions/rank-confirmation-reaction.ts';
 import {
     RankCommand,
     PendingRankUpdate,
     ParsedPlayer,
 } from '../../src/commands/chat/rank-command.ts';
 import { GameConstants } from '../../src/constants/index.ts';
-import { Lang } from '../../src/services/lang.ts';
 import { PlayerRating } from '../../src/db.ts';
-import { InteractionUtils, MessageUtils, RatingUtils } from '../../src/utils/index.ts';
 import { EventData } from '../../src/models/internal-models.ts';
+import { RankConfirmationReaction } from '../../src/reactions/rank-confirmation-reaction.ts';
+import { Lang } from '../../src/services/lang.ts';
+import { InteractionUtils, MessageUtils, RatingUtils } from '../../src/utils/index.ts';
 
 // --- Test Suite ---
 describe('RankConfirmationReaction', () => {

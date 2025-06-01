@@ -6,15 +6,15 @@ vi.mock('../../../src/utils/rating-utils.js', () => ({
         calculateOrdinal: vi.fn((mu, sigma) => mu - 3 * sigma), // Basic mock
     },
 }));
-import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
+import type { PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Collection } from 'discord.js';
+import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
 import { ListCommand } from '../../../src/commands/chat/list-command.js';
-import type { PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
-import { PlayerRating } from '../../../src/db.js';
-import { RatingUtils } from '../../../src/utils/rating-utils.js';
-import { EventData } from '../../../src/models/internal-models.js';
 import { DiscordLimits } from '../../../src/constants/index.js';
+import { PlayerRating } from '../../../src/db.js';
+import { EventData } from '../../../src/models/internal-models.js';
+import { RatingUtils } from '../../../src/utils/rating-utils.js';
 
 // --- Mocking Section ---
 

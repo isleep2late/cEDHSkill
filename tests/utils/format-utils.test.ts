@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
 import { ApplicationCommand, Guild, Locale } from 'discord.js';
+import { describe, it, expect, vi } from 'vitest';
+
 import { FormatUtils } from '../../src/utils/index.js';
 
 // Mock any configs that might be loaded

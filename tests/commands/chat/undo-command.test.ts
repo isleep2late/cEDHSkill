@@ -1,5 +1,4 @@
 /// <reference types="vitest/globals" />
-import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 import {
     ChatInputCommandInteraction,
     EmbedBuilder,
@@ -10,8 +9,8 @@ import {
     TextBasedChannel,
     GuildTextBasedChannel,
 } from 'discord.js';
+import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
-import { UndoCommand } from '../../../src/commands/chat/undo-command.js';
 import {
     RankCommand,
     PendingRankUpdate,
@@ -19,10 +18,11 @@ import {
     LatestPendingRankContext,
     LatestConfirmedRankOpDetails,
 } from '../../../src/commands/chat/rank-command.js';
+import { UndoCommand } from '../../../src/commands/chat/undo-command.js';
+import { GameConstants } from '../../../src/constants/index.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
 import { RatingUtils } from '../../../src/utils/rating-utils.js';
-import { GameConstants } from '../../../src/constants/index.js';
 
 // --- Mocking Section ---
 
@@ -174,7 +174,7 @@ describe('UndoCommand', () => {
         messageUtilsClearReactionsMock = MessageUtils.clearReactions as MockedFunction<any>;
 
         // Ensure Lang.getEmbed returns a new mock EmbedBuilder instance each time
-        langGetEmbedMock.mockImplementation(() => new EmbedBuilder() as EmbedBuilder);
+        langGetEmbedMock.mockImplementation(() => new EmbedBuilder());
 
         mockEventData = new EventData(Locale.EnglishUS, Locale.EnglishUS);
         mockIntr = {
@@ -235,7 +235,7 @@ describe('UndoCommand', () => {
         const intrNoGuild = { ...mockIntr, guild: null } as ChatInputCommandInteraction;
         let capturedErrorEmbed: EmbedBuilder | undefined;
         langGetEmbedMock.mockImplementationOnce(() => {
-            const embed = new EmbedBuilder() as EmbedBuilder;
+            const embed = new EmbedBuilder();
             capturedErrorEmbed = embed;
             return embed;
         });
@@ -258,7 +258,7 @@ describe('UndoCommand', () => {
 
         // Mock for the main undo confirmation embed
         langGetEmbedMock.mockImplementationOnce(() => {
-            const embed = new EmbedBuilder() as EmbedBuilder;
+            const embed = new EmbedBuilder();
             capturedUndoEmbed = embed;
             return embed;
         });
@@ -402,7 +402,7 @@ describe('UndoCommand', () => {
         );
         // If capturedSuccessEmbed was set up to be returned by langGetEmbedMock for this key:
         // expect(successSendCall[1]).toBe(capturedSuccessEmbed);
-        expect(successSendCall![1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
+        expect(successSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
 
         expect(RankCommand.latestPendingRankContext).toBeNull();
     });
@@ -432,10 +432,10 @@ describe('UndoCommand', () => {
             call => call[0] === mockIntr
         );
         expect(alreadyDisabledSendCallArgs).toBeDefined();
-        expect(alreadyDisabledSendCallArgs![1]).toEqual(
+        expect(alreadyDisabledSendCallArgs[1]).toEqual(
             expect.objectContaining({ data: expect.any(Object) })
         );
-        expect(alreadyDisabledSendCallArgs![2]).toBe(true);
+        expect(alreadyDisabledSendCallArgs[2]).toBe(true);
     });
 
     it('should inform if there is nothing to undo', async () => {
@@ -449,10 +449,10 @@ describe('UndoCommand', () => {
             call => call[0] === mockIntr
         );
         expect(nothingSendCallArgs).toBeDefined();
-        expect(nothingSendCallArgs![1]).toEqual(
+        expect(nothingSendCallArgs[1]).toEqual(
             expect.objectContaining({ data: expect.any(Object) })
         );
-        expect(nothingSendCallArgs![2]).toBe(true);
+        expect(nothingSendCallArgs[2]).toBe(true);
     });
 
     it('should handle failure to revert confirmed rank gracefully', async () => {
@@ -473,10 +473,10 @@ describe('UndoCommand', () => {
             call => call[0] === mockIntr
         );
         expect(errorSendCallArgs).toBeDefined();
-        expect(errorSendCallArgs![1]).toEqual(
+        expect(errorSendCallArgs[1]).toEqual(
             expect.objectContaining({ data: expect.any(Object) })
         );
-        expect(errorSendCallArgs![2]).toBe(true);
+        expect(errorSendCallArgs[2]).toBe(true);
 
         // latestConfirmedRankOpDetails should still be set to allow retry or manual check
         expect(RankCommand.latestConfirmedRankOpDetails).not.toBeNull();
@@ -514,8 +514,8 @@ describe('UndoCommand', () => {
             call => call[0] === mockIntr
         );
         expect(errorSendCall).toBeDefined();
-        expect(errorSendCall![1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-        expect(errorSendCall![2]).toBe(true);
+        expect(errorSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
+        expect(errorSendCall[2]).toBe(true);
 
         // latestPendingRankContext should still be set to allow retry or manual check
         expect(RankCommand.latestPendingRankContext).not.toBeNull();
