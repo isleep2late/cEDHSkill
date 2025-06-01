@@ -9,6 +9,8 @@ import {
     User,
     Message,
     GuildTextBasedChannel,
+    PermissionFlagsBits,
+    PermissionsBitField,
 } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
@@ -18,6 +20,7 @@ import {
     ParsedPlayer,
 } from '../../../src/commands/chat/rank-command.js';
 import { UndoCommand } from '../../../src/commands/chat/undo-command.js';
+import { ChatCommandMetadata } from '../../../src/commands/metadata.js';
 import { GameConstants } from '../../../src/constants/index.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
@@ -227,6 +230,14 @@ describe('UndoCommand', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+    });
+
+    describe('metadata', () => {
+        it('should have moderator-only default permissions', () => {
+            expect(ChatCommandMetadata.UNDO.default_member_permissions).toBe(
+                PermissionsBitField.resolve([PermissionFlagsBits.ModerateMembers]).toString()
+            );
+        });
     });
 
     it('should send "guild only" error if command is used outside a guild', async () => {
