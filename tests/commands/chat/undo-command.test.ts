@@ -1,12 +1,13 @@
 /// <reference types="vitest/globals" />
 import {
+    APIEmbedField,
     ChatInputCommandInteraction,
+    ColorResolvable,
     EmbedBuilder,
     Locale,
     CacheType,
     User,
     Message,
-
     GuildTextBasedChannel,
 } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
@@ -15,14 +16,11 @@ import {
     RankCommand,
     PendingRankUpdate,
     ParsedPlayer,
-
-
 } from '../../../src/commands/chat/rank-command.js';
 import { UndoCommand } from '../../../src/commands/chat/undo-command.js';
 import { GameConstants } from '../../../src/constants/index.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
-import { RatingUtils } from '../../../src/utils/rating-utils.js';
 
 // --- Mocking Section ---
 
@@ -73,15 +71,15 @@ vi.mock('discord.js', async () => {
         if (!_data.fields) _data.fields = [];
 
         const builderInstance = {
-            setTitle: vi.fn(function (title) {
+            setTitle: vi.fn(function (title: string) {
                 _data.title = title;
                 return this;
             }),
-            setDescription: vi.fn(function (description) {
+            setDescription: vi.fn(function (description: string) {
                 _data.description = description;
                 return this;
             }),
-            addFields: vi.fn(function (...fields) {
+            addFields: vi.fn(function (...fields: APIEmbedField[]) {
                 const newFields = fields
                     .flat()
                     .map(f => ({ name: f.name, value: f.value, inline: !!f.inline }));
@@ -89,7 +87,7 @@ vi.mock('discord.js', async () => {
                 _data.fields.push(...newFields);
                 return this;
             }),
-            setColor: vi.fn(function (color) {
+            setColor: vi.fn(function (color: ColorResolvable) {
                 _data.color = color;
                 return this;
             }), // Store color
@@ -472,9 +470,7 @@ describe('UndoCommand', () => {
             call => call[0] === mockIntr
         );
         expect(errorSendCallArgs).toBeDefined();
-        expect(errorSendCallArgs[1]).toEqual(
-            expect.objectContaining({ data: expect.any(Object) })
-        );
+        expect(errorSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(errorSendCallArgs[2]).toBe(true);
 
         // latestConfirmedRankOpDetails should still be set to allow retry or manual check
