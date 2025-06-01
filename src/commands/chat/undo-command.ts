@@ -31,7 +31,7 @@ export class UndoCommand implements Command {
 
             const undoEmbed = Lang.getEmbed('displayEmbeds.undoConfirmedTitle', data.lang);
             undoEmbed.setTitle(Lang.getRef('fields.undoConfirmedTitle', data.lang));
-            undoEmbed.setDescription(Lang.getRef('displayEmbeds.undoConfirmedDescription', data.lang));
+            undoEmbed.setDescription(Lang.getRef('undoMessages.confirmedDescriptionText', data.lang));
 
             try {
                 for (const player of playersToRevert) {
@@ -48,7 +48,7 @@ export class UndoCommand implements Command {
                     // initialElo is what we are reverting to
                     undoEmbed.addFields({
                         name: `${player.tag}`,
-                        value: Lang.getRef('displayEmbeds.undoPlayerChange', data.lang, {
+                        value: Lang.getRef('undoMessages.playerChangeFormat', data.lang, {
                             OLD_ELO: currentElo.toString(),
                             NEW_ELO: player.initialElo.toString(),
                             OLD_MU: player.newRating.mu.toFixed(2),

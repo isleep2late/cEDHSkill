@@ -191,12 +191,6 @@
             "undoConfirmedTitle": {
                 "title": "{{REF:fields.undoConfirmedTitle}}"
             },
-            "undoConfirmedDescription": {
-                "description": "The last confirmed rank operation has been undone. Player ratings and stats have been reverted."
-            },
-            "undoPlayerChange": {
-                "value": "Old: Elo={{OLD_ELO}}, μ={{OLD_MU}}, σ={{OLD_SIGMA}}, W/L: {{OLD_WINS}}/{{OLD_LOSSES}}\nNew (Reverted): Elo={{NEW_ELO}}, μ={{NEW_MU}}, σ={{NEW_SIGMA}}, W/L: {{NEW_WINS}}/{{NEW_LOSSES}}"
-            },
             "rankUndoneDescription": {
                 "description": "This rank operation was undone by the /undo command."
             },
@@ -320,7 +314,9 @@
             "translators": "[TranslatorName#1234](https://github.com/)"
         },
         "undoMessages": {
-            "rankDisabledDescriptionText": "This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with {{UPVOTE_EMOJI}} will have no effect."
+            "rankDisabledDescriptionText": "This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with {{UPVOTE_EMOJI}} will have no effect.",
+            "confirmedDescriptionText": "The last confirmed rank operation has been undone. Player ratings and stats have been reverted.",
+            "playerChangeFormat": "Old: Elo={{OLD_ELO}}, μ={{OLD_MU}}, σ={{OLD_SIGMA}}, W/L: {{OLD_WINS}}/{{OLD_LOSSES}}\\nNew (Reverted): Elo={{NEW_ELO}}, μ={{NEW_MU}}, σ={{NEW_SIGMA}}, W/L: {{NEW_WINS}}/{{NEW_LOSSES}}"
         },
         "rankMessages": {
             "initialProvisionalDesc": "The following rating changes are proposed. React with {{UPVOTE_EMOJI}} to confirm. {{UPVOTES_REQUIRED}} unique reactions are needed.\\\\nCurrent upvotes: {{CURRENT_UPVOTES}}",
