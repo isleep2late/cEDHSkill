@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString } from 'discord.js';
+import { ChatInputCommandInteraction, PermissionsString } from 'discord.js';
 
 import { DiscordLimits } from '../../constants/index.js';
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
@@ -62,7 +62,7 @@ export class ListCommand implements Command {
             try {
                 const user = await intr.client.users.fetch(player.userId);
                 userTag = user.tag;
-            } catch (error) {
+            } catch {
                 // User might not be fetchable, keep userTag as ID
             }
 

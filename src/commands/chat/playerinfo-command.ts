@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString, User } from 'discord.js';
+import { ChatInputCommandInteraction, EmbedBuilder, PermissionsString } from 'discord.js';
 
 import { PlayerRating } from '../../db.js'; // Import the Sequelize model instance
 import { Language } from '../../models/enum-helpers/index.js';
