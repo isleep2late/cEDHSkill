@@ -41,7 +41,7 @@ export class GuildJoinHandler implements EventHandler {
                     ),
                 }).setAuthor({
                     name: guild.name,
-                    iconURL: guild.iconURL(),
+                    iconURL: guild.iconURL() ?? undefined,
                 })
             );
         }
@@ -59,7 +59,7 @@ export class GuildJoinHandler implements EventHandler {
                     ),
                 }).setAuthor({
                     name: guild.name,
-                    iconURL: guild.iconURL(),
+                    iconURL: guild.iconURL() ?? undefined,
                 })
             );
         }

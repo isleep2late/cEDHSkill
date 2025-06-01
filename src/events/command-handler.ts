@@ -37,14 +37,17 @@ export class CommandHandler implements EventHandler {
             return;
         }
 
-        let commandParts =
-            intr instanceof ChatInputCommandInteraction || intr instanceof AutocompleteInteraction
-                ? [
-                      intr.commandName,
-                      intr.options.getSubcommandGroup(false),
-                      intr.options.getSubcommand(false),
-                  ].filter(Boolean)
-                : [intr.commandName];
+        let tempCommandParts: (string | null)[];
+        if (intr instanceof ChatInputCommandInteraction || intr instanceof AutocompleteInteraction) {
+            tempCommandParts = [
+                intr.commandName,
+                intr.options.getSubcommandGroup(false),
+                intr.options.getSubcommand(false),
+            ];
+        } else {
+            tempCommandParts = [intr.commandName];
+        }
+        let commandParts = tempCommandParts.filter(Boolean) as string[];
         let commandName = commandParts.join(' ');
 
         // Try to find the command the user wants
@@ -127,11 +130,19 @@ export class CommandHandler implements EventHandler {
         }
 
         // Get data from database
+
+        // After the AutocompleteInteraction check, intr is narrowed to CommandInteraction.
+        // Assign intr.options to a const to ensure TypeScript uses the narrowed type.
+        // intr.options is of type CommandInteraction['options'], which is
+        // Omit<CommandInteractionOptionResolver<CacheType>, 'getMessage' | 'getFocused'>.
+        // This is compatible with the first part of the EventData['args'] union type.
+        const commandOptionsResolver = intr.options;
+
         let data = await this.eventDataService.create({
             user: intr.user,
-            channel: intr.channel,
-            guild: intr.guild,
-            args: intr instanceof ChatInputCommandInteraction ? intr.options : undefined,
+            channel: intr.channel ?? undefined,
+            guild: intr.guild ?? undefined,
+            args: commandOptionsResolver as any,
         });
 
         try {

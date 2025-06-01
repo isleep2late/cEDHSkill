@@ -1,6 +1,6 @@
 import {
     Channel,
-    CommandInteractionOptionResolver,
+    CommandInteraction,
     Guild,
     PartialDMChannel,
     User,
@@ -15,7 +15,7 @@ export class EventDataService {
             user?: User;
             channel?: Channel | PartialDMChannel;
             guild?: Guild;
-            args?: Omit<CommandInteractionOptionResolver, 'getMessage' | 'getFocused'>;
+            args?: CommandInteraction['options'];
         } = {}
     ): Promise<EventData> {
         // TODO: Retrieve any data you want to pass along in events
@@ -34,6 +34,6 @@ export class EventDataService {
                 ? options.guild.preferredLocale
                 : Language.Default;
 
-        return new EventData(lang, langGuild);
+        return new EventData(lang, langGuild, options.args);
     }
 }

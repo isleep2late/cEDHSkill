@@ -6,11 +6,14 @@ export class CustomClient extends Client {
     }
 
     public setPresence(
-        type: Exclude<ActivityType, ActivityType.Custom>,
+        type: ActivityType,
         name: string,
-        url: string
+        url?: string
     ): Presence {
-        return this.user?.setPresence({
+        if (!this.user) {
+            throw new Error('Client user is not available to set presence.');
+        }
+        return this.user.setPresence({
             activities: [
                 {
                     type,

@@ -54,7 +54,7 @@ export class Bot {
 
     private registerListeners(): void {
         this.client.on(Events.ClientReady, () => this.onReady());
-        this.client.on(Events.ShardReady, (shardId: number, unavailableGuilds: Set<string>) =>
+        this.client.on(Events.ShardReady, (shardId: number, unavailableGuilds: Set<string> | undefined) =>
             this.onShardReady(shardId, unavailableGuilds)
         );
         this.client.on(Events.GuildCreate, (guild: Guild) => this.onGuildJoin(guild));
@@ -92,7 +92,7 @@ export class Bot {
         Logger.info(Logs.info.clientReady);
     }
 
-    private onShardReady(shardId: number, _unavailableGuilds: Set<string>): void {
+    private onShardReady(shardId: number, _unavailableGuilds: Set<string> | undefined): void {
         Logger.setShardId(shardId);
     }
 

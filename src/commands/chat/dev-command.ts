@@ -38,7 +38,7 @@ export class DevCommand implements Command {
                     try {
                         serverCount = await ShardUtils.serverCount(intr.client.shard);
                     } catch (error) {
-                        if (error.name.includes('ShardingInProcess')) {
+                        if ((error as Error).name.includes('ShardingInProcess')) {
                             await InteractionUtils.send(
                                 intr,
                                 Lang.getEmbed('errorEmbeds.startupInProcess', data.lang)

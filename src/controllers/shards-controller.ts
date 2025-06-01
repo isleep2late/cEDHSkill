@@ -73,7 +73,7 @@ export class ShardsController implements Controller {
                 let customClient = client as CustomClient;
                 return customClient.setPresence(context.type, context.name, context.url);
             },
-            { context: { type: ActivityType[reqBody.type], name: reqBody.name, url: reqBody.url } }
+            { context: { type: ActivityType[reqBody.type as keyof typeof ActivityType], name: reqBody.name, url: reqBody.url } }
         );
 
         res.sendStatus(200);
