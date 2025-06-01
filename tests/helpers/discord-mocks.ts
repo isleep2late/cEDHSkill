@@ -1,5 +1,6 @@
 import {
     ChannelType,
+    CommandInteraction,
     GuildChannel,
     GuildMember,
     PermissionFlagsBits,
@@ -12,7 +13,7 @@ import { vi } from 'vitest';
 /**
  * Creates a mock Discord.js User that correctly passes instanceof checks
  */
-export function createMockUser(overrides = {}) {
+export function createMockUser(overrides: Partial<User> = {}): User {
     // Create base object with properties we need
     const baseUser = {
         id: '123456789012345678',
@@ -49,7 +50,9 @@ export function createMockUser(overrides = {}) {
 /**
  * Creates a mock Discord.js CommandInteraction
  */
-export function createMockCommandInteraction(overrides = {}) {
+export function createMockCommandInteraction(
+    overrides: Partial<CommandInteraction> = {}
+): Partial<CommandInteraction> {
     // Create a mock guild member first to ensure consistent user data
     const mockMember = createMockGuildMember();
 
@@ -87,7 +90,7 @@ export function createMockCommandInteraction(overrides = {}) {
 /**
  * Creates a mock Discord.js GuildChannel that correctly passes instanceof checks
  */
-export function createMockGuildChannel(overrides = {}) {
+export function createMockGuildChannel(overrides: Partial<GuildChannel> = {}): GuildChannel {
     // Create base object with properties we need
     const baseChannel = {
         id: '444555666777888999',
@@ -115,7 +118,7 @@ export function createMockGuildChannel(overrides = {}) {
 /**
  * Creates a mock Discord.js ThreadChannel that correctly passes instanceof checks
  */
-export function createMockThreadChannel(overrides = {}) {
+export function createMockThreadChannel(overrides: Partial<ThreadChannel> = {}): ThreadChannel {
     // Create base object with properties we need
     const baseChannel = {
         id: '444555666777888999',
@@ -146,7 +149,7 @@ export function createMockThreadChannel(overrides = {}) {
 /**
  * Creates a mock Command object
  */
-export function createMockCommand(overrides = {}) {
+export function createMockCommand(overrides: Record<string, any> = {}): any {
     return {
         names: ['test'],
         deferType: 'HIDDEN',
@@ -164,7 +167,7 @@ export function createMockCommand(overrides = {}) {
 /**
  * Creates a mock Discord.js GuildMember that correctly passes instanceof checks
  */
-export function createMockGuildMember(overrides = {}) {
+export function createMockGuildMember(overrides: Partial<GuildMember> = {}): GuildMember {
     // Create a mock user first
     const mockUser = createMockUser();
 
