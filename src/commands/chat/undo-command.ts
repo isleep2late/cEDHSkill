@@ -70,8 +70,8 @@ export class UndoCommand implements Command {
                         const channel = await intr.client.channels.fetch(confirmedOp.channelId);
                         if (channel?.isTextBased()) {
                             const originalMessage = await channel.messages.fetch(confirmedOp.messageId);
-                            if (originalMessage) {
-                                const undidEmbed = new EmbedBuilder(originalMessage.embeds[0]?.toJSON()); // Copy existing
+                            if (originalMessage && originalMessage.embeds[0]) {
+                                const undidEmbed = new EmbedBuilder(originalMessage.embeds[0]); // Copy existing
                                 undidEmbed.setTitle(Lang.getRef('fields.rankUndoneTitle', data.lang));
                                 undidEmbed.setDescription(Lang.getRef('undoMessages.rankUndoneText', data.lang));
                                 undidEmbed.setColor(Lang.getCom('colors.warning') as `#${string}`); // A neutral/warning color
@@ -107,8 +107,8 @@ export class UndoCommand implements Command {
 
                 try {
                     const originalMessage = await pendingCtx.interaction.fetchReply();
-                    if (originalMessage && originalMessage.embeds.length > 0) {
-                        const disabledEmbed = new EmbedBuilder(originalMessage.embeds[0].toJSON()); // Copy existing
+                    if (originalMessage && originalMessage.embeds.length > 0 && originalMessage.embeds[0]) {
+                        const disabledEmbed = new EmbedBuilder(originalMessage.embeds[0]); // Copy existing
                         disabledEmbed.setTitle(Lang.getRef('fields.rankDisabledTitle', data.lang));
                         disabledEmbed.setDescription(
                             Lang.getRef('undoMessages.rankDisabledDescriptionText', data.lang, {

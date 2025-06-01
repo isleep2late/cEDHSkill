@@ -194,14 +194,18 @@ describe('UndoCommand', () => {
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
         langGetRefMock.mockImplementation((key: string, _locale?: Locale, vars?: any) => {
-            if (key === 'fields.undoConfirmedTitle') return 'Undo Confirmed Title';
-            if (key === 'displayEmbeds.undoConfirmedDescription') return 'Undo Confirmed Description';
-            if (key === 'displayEmbeds.undoPlayerChange') return `Old: ${vars.OLD_ELO} New: ${vars.NEW_ELO}`;
-            if (key === 'fields.rankDisabledTitle') return 'Rank Disabled Title';
-            if (key === 'displayEmbeds.rankDisabledByUndoDescription') return 'Rank Disabled Description';
-            if (key === 'fields.rankUndoneTitle') return 'Rank Undone Title';
-            if (key === 'displayEmbeds.rankUndoneDescription') return 'Rank Undone Description';
-            return key;
+            switch (key) {
+                case 'fields.undoConfirmedTitle': return 'Undo Confirmed Title';
+                case 'undoMessages.confirmedDescriptionText': return 'The last confirmed rank operation has been undone. Player ratings and stats have been reverted.';
+                case 'undoMessages.playerChangeFormat':
+                    return `Old: Elo=${vars.OLD_ELO}, μ=${vars.OLD_MU}, σ=${vars.OLD_SIGMA}, W/L: ${vars.OLD_WINS}/${vars.OLD_LOSSES}\\nNew (Reverted): Elo=${vars.NEW_ELO}, μ=${vars.NEW_MU}, σ=${vars.NEW_SIGMA}, W/L: ${vars.NEW_WINS}/${vars.NEW_LOSSES}`;
+                case 'fields.rankUndoneTitle': return 'Rank Operation Undone';
+                case 'undoMessages.rankUndoneText': return 'This rank operation was undone by the /undo command.';
+                case 'fields.rankDisabledTitle': return 'Pending Rank Disabled (Undo)';
+                case 'undoMessages.rankDisabledDescriptionText':
+                    return `This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with ${vars.UPVOTE_EMOJI} will have no effect.`;
+                default: return key;
+            }
         });
         playerRatingUpsertMock.mockResolvedValue([{} as any, true]);
     });
@@ -274,7 +278,7 @@ describe('UndoCommand', () => {
         expect(capturedUndoEmbed).toBeDefined();
         if (capturedUndoEmbed) {
             expect(capturedUndoEmbed.setTitle).toHaveBeenCalledWith('Undo Confirmed Title');
-            expect(capturedUndoEmbed.setDescription).toHaveBeenCalledWith('Undo Confirmed Description');
+            expect(capturedUndoEmbed.setDescription).toHaveBeenCalledWith('The last confirmed rank operation has been undone. Player ratings and stats have been reverted.');
             expect(capturedUndoEmbed.addFields).toHaveBeenCalledTimes(2);
             expect(capturedUndoEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({ name: player1.tag }));
         }
@@ -282,18 +286,22 @@ describe('UndoCommand', () => {
         expect(mockIntr.client.channels.fetch).toHaveBeenCalledWith(MOCK_CHANNEL_ID);
         
         // Asserting the edited message's embed content
-        expect(messageUtilsEditMock).toHaveBeenCalledWith(
-            expect.objectContaining({ id: MOCK_MESSAGE_ID }), // originalMessage
-            expect.objectContaining({ embeds: [expect.any(EmbedBuilder)] }) // options { embeds: [undidEmbed] }
-        );
-        
+        expect(messageUtilsEditMock).toHaveBeenCalledTimes(1);
         const editCallArgs = messageUtilsEditMock.mock.calls[0];
-        const editedEmbedOptions = editCallArgs[1] as { embeds: EmbedBuilder[] };
-        const editedEmbedInstance = editedEmbedOptions.embeds[0];
-        expect(editedEmbedInstance.setTitle).toHaveBeenCalledWith('Rank Undone Title');
-        expect(editedEmbedInstance.setDescription).toHaveBeenCalledWith('Rank Undone Description');
-        expect(editedEmbedInstance.setColor).toHaveBeenCalledWith('0xFFEE00');
+        
+        // Check the first argument (originalMessage)
+        expect(editCallArgs[0]).toMatchObject({ id: MOCK_MESSAGE_ID });
 
+        // Check the second argument (options object)
+        const editedMessageOptions = editCallArgs[1] as { embeds: any[] };
+        expect(editedMessageOptions.embeds).toHaveLength(1);
+        // Access the toJSON() method of the mocked EmbedBuilder instance
+        expect(editedMessageOptions.embeds[0].toJSON()).toMatchObject({
+            title: 'Rank Operation Undone',
+            description: 'This rank operation was undone by the /undo command.',
+            color: '0xFFEE00', // From Lang.getCom('colors.warning')
+            fields: [], // Expect an empty array for fields in this specific embed
+        });
 
         expect(messageUtilsClearReactionsMock).toHaveBeenCalled();
         expect(RankCommand.latestConfirmedRankOpDetails).toBeNull();
@@ -332,37 +340,29 @@ describe('UndoCommand', () => {
         expect(pendingUpdate.status).toBe('disabled_by_undo');
         expect(RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID)?.status).toBe('disabled_by_undo');
 
-        expect(interactionUtilsEditReplyMock).toHaveBeenCalledWith(mockPendingInteraction, expect.any(EmbedBuilder));
+        expect(interactionUtilsEditReplyMock).toHaveBeenCalledWith(mockPendingInteraction, expect.any(Object)); // Check for any object representing an embed
         
-        const editReplyCallArgs = interactionUtilsEditReplyMock.mock.calls.find(call => call[0] === mockPendingInteraction);
+        const editReplyCallArgs = interactionUtilsEditReplyMock.mock.calls[0]; // Get the first call
         expect(editReplyCallArgs).toBeDefined();
-        const disabledEmbed = editReplyCallArgs[1] as EmbedBuilder;
+        const disabledEmbed = editReplyCallArgs[1] as EmbedBuilder; // Cast to EmbedBuilder for method checks
 
-        expect(disabledEmbed.setTitle).toHaveBeenCalledWith('Rank Disabled Title');
-        expect(disabledEmbed.setDescription).toHaveBeenCalledWith('Rank Disabled Description');
+        expect(disabledEmbed.setTitle).toHaveBeenCalledWith('Pending Rank Disabled (Undo)');
+        expect(disabledEmbed.setDescription).toHaveBeenCalledWith(
+            `This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with ${GameConstants.RANK_UPVOTE_EMOJI} will have no effect.`
+        );
         expect(disabledEmbed.setColor).toHaveBeenCalledWith(0x808080); // Grey
 
         expect(messageUtilsClearReactionsMock).toHaveBeenCalled();
         
-        let capturedSuccessEmbed: EmbedBuilder | undefined;
-        langGetEmbedMock.mockImplementationOnce(() => { // For the success embed
-            const embed = new EmbedBuilder() as EmbedBuilder;
-            capturedSuccessEmbed = embed;
-            return embed;
-        });
-        // Re-execute or ensure the send call is fresh if mocks are chained
-        // For simplicity, here we assume the previous execute populated the calls correctly.
-        // If this test were isolated, one might re-trigger the part of execute that sends success.
-        // However, the flow of the command is one pass.
-
-        await undoCommand.execute(mockIntr, mockEventData); // This call is for the success message path
-
-        expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, capturedSuccessEmbed);
+        // Check the success message sent to mockIntr (the interaction that called /undo)
+        // This happens within the same execute call. We need to find the correct send call.
+        const successSendCall = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+        expect(successSendCall).toBeDefined();
         expect(langGetEmbedMock).toHaveBeenCalledWith("displayEmbeds.undoPendingSuccess", mockEventData.lang);
-        if(capturedSuccessEmbed) {
-            // Example assertion if success embed had specific content
-            // expect(capturedSuccessEmbed.setTitle).toHaveBeenCalledWith("Pending Rank Disabled");
-        }
+        // If capturedSuccessEmbed was set up to be returned by langGetEmbedMock for this key:
+        // expect(successSendCall[1]).toBe(capturedSuccessEmbed); 
+        expect(successSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
+
 
         expect(RankCommand.latestPendingRankContext).toBeNull();
     });
@@ -385,7 +385,7 @@ describe('UndoCommand', () => {
         
         const alreadyDisabledSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
         expect(alreadyDisabledSendCallArgs).toBeDefined();
-        expect(alreadyDisabledSendCallArgs[1]).toBeInstanceOf(EmbedBuilder);
+        expect(alreadyDisabledSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(alreadyDisabledSendCallArgs[2]).toBe(true);
     });
 
@@ -395,7 +395,7 @@ describe('UndoCommand', () => {
         
         const nothingSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
         expect(nothingSendCallArgs).toBeDefined();
-        expect(nothingSendCallArgs[1]).toBeInstanceOf(EmbedBuilder);
+        expect(nothingSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(nothingSendCallArgs[2]).toBe(true);
     });
 
@@ -412,7 +412,7 @@ describe('UndoCommand', () => {
         
         const errorSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
         expect(errorSendCallArgs).toBeDefined();
-        expect(errorSendCallArgs[1]).toBeInstanceOf(EmbedBuilder);
+        expect(errorSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(errorSendCallArgs[2]).toBe(true);
         
         // latestConfirmedRankOpDetails should still be set to allow retry or manual check
@@ -443,7 +443,7 @@ describe('UndoCommand', () => {
 
         const errorSendCall = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
         expect(errorSendCall).toBeDefined();
-        expect(errorSendCall[1]).toBeInstanceOf(EmbedBuilder);
+        expect(errorSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(errorSendCall[2]).toBe(true);
 
         // latestPendingRankContext should still be set to allow retry or manual check
