@@ -73,7 +73,7 @@ export class UndoCommand implements Command {
                             if (originalMessage) {
                                 const undidEmbed = new EmbedBuilder(originalMessage.embeds[0]?.toJSON()); // Copy existing
                                 undidEmbed.setTitle(Lang.getRef('fields.rankUndoneTitle', data.lang));
-                                undidEmbed.setDescription(Lang.getRef('displayEmbeds.rankUndoneDescription', data.lang));
+                                undidEmbed.setDescription(Lang.getRef('undoMessages.rankUndoneText', data.lang));
                                 undidEmbed.setColor(Lang.getCom('colors.warning') as `#${string}`); // A neutral/warning color
                                 await MessageUtils.edit(originalMessage, { embeds: [undidEmbed] });
                                 await MessageUtils.clearReactions(originalMessage);

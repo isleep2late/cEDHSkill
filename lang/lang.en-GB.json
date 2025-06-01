@@ -191,9 +191,6 @@
             "undoConfirmedTitle": {
                 "title": "{{REF:fields.undoConfirmedTitle}}"
             },
-            "rankUndoneDescription": {
-                "description": "This rank operation was undone by the /undo command."
-            },
             "undoPendingSuccess": {
                 "title": "Pending Rank Disabled",
                 "description": "The most recent pending rank update has been disabled. No further upvotes will be counted for it, and it will not be processed.",
