@@ -7,6 +7,10 @@ import {
     PermissionsBitField,
     ThreadChannel,
     User,
+    ClientUser, // Added
+    TextChannel, // Added
+    Client, // Added
+    CommandInteractionOptionResolver, // Added
 } from 'discord.js';
 import { vi } from 'vitest';
 
@@ -48,6 +52,47 @@ export function createMockUser(overrides: Partial<User> = {}): User {
 }
 
 /**
+ * Creates a mock Discord.js ClientUser that correctly passes instanceof checks
+ */
+export function createMockClientUser(overrides: Partial<ClientUser> = {}): ClientUser {
+    // Create base object, extending User properties
+    const baseClientUser = {
+        ...createMockUser(), // Start with base user properties, then override
+        id: '987654321098765432', // Bot's user ID
+        username: 'TestBot',
+        tag: 'TestBot#0000',
+        discriminator: '0000', // Ensure discriminator is consistent with tag
+        bot: true, // ClientUser is always a bot
+        mfaEnabled: false,
+        verified: true,
+        presence: { // Mock ClientPresence
+            status: 'online',
+            activities: [],
+            clientStatus: null, // Platform statuses (desktop, mobile, web)
+            set: vi.fn().mockReturnThis(), // Mock method for setting presence
+            patch: vi.fn().mockReturnThis(), // Mock method for patching presence
+            equals: vi.fn().mockReturnValue(false), // From Presence base class
+        },
+        edit: vi.fn().mockImplementation(function () { // Mock method for editing user profile
+            return Promise.resolve(this);
+        }),
+        // Other ClientUser specific properties or methods as needed
+        // displayAvatarURL, send, fetch, toString, etc., are inherited from createMockUser()
+    };
+
+    // Add overrides provided by the caller
+    Object.assign(baseClientUser, overrides);
+
+    // Create a properly structured mock that will pass instanceof checks
+    const mockClientUser = Object.create(ClientUser.prototype, {
+        ...Object.getOwnPropertyDescriptors(baseClientUser),
+        constructor: { value: ClientUser }, // Ensure correct constructor for instanceof
+    });
+
+    return mockClientUser;
+}
+
+/**
  * Creates a mock Discord.js CommandInteraction
  */
 export function createMockCommandInteraction(
@@ -61,22 +106,33 @@ export function createMockCommandInteraction(
         user: mockMember.user,
         member: mockMember,
         client: {
-            user: {
-                id: '987654321098765432',
-                username: 'TestBot',
-            },
-        },
+            user: createMockClientUser(), // Use the new helper
+        } as Client<true>, // Cast client to Client<true> which has a non-null user
         guild: mockMember.guild,
-        channel: createMockGuildChannel(),
+        channel: createMockTextChannel(), // Use the new helper for a TextChannel
         commandName: 'test',
-        options: {
-            getString: vi.fn(),
-            getUser: vi.fn(),
-            getInteger: vi.fn(),
-            getBoolean: vi.fn(),
-            getSubcommand: vi.fn(),
-            getSubcommandGroup: vi.fn(),
-        },
+        options: Object.assign(Object.create(CommandInteractionOptionResolver.prototype), {
+            constructor: { value: CommandInteractionOptionResolver },
+            // Mocked methods that are commonly used
+            getString: vi.fn().mockReturnValue(null),
+            getUser: vi.fn().mockReturnValue(null),
+            getInteger: vi.fn().mockReturnValue(null),
+            getBoolean: vi.fn().mockReturnValue(null),
+            getSubcommand: vi.fn().mockReturnValue(null),
+            getSubcommandGroup: vi.fn().mockReturnValue(null),
+            getMember: vi.fn().mockReturnValue(null),
+            getChannel: vi.fn().mockReturnValue(null),
+            getRole: vi.fn().mockReturnValue(null),
+            getNumber: vi.fn().mockReturnValue(null),
+            getMentionable: vi.fn().mockReturnValue(null),
+            getAttachment: vi.fn().mockReturnValue(null),
+            // Mock internal-like properties often part of the structure
+            _group: null,
+            _subcommand: null,
+            _hoistedOptions: [],
+            // Ensure client is available on options resolver, if needed by its methods
+            // client: this.client, // This would require 'this' context or passing client
+        }),
         reply: vi.fn().mockResolvedValue({}),
         editReply: vi.fn().mockResolvedValue({}),
         deferReply: vi.fn().mockResolvedValue({}),
@@ -97,8 +153,8 @@ export function createMockGuildChannel(overrides: Partial<GuildChannel> = {}): G
         name: 'test-channel',
         guild: { id: '111222333444555666', name: 'Test Guild' },
         client: {
-            user: { id: '987654321098765432' },
-        },
+            user: createMockClientUser(),
+        } as Client<true>,
         type: ChannelType.GuildText,
     };
 
@@ -116,6 +172,50 @@ export function createMockGuildChannel(overrides: Partial<GuildChannel> = {}): G
 }
 
 /**
+ * Creates a mock Discord.js TextChannel that correctly passes instanceof checks
+ */
+export function createMockTextChannel(overrides: Partial<TextChannel> = {}): TextChannel {
+    // Create base object with properties we need for a TextChannel
+    const baseChannel = {
+        id: '555666777888999000',
+        name: 'general',
+        guild: { id: '111222333444555666', name: 'Test Guild' }, // Mock guild
+        client: { // Mock client
+            user: createMockClientUser(), // Use the helper for consistency
+        } as Client<true>,
+        type: ChannelType.GuildText, // Correct channel type
+        // TextBasedChannel properties and methods
+        send: vi.fn().mockResolvedValue({}), // Mock send method
+        bulkDelete: vi.fn().mockResolvedValue([]), // Mock bulkDelete method
+        isTextBased: vi.fn().mockReturnValue(true), // Ensure it's identified as text-based
+        // Other TextChannel specific properties or methods
+        topic: null,
+        nsfw: false,
+        lastMessageId: null,
+        lastPinTimestamp: null,
+        rateLimitPerUser: 0,
+        permissionsFor: vi.fn().mockReturnValue({ // Mock permissionsFor method
+            has: vi.fn().mockReturnValue(true), // Default to having permissions
+        }),
+        // Methods from GuildChannel (if not on TextChannel.prototype directly)
+        // Methods from Channel (if not on TextChannel.prototype directly)
+        fetch: vi.fn().mockImplementation(function () { return Promise.resolve(this); }),
+        toString: vi.fn().mockReturnValue('<#555666777888999000>'),
+    };
+
+    // Add overrides provided by the caller
+    Object.assign(baseChannel, overrides);
+
+    // Create a properly structured mock that will pass instanceof checks
+    const mockChannel = Object.create(TextChannel.prototype, {
+        ...Object.getOwnPropertyDescriptors(baseChannel),
+        constructor: { value: TextChannel }, // Ensure correct constructor for instanceof
+    });
+
+    return mockChannel;
+}
+
+/**
  * Creates a mock Discord.js ThreadChannel that correctly passes instanceof checks
  */
 export function createMockThreadChannel(overrides: Partial<ThreadChannel> = {}): ThreadChannel {
@@ -125,8 +225,8 @@ export function createMockThreadChannel(overrides: Partial<ThreadChannel> = {}):
         name: 'test-thread',
         guild: { id: '111222333444555666', name: 'Test Guild' },
         client: {
-            user: { id: '987654321098765432' },
-        },
+            user: createMockClientUser(),
+        } as Client<true>,
         type: ChannelType.PublicThread,
         permissionsFor: vi.fn().mockReturnValue({
             has: vi.fn().mockReturnValue(true),
