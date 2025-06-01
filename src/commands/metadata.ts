@@ -119,7 +119,9 @@ export const ChatCommandMetadata: {
         description: Lang.getRef('commandDescs.undo', Language.Default),
         description_localizations: Lang.getRefLocalizationMap('commandDescs.undo'),
         dm_permission: false, // Guild-specific as it refers to guild's last rank
-        default_member_permissions: undefined, // Everyone can use by default
+        default_member_permissions: PermissionsBitField.resolve([
+            PermissionFlagsBits.ModerateMembers,
+        ]).toString(), // Moderator-only
         options: [], // No options for undo
     },
 };
