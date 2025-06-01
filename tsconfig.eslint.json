@@ -1,17 +1,8 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "noEmit": true // Prevents this tsconfig from creating build artifacts
-  },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "tests/**/*.ts",
-    "vitest.config.ts"
-    // Add any other specific .ts files at the root or elsewhere that need linting with type info
-  ],
-  "exclude": [
-    "node_modules", // Standard exclusion
-    "dist"          // Standard exclusion for build output
-  ]
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true
+    },
+    "include": ["src/**/*.ts", "src/**/*.d.ts", "tests/**/*.ts", "vitest.config.ts"],
+    "exclude": ["node_modules", "dist"]
 }
