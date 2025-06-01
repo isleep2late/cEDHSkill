@@ -29,7 +29,7 @@ vi.mock('luxon', () => ({
             }),
         })),
         fromObject: vi.fn().mockImplementation(obj => ({
-            toHuman: vi.fn().mockImplementation(({ /* maximumFractionDigits */ }) => {
+            toHuman: vi.fn().mockImplementation(() => {
                 if (obj.hours === 1) return '1 hour';
                 if (obj.minutes === 1) return '1 minute';
                 if (obj.seconds === 5) return '5 seconds';
