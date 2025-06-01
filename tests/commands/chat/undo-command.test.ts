@@ -400,9 +400,9 @@ describe('UndoCommand', () => {
 
         // Check the success message sent to mockIntr (the interaction that called /undo)
         // This happens within the same execute call. We need to find the correct send call.
-        const successSendCall = interactionUtilsSendMock.mock.calls.find(
+        const successSendCall: object[] = interactionUtilsSendMock.mock.calls.find(
             call => call[0] === mockIntr
-        );
+        ) as object[];
         expect(successSendCall).toBeDefined();
         expect(langGetEmbedMock).toHaveBeenCalledWith(
             'displayEmbeds.undoPendingSuccess',
@@ -436,9 +436,9 @@ describe('UndoCommand', () => {
             mockEventData.lang
         );
 
-        const alreadyDisabledSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+        const alreadyDisabledSendCallArgs: object[] = interactionUtilsSendMock.mock.calls.find(
             call => call[0] === mockIntr
-        );
+        ) as object[];
         expect(alreadyDisabledSendCallArgs).toBeDefined();
         expect(alreadyDisabledSendCallArgs[1]).toEqual(
             expect.objectContaining({ data: expect.any(Object) })
@@ -453,9 +453,9 @@ describe('UndoCommand', () => {
             mockEventData.lang
         );
 
-        const nothingSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+        const nothingSendCallArgs: object[] = interactionUtilsSendMock.mock.calls.find(
             call => call[0] === mockIntr
-        );
+        ) as object[];
         expect(nothingSendCallArgs).toBeDefined();
         expect(nothingSendCallArgs[1]).toEqual(
             expect.objectContaining({ data: expect.any(Object) })
@@ -477,9 +477,9 @@ describe('UndoCommand', () => {
 
         expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.undoFailed', mockEventData.lang);
 
-        const errorSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+        const errorSendCallArgs: object[] = interactionUtilsSendMock.mock.calls.find(
             call => call[0] === mockIntr
-        );
+        ) as object[];
         expect(errorSendCallArgs).toBeDefined();
         expect(errorSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(errorSendCallArgs[2]).toBe(true);
@@ -516,9 +516,9 @@ describe('UndoCommand', () => {
         expect(pendingUpdate.status).toBe('active'); // Should be reverted
         expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.undoFailed', mockEventData.lang);
 
-        const errorSendCall = interactionUtilsSendMock.mock.calls.find(
+        const errorSendCall: object[] = interactionUtilsSendMock.mock.calls.find(
             call => call[0] === mockIntr
-        );
+        ) as object[];
         expect(errorSendCall).toBeDefined();
         expect(errorSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
         expect(errorSendCall[2]).toBe(true);
