@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message, Locale } from 'discord.js';
+import { ChatInputCommandInteraction, PermissionsString, Locale } from 'discord.js';
 import { rating, rate, Rating as OpenSkillRating } from 'openskill';
 
 import { GameConstants } from '../../constants/index.js';
@@ -9,7 +9,8 @@ import { Lang } from '../../services/index.js';
 import { InteractionUtils, RatingUtils, MessageUtils } from '../../utils/index.js';
 import { Command, CommandDeferType } from '../index.js';
 
-export interface ParsedPlayer { // Exporting for use in Reaction Handler
+export interface ParsedPlayer {
+    // Exporting for use in Reaction Handler
     userId: string;
     status: 'w' | 'l'; // Winner or Loser
     initialRating: OpenSkillRating;
@@ -59,7 +60,6 @@ export class RankCommand implements Command {
         // When a new rank command is initiated, any previous "latest confirmed" is no longer the "latest" for undo.
         // And this new one becomes the "latest pending".
         RankCommand.latestConfirmedRankOpDetails = null;
-
 
         if (!intr.guild) {
             await InteractionUtils.send(
@@ -112,7 +112,9 @@ export class RankCommand implements Command {
             const user = await intr.client.users.fetch(pInput.userId).catch(() => null);
             const displayUserTag = user ? user.tag : pInput.tag; // Use user.tag for better display
 
-            let dbRating = await PlayerRating.findOne({ where: { userId: pInput.userId, guildId: guildId } });
+            let dbRating = await PlayerRating.findOne({
+                where: { userId: pInput.userId, guildId: guildId },
+            });
             let osRating: OpenSkillRating;
             let wins = 0;
             let losses = 0;
@@ -181,14 +183,16 @@ export class RankCommand implements Command {
         const provisionalEmbed = Lang.getEmbed('displayEmbeds.rankProvisional', data.lang, {
             UPVOTES_REQUIRED: GameConstants.RANK_UPVOTES_REQUIRED.toString(),
             UPVOTE_EMOJI: GameConstants.RANK_UPVOTE_EMOJI,
-            CURRENT_UPVOTES: '0'
+            CURRENT_UPVOTES: '0',
         });
         provisionalEmbed.setTitle(Lang.getRef('fields.provisionalRatings', data.lang));
 
-
         for (const player of playersToUpdate) {
             const newElo = RatingUtils.calculateElo(player.newRating.mu, player.newRating.sigma);
-            const outcome = player.status === 'w' ? Lang.getRef('terms.winner', data.lang) : Lang.getRef('terms.loser', data.lang);
+            const outcome =
+                player.status === 'w'
+                    ? Lang.getRef('terms.winner', data.lang)
+                    : Lang.getRef('terms.loser', data.lang);
             provisionalEmbed.addFields({
                 name: `${player.tag} (${outcome})`,
                 value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${player.newRating.mu.toFixed(2)}, σ=${player.newRating.sigma.toFixed(2)}, W/L: ${player.newWins}/${player.newLosses}`,
@@ -217,11 +221,14 @@ export class RankCommand implements Command {
                     channelId: sentMessage.channelId,
                     interaction: intr,
                 };
-
             } catch (error) {
                 console.error('Failed to add initial reaction or set pending update:', error);
                 // Optionally, inform the user that the confirmation setup failed
-                await InteractionUtils.send(intr, Lang.getEmbed('errorEmbeds.rankSetupFailed', data.lang), true);
+                await InteractionUtils.send(
+                    intr,
+                    Lang.getEmbed('errorEmbeds.rankSetupFailed', data.lang),
+                    true
+                );
                 // Clean up if necessary
                 if (RankCommand.pendingRankUpdates.has(sentMessage.id)) {
                     RankCommand.pendingRankUpdates.delete(sentMessage.id);
@@ -229,7 +236,11 @@ export class RankCommand implements Command {
             }
         } else {
             // Handle case where message sending failed
-             await InteractionUtils.send(intr, Lang.getEmbed('errorEmbeds.messageSendFailed', data.lang), true);
+            await InteractionUtils.send(
+                intr,
+                Lang.getEmbed('errorEmbeds.messageSendFailed', data.lang),
+                true
+            );
         }
     }
 }
