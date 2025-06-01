@@ -1,7 +1,7 @@
 import { Message, MessageReaction, User, EmbedBuilder } from 'discord.js';
 
 import { Reaction } from './reaction.js';
-import { RankCommand, PendingRankUpdate, ParsedPlayer } from '../commands/chat/rank-command.js';
+import { RankCommand } from '../commands/chat/rank-command.js';
 import { GameConstants } from '../constants/index.js';
 import { PlayerRating } from '../db.js';
 import { EventData } from '../models/internal-models.js';
@@ -18,7 +18,7 @@ export class RankConfirmationReaction implements Reaction {
         msgReaction: MessageReaction,
         msg: Message,
         reactor: User,
-        data: EventData
+        _data: EventData
     ): Promise<void> {
         // Check if this message has a pending rank update
         const pendingUpdate = RankCommand.pendingRankUpdates.get(msg.id);

@@ -6,7 +6,7 @@ import {
     CacheType,
     User,
     Message,
-    TextBasedChannel,
+
     GuildTextBasedChannel,
 } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
@@ -15,8 +15,8 @@ import {
     RankCommand,
     PendingRankUpdate,
     ParsedPlayer,
-    LatestPendingRankContext,
-    LatestConfirmedRankOpDetails,
+
+
 } from '../../../src/commands/chat/rank-command.js';
 import { UndoCommand } from '../../../src/commands/chat/undo-command.js';
 import { GameConstants } from '../../../src/constants/index.js';
@@ -254,7 +254,6 @@ describe('UndoCommand', () => {
 
     it('should undo a confirmed rank operation', async () => {
         let capturedUndoEmbed: EmbedBuilder | undefined;
-        let capturedMessageEditEmbed: EmbedBuilder | undefined;
 
         // Mock for the main undo confirmation embed
         langGetEmbedMock.mockImplementationOnce(() => {

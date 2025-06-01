@@ -1,6 +1,5 @@
 /// <reference types="vitest/globals" />
 import type {
-    PlayerRatingModelStatic,
     PlayerRatingInstance,
 } from '../../../src/models/db/player-rating.js';
 import {
@@ -11,10 +10,10 @@ import {
     User,
     Message,
 } from 'discord.js';
-import { rating, rate, Rating as OpenSkillRating } from 'openskill';
+import { Rating as OpenSkillRating } from 'openskill';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
-import { RankCommand, PendingRankUpdate } from '../../../src/commands/chat/rank-command.js';
+import { RankCommand } from '../../../src/commands/chat/rank-command.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
 import { RatingUtils } from '../../../src/utils/rating-utils.js';

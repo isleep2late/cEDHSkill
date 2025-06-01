@@ -1,6 +1,7 @@
-import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message } from 'discord.js';
+import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder } from 'discord.js';
 
-import { RankCommand, PendingRankUpdate, ParsedPlayer } from './rank-command.js'; // To access static properties
+
+import { RankCommand, ParsedPlayer } from './rank-command.js'; // To access static properties
 import { GameConstants } from '../../constants/index.js';
 import { PlayerRating } from '../../db.js';
 import { Language } from '../../models/enum-helpers/index.js';
