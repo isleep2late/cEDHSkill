@@ -273,6 +273,7 @@ describe('RankConfirmationReaction', () => {
             interaction: mockInteraction,
             lang: Locale.EnglishUS,
             upvoters: new Set<string>(),
+            status: 'active', // Add the status property
         };
     });
 

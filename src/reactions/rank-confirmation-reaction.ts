@@ -22,7 +22,8 @@ export class RankConfirmationReaction implements Reaction {
     ): Promise<void> {
         // Check if this message has a pending rank update
         const pendingUpdate = RankCommand.pendingRankUpdates.get(msg.id);
-        if (!pendingUpdate) {
+        if (!pendingUpdate || pendingUpdate.status === 'disabled_by_undo') {
+            // If no pending update, or if it's been disabled by /undo, do nothing
             return;
         }
 
@@ -70,6 +71,33 @@ export class RankConfirmationReaction implements Reaction {
                 }
 
                 await InteractionUtils.editReply(pendingUpdate.interaction, confirmedEmbed);
+
+                // Store details for potential /undo
+                RankCommand.latestConfirmedRankOpDetails = {
+                    guildId: pendingUpdate.guildId,
+                    messageId: msg.id,
+                    channelId: msg.channelId,
+                    players: pendingUpdate.playersToUpdate.map(p => ({
+                        // Store a deep copy of player data *before* this update was applied
+                        // The 'newRating', 'newWins', 'newLosses' on playersToUpdate are the state *after* this rank.
+                        // The 'initialRating', 'initialWins', 'initialLosses' are the state *before* this rank.
+                        userId: p.userId,
+                        status: p.status, // Status in this specific game
+                        initialRating: p.initialRating,
+                        initialElo: p.initialElo,
+                        initialWins: p.initialWins,
+                        initialLosses: p.initialLosses,
+                        tag: p.tag,
+                        // For undo, 'newRating' will be what we revert *from*,
+                        // and 'initialRating' is what we revert *to*.
+                        newRating: p.newRating, // This is the state 'after' this confirmed rank
+                        newWins: p.newWins,
+                        newLosses: p.newLosses,
+                    })),
+                    timestamp: Date.now(),
+                };
+                RankCommand.latestPendingRankContext = null; // This rank is no longer pending
+
                 RankCommand.pendingRankUpdates.delete(msg.id); // Clean up
                 await MessageUtils.clearReactions(msg); // Clear all reactions
             } catch (error) {

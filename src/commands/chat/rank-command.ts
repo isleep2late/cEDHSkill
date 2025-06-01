@@ -27,15 +27,39 @@ export interface PendingRankUpdate {
     interaction: ChatInputCommandInteraction; // To edit the original message
     lang: Locale;
     upvoters: Set<string>; // Store user IDs who have upvoted
+    status: 'active' | 'disabled_by_undo'; // Status of the pending update
+}
+
+export interface LatestPendingRankContext {
+    guildId: string;
+    messageId: string;
+    channelId: string;
+    interaction: ChatInputCommandInteraction; // Storing the interaction to be able to edit its reply later
+}
+
+export interface LatestConfirmedRankOpDetails {
+    guildId: string;
+    messageId: string; // Message ID of the confirmed rank embed
+    channelId: string; // Channel ID of the confirmed rank embed
+    players: ParsedPlayer[]; // The state of players *before* this confirmed operation
+    timestamp: number;
 }
 
 export class RankCommand implements Command {
     public static pendingRankUpdates = new Map<string, PendingRankUpdate>(); // messageId -> PendingRankUpdate
+    public static latestPendingRankContext: LatestPendingRankContext | null = null;
+    public static latestConfirmedRankOpDetails: LatestConfirmedRankOpDetails | null = null;
+
     public names = [Lang.getRef('chatCommands.rank', Language.Default)];
     public deferType = CommandDeferType.PUBLIC;
     public requireClientPerms: PermissionsString[] = ['SendMessages', 'EmbedLinks'];
 
     public async execute(intr: ChatInputCommandInteraction, data: EventData): Promise<void> {
+        // When a new rank command is initiated, any previous "latest confirmed" is no longer the "latest" for undo.
+        // And this new one becomes the "latest pending".
+        RankCommand.latestConfirmedRankOpDetails = null;
+
+
         if (!intr.guild) {
             await InteractionUtils.send(
                 intr,
@@ -182,7 +206,17 @@ export class RankCommand implements Command {
                     interaction: intr,
                     lang: data.lang,
                     upvoters: new Set(),
+                    status: 'active', // New pending ranks are active by default
                 });
+
+                // Set this as the latest pending rank context for the /undo command
+                RankCommand.latestPendingRankContext = {
+                    guildId: guildId,
+                    messageId: sentMessage.id,
+                    channelId: sentMessage.channelId,
+                    interaction: intr,
+                };
+
             } catch (error) {
                 console.error("Failed to add initial reaction or set pending update:", error);
                 // Optionally, inform the user that the confirmation setup failed

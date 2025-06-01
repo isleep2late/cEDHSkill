@@ -187,6 +187,33 @@
                 "title": "{{REF:fields.confirmedRatings}}",
                 "description": "Player ratings have been successfully updated after confirmation.",
                 "color": "{{COM:colors.success}}"
+            },
+            "undoConfirmedTitle": {
+                "title": "{{REF:fields.undoConfirmedTitle}}"
+            },
+            "undoConfirmedDescription": {
+                "description": "The last confirmed rank operation has been undone. Player ratings and stats have been reverted."
+            },
+            "undoPlayerChange": {
+                "value": "Old: Elo={{OLD_ELO}}, μ={{OLD_MU}}, σ={{OLD_SIGMA}}, W/L: {{OLD_WINS}}/{{OLD_LOSSES}}\\nNew (Reverted): Elo={{NEW_ELO}}, μ={{NEW_MU}}, σ={{NEW_SIGMA}}, W/L: {{NEW_WINS}}/{{NEW_LOSSES}}"
+            },
+            "rankUndoneDescription": {
+                "description": "This rank operation was undone by the /undo command."
+            },
+            "undoPendingSuccess": {
+                "title": "Pending Rank Disabled",
+                "description": "The most recent pending rank update has been disabled. No further upvotes will be counted for it, and it will not be processed.",
+                "color": "{{COM:colors.success}}"
+            },
+            "undoAlreadyDisabled": {
+                "title": "Already Disabled",
+                "description": "The most recent pending rank update was already disabled by a previous /undo command.",
+                "color": "{{COM:colors.warning}}"
+            },
+            "undoNothingToUndo": {
+                "title": "Nothing to Undo",
+                "description": "There is no recent /rank command in this server that can be undone. Either no /rank command has been used recently, or the last one was already undone or superseded.",
+                "color": "{{COM:colors.warning}}"
             }
         },
         "validationEmbeds": {
@@ -277,6 +304,11 @@
                 "title": "Rank Update Failed",
                 "description": "The rank update could not be finalised even after confirmation. Please contact support or try again later.",
                 "color": "{{COM:colors.error}}"
+            },
+            "undoFailed": {
+                "title": "Undo Failed",
+                "description": "The undo operation could not be completed successfully. Please contact support or try again.",
+                "color": "{{COM:colors.error}}"
             }
         },
         "channelRegexes": {
@@ -286,6 +318,9 @@
     "refs": {
         "meta": {
             "translators": "[TranslatorName#1234](https://github.com/)"
+        },
+        "undoMessages": {
+            "rankDisabledDescriptionText": "This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with {{UPVOTE_EMOJI}} will have no effect."
         },
         "rankMessages": {
             "initialProvisionalDesc": "The following rating changes are proposed. React with {{UPVOTE_EMOJI}} to confirm. {{UPVOTES_REQUIRED}} unique reactions are needed.\\nCurrent upvotes: {{CURRENT_UPVOTES}}",
@@ -301,7 +336,8 @@
             "test": "test",
             "rank": "rank",
             "playerinfo": "playerinfo",
-            "list": "list"
+            "list": "list",
+            "undo": "undo"
         },
         "userCommands": {
             "viewDateJoined": "View Date Joined"
@@ -323,7 +359,8 @@
             "test": "Run the test command.",
             "rank": "Update player ratings based on match results.",
             "playerinfo": "Display a player's rating information (Mu, Sigma, Wins, Losses).",
-            "list": "List the top N players by rating."
+            "list": "List the top N players by rating.",
+            "undo": "Undo the last /rank command's effects in this server."
         },
         "argDescs": {
             "devCommand": "Command.",
@@ -338,7 +375,10 @@
             "links": "Links",
             "updatedRatings": "Updated Ratings",
             "provisionalRatings": "Provisional Ratings (Pending Confirmation)",
-            "confirmedRatings": "Confirmed Ratings (Applied)"
+            "confirmedRatings": "Confirmed Ratings (Applied)",
+            "undoConfirmedTitle": "Previous Rank Undone",
+            "rankDisabledTitle": "Pending Rank Disabled (Undo)",
+            "rankUndoneTitle": "Rank Operation Undone"
         },
         "terms": {
             "elo": "Elo",

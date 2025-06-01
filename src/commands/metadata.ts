@@ -112,6 +112,16 @@ export const ChatCommandMetadata: {
             },
         ],
     },
+    UNDO: {
+        type: ApplicationCommandType.ChatInput,
+        name: Lang.getRef('chatCommands.undo', Language.Default),
+        name_localizations: Lang.getRefLocalizationMap('chatCommands.undo'),
+        description: Lang.getRef('commandDescs.undo', Language.Default),
+        description_localizations: Lang.getRefLocalizationMap('commandDescs.undo'),
+        dm_permission: false, // Guild-specific as it refers to guild's last rank
+        default_member_permissions: undefined, // Everyone can use by default
+        options: [], // No options for undo
+    },
 };
 
 export const MessageCommandMetadata: {

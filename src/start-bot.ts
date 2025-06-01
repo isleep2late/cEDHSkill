@@ -11,6 +11,7 @@ import {
     RankCommand,
     PlayerInfoCommand,
     ListCommand,
+    UndoCommand,
 } from './commands/chat/index.js';
 import {
     ChatCommandMetadata,
@@ -77,6 +78,7 @@ async function start(): Promise<void> {
         new RankCommand(),
         new PlayerInfoCommand(),
         new ListCommand(),
+        new UndoCommand(),
 
         // Message Context Commands
         new ViewDateSent(),
