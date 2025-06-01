@@ -7,7 +7,6 @@ import {
     EmbedBuilder,
     Locale,
     ChatInputCommandInteraction,
-    APIEmbedField,
 } from 'discord.js';
 import { Rating as OpenSkillRating } from 'openskill';
 
@@ -71,7 +70,7 @@ vi.mock('discord.js', async () => {
     const MockedEmbedBuilder = vi.fn().mockImplementation((initialData?: any) => {
         let _data: any = initialData
             ? { ...initialData }
-            : { title: '', description: '', fields: [] as APIEmbedField[] };
+            : { title: '', description: '', fields: [] };
         if (initialData && typeof initialData.toJSON === 'function') {
             // If it's an Embed-like object with toJSON
             _data = { ...initialData.toJSON() };

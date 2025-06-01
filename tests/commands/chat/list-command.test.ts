@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 
 import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Collection } from 'discord.js';
 
 import { ListCommand } from '../../../src/commands/chat/list-command.js';
-import type { PlayerRatingModelStatic, PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
+import type { PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';
 import { RatingUtils } from '../../../src/utils/rating-utils.js';
 import { EventData } from '../../../src/models/internal-models.js';

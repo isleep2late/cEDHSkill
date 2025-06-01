@@ -3,7 +3,6 @@ import {
     AutocompleteInteraction,
     CommandInteraction,
     DiscordAPIError,
-    RESTJSONErrorCodes as DiscordApiErrors,
     EmbedBuilder,
     InteractionReplyOptions,
     InteractionResponse,
@@ -11,6 +10,7 @@ import {
     Message,
     MessageComponentInteraction,
     ModalSubmitInteraction,
+    RESTJSONErrorCodes as DiscordApiErrors,
     WebhookMessageEditOptions,
 } from 'discord.js';
 

@@ -4,7 +4,6 @@ import { ChatInputCommandInteraction, EmbedBuilder, User, CacheType, Locale } fr
 
 import { PlayerInfoCommand } from '../../../src/commands/chat/playerinfo-command.js';
 import type {
-    PlayerRatingModelStatic,
     PlayerRatingInstance,
 } from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';

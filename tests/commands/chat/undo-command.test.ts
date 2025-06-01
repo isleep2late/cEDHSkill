@@ -19,10 +19,6 @@ import {
     LatestPendingRankContext,
     LatestConfirmedRankOpDetails,
 } from '../../../src/commands/chat/rank-command.js';
-import type {
-    PlayerRatingModelStatic,
-    PlayerRatingInstance,
-} from '../../../src/models/db/player-rating.js';
 import { PlayerRating } from '../../../src/db.js';
 import { EventData } from '../../../src/models/internal-models.js';
 import { RatingUtils } from '../../../src/utils/rating-utils.js';
@@ -77,17 +73,30 @@ vi.mock('discord.js', async () => {
         if (!_data.fields) _data.fields = [];
 
         const builderInstance = {
-            setTitle: vi.fn(function (title) { _data.title = title; return this; }),
-            setDescription: vi.fn(function (description) { _data.description = description; return this; }),
-            addFields: vi.fn(function (...fields) { 
-                const newFields = fields.flat().map(f => ({ name: f.name, value: f.value, inline: !!f.inline }));
-                if (!_data.fields) _data.fields = [];
-                _data.fields.push(...newFields); 
-                return this; 
+            setTitle: vi.fn(function (title) {
+                _data.title = title;
+                return this;
             }),
-            setColor: vi.fn(function (color) { _data.color = color; return this; }), // Store color
+            setDescription: vi.fn(function (description) {
+                _data.description = description;
+                return this;
+            }),
+            addFields: vi.fn(function (...fields) {
+                const newFields = fields
+                    .flat()
+                    .map(f => ({ name: f.name, value: f.value, inline: !!f.inline }));
+                if (!_data.fields) _data.fields = [];
+                _data.fields.push(...newFields);
+                return this;
+            }),
+            setColor: vi.fn(function (color) {
+                _data.color = color;
+                return this;
+            }), // Store color
             toJSON: vi.fn(() => ({ ..._data })),
-            get data() { return _data; }, // Use a getter for data
+            get data() {
+                return _data;
+            }, // Use a getter for data
         };
         return builderInstance;
     });
@@ -125,7 +134,6 @@ describe('UndoCommand', () => {
         initialWins: 0,
         initialLosses: 0,
         newRating: { mu: 28, sigma: 7 },
-        newElo: 1575,
         newWins: 1,
         newLosses: 0,
     };
@@ -138,7 +146,6 @@ describe('UndoCommand', () => {
         initialWins: 5,
         initialLosses: 2,
         newRating: { mu: 18, sigma: 4.8 },
-        newElo: 1137,
         newWins: 5,
         newLosses: 3,
     };
@@ -150,7 +157,9 @@ describe('UndoCommand', () => {
         RankCommand.latestConfirmedRankOpDetails = null;
 
         const { PlayerRating: MockedPlayerRating } = await import('../../../src/db.js');
-        playerRatingUpsertMock = MockedPlayerRating.upsert as MockedFunction<typeof PlayerRating.upsert>;
+        playerRatingUpsertMock = MockedPlayerRating.upsert as MockedFunction<
+            typeof PlayerRating.upsert
+        >;
 
         const { Lang } = await import('../../../src/services/lang.js');
         langGetRefMock = Lang.getRef as MockedFunction<any>;
@@ -176,13 +185,15 @@ describe('UndoCommand', () => {
                     fetch: vi.fn().mockImplementation(async id => {
                         if (id === MOCK_CHANNEL_ID) {
                             // Make sure the embed in the fetched message is also a mocked EmbedBuilder instance
-                            const mockMessageEmbed = new EmbedBuilder().setTitle("Original Rank");
+                            const mockMessageEmbed = new EmbedBuilder().setTitle('Original Rank');
                             return {
                                 isTextBased: () => true,
-                                messages: { fetch: vi.fn().mockResolvedValue({
-                                    id: MOCK_MESSAGE_ID,
-                                    embeds: [mockMessageEmbed.toJSON()], // Use toJSON() from the mocked EmbedBuilder
-                                } as Message) },
+                                messages: {
+                                    fetch: vi.fn().mockResolvedValue({
+                                        id: MOCK_MESSAGE_ID,
+                                        embeds: [mockMessageEmbed.toJSON()], // Use toJSON() from the mocked EmbedBuilder
+                                    } as Message),
+                                },
                             } as unknown as GuildTextBasedChannel;
                         }
                         return null;
@@ -193,18 +204,24 @@ describe('UndoCommand', () => {
             isChatInputCommand: () => true,
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        langGetRefMock.mockImplementation((key: string, _locale?: Locale, vars?: any) => {
+        langGetRefMock.mockImplementation((key: any, _locale?: any, vars?: any) => {
             switch (key) {
-                case 'fields.undoConfirmedTitle': return 'Undo Confirmed Title';
-                case 'undoMessages.confirmedDescriptionText': return 'The last confirmed rank operation has been undone. Player ratings and stats have been reverted.';
+                case 'fields.undoConfirmedTitle':
+                    return 'Undo Confirmed Title';
+                case 'undoMessages.confirmedDescriptionText':
+                    return 'The last confirmed rank operation has been undone. Player ratings and stats have been reverted.';
                 case 'undoMessages.playerChangeFormat':
                     return `Old: Elo=${vars.OLD_ELO}, μ=${vars.OLD_MU}, σ=${vars.OLD_SIGMA}, W/L: ${vars.OLD_WINS}/${vars.OLD_LOSSES}\\nNew (Reverted): Elo=${vars.NEW_ELO}, μ=${vars.NEW_MU}, σ=${vars.NEW_SIGMA}, W/L: ${vars.NEW_WINS}/${vars.NEW_LOSSES}`;
-                case 'fields.rankUndoneTitle': return 'Rank Operation Undone';
-                case 'undoMessages.rankUndoneText': return 'This rank operation was undone by the /undo command.';
-                case 'fields.rankDisabledTitle': return 'Pending Rank Disabled (Undo)';
+                case 'fields.rankUndoneTitle':
+                    return 'Rank Operation Undone';
+                case 'undoMessages.rankUndoneText':
+                    return 'This rank operation was undone by the /undo command.';
+                case 'fields.rankDisabledTitle':
+                    return 'Pending Rank Disabled (Undo)';
                 case 'undoMessages.rankDisabledDescriptionText':
                     return `This pending rank update has been **disabled** by an /undo command. It will not be processed. Upvoting with ${vars.UPVOTE_EMOJI} will have no effect.`;
-                default: return key;
+                default:
+                    return key;
             }
         });
         playerRatingUpsertMock.mockResolvedValue([{} as any, true]);
@@ -224,8 +241,15 @@ describe('UndoCommand', () => {
         });
 
         await undoCommand.execute(intrNoGuild, mockEventData);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.commandNotInGuild', mockEventData.lang);
-        expect(interactionUtilsSendMock).toHaveBeenCalledWith(intrNoGuild, capturedErrorEmbed, true);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'errorEmbeds.commandNotInGuild',
+            mockEventData.lang
+        );
+        expect(interactionUtilsSendMock).toHaveBeenCalledWith(
+            intrNoGuild,
+            capturedErrorEmbed,
+            true
+        );
     });
 
     it('should undo a confirmed rank operation', async () => {
@@ -238,7 +262,7 @@ describe('UndoCommand', () => {
             capturedUndoEmbed = embed;
             return embed;
         });
-        
+
         // For the embed created via new EmbedBuilder(originalMessage.embeds[0]?.toJSON())
         // The global mock of EmbedBuilder will handle this, but we can't easily capture
         // its instance this way without more complex mocking. We'll rely on asserting
@@ -272,23 +296,30 @@ describe('UndoCommand', () => {
             losses: player2.initialLosses,
         });
 
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.undoConfirmedTitle', mockEventData.lang);
-        
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.undoConfirmedTitle',
+            mockEventData.lang
+        );
+
         expect(interactionUtilsSendMock).toHaveBeenCalledWith(mockIntr, capturedUndoEmbed);
         expect(capturedUndoEmbed).toBeDefined();
         if (capturedUndoEmbed) {
             expect(capturedUndoEmbed.setTitle).toHaveBeenCalledWith('Undo Confirmed Title');
-            expect(capturedUndoEmbed.setDescription).toHaveBeenCalledWith('The last confirmed rank operation has been undone. Player ratings and stats have been reverted.');
+            expect(capturedUndoEmbed.setDescription).toHaveBeenCalledWith(
+                'The last confirmed rank operation has been undone. Player ratings and stats have been reverted.'
+            );
             expect(capturedUndoEmbed.addFields).toHaveBeenCalledTimes(2);
-            expect(capturedUndoEmbed.addFields).toHaveBeenCalledWith(expect.objectContaining({ name: player1.tag }));
+            expect(capturedUndoEmbed.addFields).toHaveBeenCalledWith(
+                expect.objectContaining({ name: player1.tag })
+            );
         }
 
         expect(mockIntr.client.channels.fetch).toHaveBeenCalledWith(MOCK_CHANNEL_ID);
-        
+
         // Asserting the edited message's embed content
         expect(messageUtilsEditMock).toHaveBeenCalledTimes(1);
         const editCallArgs = messageUtilsEditMock.mock.calls[0];
-        
+
         // Check the first argument (originalMessage)
         expect(editCallArgs[0]).toMatchObject({ id: MOCK_MESSAGE_ID });
 
@@ -312,11 +343,11 @@ describe('UndoCommand', () => {
             fetchReply: vi.fn().mockResolvedValue({
                 id: MOCK_MESSAGE_ID,
                 // Ensure the embed here is also from a mocked EmbedBuilder for consistency
-                embeds: [new EmbedBuilder().setTitle("Pending Rank").toJSON()],
+                embeds: [new EmbedBuilder().setTitle('Pending Rank').toJSON()],
             } as Message),
             guild: { id: MOCK_GUILD_ID }, // Add guild for consistency if undo logic might access it from interaction
-            user: {id: "pendingUser"} as User,
-            client: mockIntr.client // Share client mock
+            user: { id: 'pendingUser' } as User,
+            client: mockIntr.client, // Share client mock
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
         RankCommand.latestPendingRankContext = {
@@ -338,10 +369,15 @@ describe('UndoCommand', () => {
         await undoCommand.execute(mockIntr, mockEventData);
 
         expect(pendingUpdate.status).toBe('disabled_by_undo');
-        expect(RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID)?.status).toBe('disabled_by_undo');
+        expect(RankCommand.pendingRankUpdates.get(MOCK_MESSAGE_ID)?.status).toBe(
+            'disabled_by_undo'
+        );
 
-        expect(interactionUtilsEditReplyMock).toHaveBeenCalledWith(mockPendingInteraction, expect.any(Object)); // Check for any object representing an embed
-        
+        expect(interactionUtilsEditReplyMock).toHaveBeenCalledWith(
+            mockPendingInteraction,
+            expect.any(Object)
+        ); // Check for any object representing an embed
+
         const editReplyCallArgs = interactionUtilsEditReplyMock.mock.calls[0]; // Get the first call
         expect(editReplyCallArgs).toBeDefined();
         const disabledEmbed = editReplyCallArgs[1] as EmbedBuilder; // Cast to EmbedBuilder for method checks
@@ -353,27 +389,33 @@ describe('UndoCommand', () => {
         expect(disabledEmbed.setColor).toHaveBeenCalledWith(0x808080); // Grey
 
         expect(messageUtilsClearReactionsMock).toHaveBeenCalled();
-        
+
         // Check the success message sent to mockIntr (the interaction that called /undo)
         // This happens within the same execute call. We need to find the correct send call.
-        const successSendCall = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+        const successSendCall = interactionUtilsSendMock.mock.calls.find(
+            call => call[0] === mockIntr
+        );
         expect(successSendCall).toBeDefined();
-        expect(langGetEmbedMock).toHaveBeenCalledWith("displayEmbeds.undoPendingSuccess", mockEventData.lang);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.undoPendingSuccess',
+            mockEventData.lang
+        );
         // If capturedSuccessEmbed was set up to be returned by langGetEmbedMock for this key:
-        // expect(successSendCall[1]).toBe(capturedSuccessEmbed); 
-        expect(successSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-
+        // expect(successSendCall[1]).toBe(capturedSuccessEmbed);
+        expect(successSendCall![1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
 
         expect(RankCommand.latestPendingRankContext).toBeNull();
     });
 
     it('should inform if pending rank is already disabled', async () => {
         RankCommand.latestPendingRankContext = {
-            guildId: MOCK_GUILD_ID, messageId: MOCK_MESSAGE_ID, channelId: MOCK_CHANNEL_ID,
+            guildId: MOCK_GUILD_ID,
+            messageId: MOCK_MESSAGE_ID,
+            channelId: MOCK_CHANNEL_ID,
             interaction: {
                 guild: { id: MOCK_GUILD_ID },
-                user: {id: "pendingUser"} as User,
-                client: mockIntr.client
+                user: { id: 'pendingUser' } as User,
+                client: mockIntr.client,
             } as ChatInputCommandInteraction,
         };
         RankCommand.pendingRankUpdates.set(MOCK_MESSAGE_ID, {
@@ -381,58 +423,85 @@ describe('UndoCommand', () => {
         } as PendingRankUpdate);
 
         await undoCommand.execute(mockIntr, mockEventData);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.undoAlreadyDisabled', mockEventData.lang);
-        
-        const alreadyDisabledSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.undoAlreadyDisabled',
+            mockEventData.lang
+        );
+
+        const alreadyDisabledSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+            call => call[0] === mockIntr
+        );
         expect(alreadyDisabledSendCallArgs).toBeDefined();
-        expect(alreadyDisabledSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-        expect(alreadyDisabledSendCallArgs[2]).toBe(true);
+        expect(alreadyDisabledSendCallArgs![1]).toEqual(
+            expect.objectContaining({ data: expect.any(Object) })
+        );
+        expect(alreadyDisabledSendCallArgs![2]).toBe(true);
     });
 
     it('should inform if there is nothing to undo', async () => {
         await undoCommand.execute(mockIntr, mockEventData);
-        expect(langGetEmbedMock).toHaveBeenCalledWith('displayEmbeds.undoNothingToUndo', mockEventData.lang);
-        
-        const nothingSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+        expect(langGetEmbedMock).toHaveBeenCalledWith(
+            'displayEmbeds.undoNothingToUndo',
+            mockEventData.lang
+        );
+
+        const nothingSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+            call => call[0] === mockIntr
+        );
         expect(nothingSendCallArgs).toBeDefined();
-        expect(nothingSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-        expect(nothingSendCallArgs[2]).toBe(true);
+        expect(nothingSendCallArgs![1]).toEqual(
+            expect.objectContaining({ data: expect.any(Object) })
+        );
+        expect(nothingSendCallArgs![2]).toBe(true);
     });
 
     it('should handle failure to revert confirmed rank gracefully', async () => {
         RankCommand.latestConfirmedRankOpDetails = {
-            guildId: MOCK_GUILD_ID, messageId: MOCK_MESSAGE_ID, channelId: MOCK_CHANNEL_ID,
-            players: [player1], timestamp: Date.now(),
+            guildId: MOCK_GUILD_ID,
+            messageId: MOCK_MESSAGE_ID,
+            channelId: MOCK_CHANNEL_ID,
+            players: [player1],
+            timestamp: Date.now(),
         };
-        playerRatingUpsertMock.mockRejectedValueOnce(new Error("DB Error"));
+        playerRatingUpsertMock.mockRejectedValueOnce(new Error('DB Error'));
 
         await undoCommand.execute(mockIntr, mockEventData);
 
         expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.undoFailed', mockEventData.lang);
-        
-        const errorSendCallArgs = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+
+        const errorSendCallArgs = interactionUtilsSendMock.mock.calls.find(
+            call => call[0] === mockIntr
+        );
         expect(errorSendCallArgs).toBeDefined();
-        expect(errorSendCallArgs[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-        expect(errorSendCallArgs[2]).toBe(true);
-        
+        expect(errorSendCallArgs![1]).toEqual(
+            expect.objectContaining({ data: expect.any(Object) })
+        );
+        expect(errorSendCallArgs![2]).toBe(true);
+
         // latestConfirmedRankOpDetails should still be set to allow retry or manual check
         expect(RankCommand.latestConfirmedRankOpDetails).not.toBeNull();
     });
 
     it('should handle failure to disable pending rank, reverting status and informing user', async () => {
         const mockPendingInteraction = {
-            fetchReply: vi.fn().mockRejectedValue(new Error("Fetch reply failed")), // Make edit fail
+            fetchReply: vi.fn().mockRejectedValue(new Error('Fetch reply failed')), // Make edit fail
             guild: { id: MOCK_GUILD_ID },
-            user: {id: "pendingUser"} as User,
-            client: mockIntr.client
+            user: { id: 'pendingUser' } as User,
+            client: mockIntr.client,
         } as unknown as ChatInputCommandInteraction<CacheType>;
-         RankCommand.latestPendingRankContext = {
-            guildId: MOCK_GUILD_ID, messageId: MOCK_MESSAGE_ID, channelId: MOCK_CHANNEL_ID,
+        RankCommand.latestPendingRankContext = {
+            guildId: MOCK_GUILD_ID,
+            messageId: MOCK_MESSAGE_ID,
+            channelId: MOCK_CHANNEL_ID,
             interaction: mockPendingInteraction,
         };
         const pendingUpdate: PendingRankUpdate = {
-            guildId: MOCK_GUILD_ID, playersToUpdate: [], interaction: mockPendingInteraction,
-            lang: mockEventData.lang, upvoters: new Set(), status: 'active',
+            guildId: MOCK_GUILD_ID,
+            playersToUpdate: [],
+            interaction: mockPendingInteraction,
+            lang: mockEventData.lang,
+            upvoters: new Set(),
+            status: 'active',
         };
         RankCommand.pendingRankUpdates.set(MOCK_MESSAGE_ID, pendingUpdate);
 
@@ -441,10 +510,12 @@ describe('UndoCommand', () => {
         expect(pendingUpdate.status).toBe('active'); // Should be reverted
         expect(langGetEmbedMock).toHaveBeenCalledWith('errorEmbeds.undoFailed', mockEventData.lang);
 
-        const errorSendCall = interactionUtilsSendMock.mock.calls.find(call => call[0] === mockIntr);
+        const errorSendCall = interactionUtilsSendMock.mock.calls.find(
+            call => call[0] === mockIntr
+        );
         expect(errorSendCall).toBeDefined();
-        expect(errorSendCall[1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
-        expect(errorSendCall[2]).toBe(true);
+        expect(errorSendCall![1]).toEqual(expect.objectContaining({ data: expect.any(Object) }));
+        expect(errorSendCall![2]).toBe(true);
 
         // latestPendingRankContext should still be set to allow retry or manual check
         expect(RankCommand.latestPendingRankContext).not.toBeNull();

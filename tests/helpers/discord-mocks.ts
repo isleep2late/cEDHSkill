@@ -5,7 +5,6 @@ import {
     GuildMember,
     PermissionFlagsBits,
     PermissionsBitField,
-    PermissionsString,
     ThreadChannel,
     User,
 } from 'discord.js';

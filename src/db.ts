@@ -1,7 +1,7 @@
 import { Sequelize } from 'sequelize';
 import { createRequire } from 'node:module';
 
-import { definePlayerRatingModel, PlayerRatingModelStatic } from './models/db/player-rating.js';
+import { definePlayerRatingModel } from './models/db/player-rating.js';
 import { Logger } from './services/index.js';
 
 const require = createRequire(import.meta.url);
@@ -19,7 +19,7 @@ const sequelize = new Sequelize(
     }
 );
 
-const PlayerRating: PlayerRatingModelStatic = definePlayerRatingModel(sequelize);
+const PlayerRating = definePlayerRatingModel(sequelize);
 
 async function initializeDatabase(): Promise<void> {
     try {

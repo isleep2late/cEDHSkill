@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message, resolveColor as discordResolveColor } from 'discord.js';
+import { ChatInputCommandInteraction, PermissionsString, EmbedBuilder, Message } from 'discord.js';
 import { Command, CommandDeferType } from '../index.js';
 import { PlayerRating } from '../../db.js';
 import { Lang } from '../../services/index.js';
