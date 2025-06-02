@@ -38,7 +38,10 @@ export class CommandHandler implements EventHandler {
         }
 
         let tempCommandParts: (string | null)[];
-        if (intr instanceof ChatInputCommandInteraction || intr instanceof AutocompleteInteraction) {
+        if (
+            intr instanceof ChatInputCommandInteraction ||
+            intr instanceof AutocompleteInteraction
+        ) {
             tempCommandParts = [
                 intr.commandName,
                 intr.options.getSubcommandGroup(false),

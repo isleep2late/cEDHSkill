@@ -24,8 +24,7 @@ export class ListCommand implements Command {
         }
         const guildId = intr.guild.id;
 
-        const count =
-            intr.options.getInteger(Lang.getRef('arguments.count', data.lang)) ?? 10;
+        const count = intr.options.getInteger(Lang.getRef('arguments.count', data.lang)) ?? 10;
 
         if (count <= 0) {
             await InteractionUtils.send(
@@ -76,13 +75,18 @@ export class ListCommand implements Command {
             });
         }
 
-        if (count > DiscordLimits.FIELDS_PER_EMBED && players.length === DiscordLimits.FIELDS_PER_EMBED) {
+        if (
+            count > DiscordLimits.FIELDS_PER_EMBED &&
+            players.length === DiscordLimits.FIELDS_PER_EMBED
+        ) {
             const footerText = Lang.getRef('displayEmbeds.listFooterTruncated', data.lang, {
                 SHOWN_COUNT: DiscordLimits.FIELDS_PER_EMBED.toString(),
                 REQUESTED_COUNT: count.toString(),
             });
             const currentFooter = embed.data.footer?.text;
-            embed.setFooter({ text: currentFooter ? `${currentFooter} - ${footerText}` : footerText });
+            embed.setFooter({
+                text: currentFooter ? `${currentFooter} - ${footerText}` : footerText,
+            });
         }
 
         await InteractionUtils.send(intr, embed);

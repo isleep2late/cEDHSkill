@@ -65,7 +65,8 @@ export function createMockClientUser(overrides: Partial<ClientUser> = {}): Clien
         bot: true, // ClientUser is always a bot
         mfaEnabled: false,
         verified: true,
-        presence: { // Mock ClientPresence
+        presence: {
+            // Mock ClientPresence
             status: 'online',
             activities: [],
             clientStatus: null, // Platform statuses (desktop, mobile, web)
@@ -73,7 +74,8 @@ export function createMockClientUser(overrides: Partial<ClientUser> = {}): Clien
             patch: vi.fn().mockReturnThis(), // Mock method for patching presence
             equals: vi.fn().mockReturnValue(false), // From Presence base class
         },
-        edit: vi.fn().mockImplementation(function () { // Mock method for editing user profile
+        edit: vi.fn().mockImplementation(function () {
+            // Mock method for editing user profile
             return Promise.resolve(this);
         }),
         // Other ClientUser specific properties or methods as needed
@@ -180,7 +182,8 @@ export function createMockTextChannel(overrides: Partial<TextChannel> = {}): Tex
         id: '555666777888999000',
         name: 'general',
         guild: { id: '111222333444555666', name: 'Test Guild' }, // Mock guild
-        client: { // Mock client
+        client: {
+            // Mock client
             user: createMockClientUser(), // Use the helper for consistency
         } as Client<true>,
         type: ChannelType.GuildText, // Correct channel type
@@ -194,12 +197,15 @@ export function createMockTextChannel(overrides: Partial<TextChannel> = {}): Tex
         lastMessageId: null,
         lastPinTimestamp: null,
         rateLimitPerUser: 0,
-        permissionsFor: vi.fn().mockReturnValue({ // Mock permissionsFor method
+        permissionsFor: vi.fn().mockReturnValue({
+            // Mock permissionsFor method
             has: vi.fn().mockReturnValue(true), // Default to having permissions
         }),
         // Methods from GuildChannel (if not on TextChannel.prototype directly)
         // Methods from Channel (if not on TextChannel.prototype directly)
-        fetch: vi.fn().mockImplementation(function () { return Promise.resolve(this); }),
+        fetch: vi.fn().mockImplementation(function () {
+            return Promise.resolve(this);
+        }),
         toString: vi.fn().mockReturnValue('<#555666777888999000>'),
     };
 

@@ -57,12 +57,21 @@ export class RankConfirmationReaction implements Reaction {
                     });
                 }
 
-                const confirmedEmbed = Lang.getEmbed('displayEmbeds.rankConfirmed', pendingUpdate.lang);
+                const confirmedEmbed = Lang.getEmbed(
+                    'displayEmbeds.rankConfirmed',
+                    pendingUpdate.lang
+                );
                 confirmedEmbed.setTitle(Lang.getRef('fields.confirmedRatings', pendingUpdate.lang));
 
                 for (const player of pendingUpdate.playersToUpdate) {
-                    const newElo = RatingUtils.calculateElo(player.newRating.mu, player.newRating.sigma);
-                    const outcome = player.status === 'w' ? Lang.getRef('terms.winner', pendingUpdate.lang) : Lang.getRef('terms.loser', pendingUpdate.lang);
+                    const newElo = RatingUtils.calculateElo(
+                        player.newRating.mu,
+                        player.newRating.sigma
+                    );
+                    const outcome =
+                        player.status === 'w'
+                            ? Lang.getRef('terms.winner', pendingUpdate.lang)
+                            : Lang.getRef('terms.loser', pendingUpdate.lang);
                     confirmedEmbed.addFields({
                         name: `${player.tag} (${outcome})`,
                         value: `Old: Elo=${player.initialElo}, μ=${player.initialRating.mu.toFixed(2)}, σ=${player.initialRating.sigma.toFixed(2)}, W/L: ${player.initialWins}/${player.initialLosses}\nNew: Elo=${newElo}, μ=${player.newRating.mu.toFixed(2)}, σ=${player.newRating.sigma.toFixed(2)}, W/L: ${player.newWins}/${player.newLosses}`,
@@ -103,7 +112,10 @@ export class RankConfirmationReaction implements Reaction {
             } catch (error) {
                 console.error('Failed to finalize rank update or edit message:', error);
                 // Try to inform the user about the failure
-                const errorEmbed = Lang.getEmbed('errorEmbeds.rankUpdateFailed', pendingUpdate.lang);
+                const errorEmbed = Lang.getEmbed(
+                    'errorEmbeds.rankUpdateFailed',
+                    pendingUpdate.lang
+                );
                 try {
                     await InteractionUtils.editReply(pendingUpdate.interaction, errorEmbed);
                 } catch (editError) {
@@ -130,12 +142,18 @@ export class RankConfirmationReaction implements Reaction {
                 try {
                     await InteractionUtils.editReply(pendingUpdate.interaction, updatedEmbed);
                 } catch (error) {
-                    console.error('Failed to update provisional rank message with upvote count:', error);
-                     // If editing the original interaction reply fails, try editing the message directly
+                    console.error(
+                        'Failed to update provisional rank message with upvote count:',
+                        error
+                    );
+                    // If editing the original interaction reply fails, try editing the message directly
                     try {
                         await MessageUtils.edit(msg, { embeds: [updatedEmbed] });
                     } catch (messageEditError) {
-                        console.error('Failed to edit message directly with upvote count:', messageEditError);
+                        console.error(
+                            'Failed to edit message directly with upvote count:',
+                            messageEditError
+                        );
                     }
                 }
             }

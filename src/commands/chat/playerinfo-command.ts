@@ -23,12 +23,11 @@ export class PlayerInfoCommand implements Command {
         }
         const guildId = intr.guild.id;
 
-        const user = intr.options.getUser(
-            Lang.getRef('arguments.user', data.lang),
-            true
-        );
+        const user = intr.options.getUser(Lang.getRef('arguments.user', data.lang), true);
 
-        const playerRecord = await PlayerRating.findOne({ where: { userId: user.id, guildId: guildId } });
+        const playerRecord = await PlayerRating.findOne({
+            where: { userId: user.id, guildId: guildId },
+        });
 
         let embed: EmbedBuilder;
 

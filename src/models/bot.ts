@@ -54,8 +54,10 @@ export class Bot {
 
     private registerListeners(): void {
         this.client.on(Events.ClientReady, () => this.onReady());
-        this.client.on(Events.ShardReady, (shardId: number, unavailableGuilds: Set<string> | undefined) =>
-            this.onShardReady(shardId, unavailableGuilds)
+        this.client.on(
+            Events.ShardReady,
+            (shardId: number, unavailableGuilds: Set<string> | undefined) =>
+                this.onShardReady(shardId, unavailableGuilds)
         );
         this.client.on(Events.GuildCreate, (guild: Guild) => this.onGuildJoin(guild));
         this.client.on(Events.GuildDelete, (guild: Guild) => this.onGuildLeave(guild));

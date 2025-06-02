@@ -51,7 +51,10 @@ export class ClientUtils {
         }
     }
 
-    public static async getChannel(client: Client, inputId: string): Promise<Channel | null | undefined> {
+    public static async getChannel(
+        client: Client,
+        inputId: string
+    ): Promise<Channel | null | undefined> {
         const discordId = RegexUtils.discordId(inputId);
         if (!discordId) {
             return;
@@ -93,7 +96,10 @@ export class ClientUtils {
         }
     }
 
-    public static async findAppCommand(client: Client, name: string): Promise<ApplicationCommand | undefined> {
+    public static async findAppCommand(
+        client: Client,
+        name: string
+    ): Promise<ApplicationCommand | undefined> {
         let commands = await client.application?.commands.fetch();
         return commands?.find(command => command.name === name);
     }

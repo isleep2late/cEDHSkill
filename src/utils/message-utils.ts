@@ -102,7 +102,10 @@ export class MessageUtils {
         }
     }
 
-    public static async react(msg: Message, emoji: EmojiResolvable): Promise<MessageReaction | undefined> {
+    public static async react(
+        msg: Message,
+        emoji: EmojiResolvable
+    ): Promise<MessageReaction | undefined> {
         try {
             return await msg.react(emoji);
         } catch (error) {

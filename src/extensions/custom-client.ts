@@ -5,11 +5,7 @@ export class CustomClient extends Client {
         super(clientOptions);
     }
 
-    public setPresence(
-        type: ActivityType,
-        name: string,
-        url?: string
-    ): Presence {
+    public setPresence(type: ActivityType, name: string, url?: string): Presence {
         if (!this.user) {
             throw new Error('Client user is not available to set presence.');
         }

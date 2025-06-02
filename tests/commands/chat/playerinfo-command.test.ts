@@ -1,7 +1,5 @@
 /// <reference types="vitest/globals" />
-import type {
-    PlayerRatingInstance,
-} from '../../../src/models/db/player-rating.js';
+import type { PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
 import { ChatInputCommandInteraction, EmbedBuilder, User, CacheType, Locale } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 

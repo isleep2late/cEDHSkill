@@ -69,7 +69,8 @@ export const ChatCommandMetadata: {
         dm_permission: true,
         default_member_permissions: undefined,
     },
-    RANK: { // New Command
+    RANK: {
+        // New Command
         type: ApplicationCommandType.ChatInput,
         name: Lang.getRef('chatCommands.rank', Language.Default),
         name_localizations: Lang.getRefLocalizationMap('chatCommands.rank'),

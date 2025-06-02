@@ -1,10 +1,4 @@
-import {
-    Channel,
-    CommandInteraction,
-    Guild,
-    PartialDMChannel,
-    User,
-} from 'discord.js';
+import { Channel, CommandInteraction, Guild, PartialDMChannel, User } from 'discord.js';
 
 import { Language } from '../models/enum-helpers/language.js';
 import { EventData } from '../models/internal-models.js';

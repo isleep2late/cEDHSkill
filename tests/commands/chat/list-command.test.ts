@@ -7,7 +7,14 @@ vi.mock('../../../src/utils/rating-utils.js', () => ({
     },
 }));
 import type { PlayerRatingInstance } from '../../../src/models/db/player-rating.js';
-import { ChatInputCommandInteraction, EmbedBuilder, Locale, CacheType, User, Collection } from 'discord.js';
+import {
+    ChatInputCommandInteraction,
+    EmbedBuilder,
+    Locale,
+    CacheType,
+    User,
+    Collection,
+} from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
 
 import { ListCommand } from '../../../src/commands/chat/list-command.js';
@@ -78,12 +85,13 @@ describe('ListCommand', () => {
     let mockClientUsersFetch: MockedFunction<(id: string) => Promise<User | null>>;
     let currentMockEmbed: EmbedBuilder;
 
-
     beforeEach(async () => {
         listCommand = new ListCommand();
 
         const { PlayerRating: MockedPlayerRating } = await import('../../../src/db.js');
-        mockPlayerRatingFindAllFn = MockedPlayerRating.findAll as MockedFunction<typeof PlayerRating.findAll>;
+        mockPlayerRatingFindAllFn = MockedPlayerRating.findAll as MockedFunction<
+            typeof PlayerRating.findAll
+        >;
 
         const { Lang } = await import('../../../src/services/lang.js');
         langGetRefMock = Lang.getRef as MockedFunction<any>;
@@ -127,15 +135,24 @@ describe('ListCommand', () => {
             isChatInputCommand: () => true,
         } as unknown as ChatInputCommandInteraction<CacheType>;
 
-        langGetRefMock.mockImplementation((keyInput: unknown, _langInput?: unknown, varsInput?: unknown): string => {
-            const key = keyInput as string;
-            const vars = varsInput as { SHOWN_COUNT?: string | number; REQUESTED_COUNT?: string | number } | undefined;
-            if (key === 'arguments.count') return 'count';
-            if (key === 'displayEmbeds.listFooterTruncated' && vars && vars.SHOWN_COUNT !== undefined && vars.REQUESTED_COUNT !== undefined) {
-                return `Showing top ${vars.SHOWN_COUNT} of ${vars.REQUESTED_COUNT} requested players.`;
+        langGetRefMock.mockImplementation(
+            (keyInput: unknown, _langInput?: unknown, varsInput?: unknown): string => {
+                const key = keyInput as string;
+                const vars = varsInput as
+                    | { SHOWN_COUNT?: string | number; REQUESTED_COUNT?: string | number }
+                    | undefined;
+                if (key === 'arguments.count') return 'count';
+                if (
+                    key === 'displayEmbeds.listFooterTruncated' &&
+                    vars &&
+                    vars.SHOWN_COUNT !== undefined &&
+                    vars.REQUESTED_COUNT !== undefined
+                ) {
+                    return `Showing top ${vars.SHOWN_COUNT} of ${vars.REQUESTED_COUNT} requested players.`;
+                }
+                return key || '';
             }
-            return key || '';
-        });
+        );
     });
 
     afterEach(() => {
@@ -150,7 +167,7 @@ describe('ListCommand', () => {
             sigma: 5,
             wins: i + 1,
             losses: i,
-            user: { tag: `UserTag${i+1}#0000` }
+            user: { tag: `UserTag${i + 1}#0000` },
         }));
         const mockPlayersWithElo = mockPlayers.slice(0, 10).map(p => ({
             ...p,
@@ -158,8 +175,9 @@ describe('ListCommand', () => {
         })) as unknown as PlayerRatingInstance[];
 
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayersWithElo as any);
-        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
-
+        mockClientUsersFetch.mockImplementation(
+            async (id: string) => ({ id, tag: `${id}Tag` }) as User
+        );
 
         await listCommand.execute(mockIntr, mockEventData);
 
@@ -197,8 +215,9 @@ describe('ListCommand', () => {
             losses: 5 - i,
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
-        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
-
+        mockClientUsersFetch.mockImplementation(
+            async (id: string) => ({ id, tag: `${id}Tag` }) as User
+        );
 
         await listCommand.execute(mockIntr, mockEventData);
 
@@ -210,7 +229,7 @@ describe('ListCommand', () => {
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(5);
         const firstListedPlayer = mockPlayers[0];
         expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
-             expect.objectContaining({
+            expect.objectContaining({
                 value: `Elo: ${RatingUtils.calculateElo(firstListedPlayer.mu, firstListedPlayer.sigma)}, μ: ${firstListedPlayer.mu.toFixed(2)}, σ: ${firstListedPlayer.sigma.toFixed(2)}, W/L: ${firstListedPlayer.wins}/${firstListedPlayer.losses}`,
             })
         );
@@ -266,11 +285,12 @@ describe('ListCommand', () => {
             mu: 100 - i,
             sigma: 5,
             wins: i,
-            losses: i
+            losses: i,
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
-        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
-
+        mockClientUsersFetch.mockImplementation(
+            async (id: string) => ({ id, tag: `${id}Tag` }) as User
+        );
 
         await listCommand.execute(mockIntr, mockEventData);
 
@@ -279,15 +299,21 @@ describe('ListCommand', () => {
         );
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(DiscordLimits.FIELDS_PER_EMBED);
         expect(currentMockEmbed.setFooter).toHaveBeenCalledWith({
-            text: `Showing top ${DiscordLimits.FIELDS_PER_EMBED} of ${requestedCount} requested players.`
+            text: `Showing top ${DiscordLimits.FIELDS_PER_EMBED} of ${requestedCount} requested players.`,
         });
     });
-
 
     it('should correctly display player tags, defaulting to userID if user fetch fails, and show W/L', async () => {
         const mockPlayers = [
             { userId: 'fetchedUser', guildId: MOCK_GUILD_ID, mu: 50, sigma: 5, wins: 3, losses: 1 },
-            { userId: 'unfetchedUser', guildId: MOCK_GUILD_ID, mu: 48, sigma: 6, wins: 0, losses: 2 },
+            {
+                userId: 'unfetchedUser',
+                guildId: MOCK_GUILD_ID,
+                mu: 48,
+                sigma: 6,
+                wins: 0,
+                losses: 2,
+            },
         ] as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
 
@@ -313,11 +339,27 @@ describe('ListCommand', () => {
     it('should display wins/losses as 0 if they are null or undefined in the database record', async () => {
         const mockPlayers = [
             { userId: 'player1', guildId: MOCK_GUILD_ID, mu: 50, sigma: 5, wins: null, losses: 2 },
-            { userId: 'player2', guildId: MOCK_GUILD_ID, mu: 48, sigma: 6, wins: 3, losses: undefined },
-            { userId: 'player3', guildId: MOCK_GUILD_ID, mu: 45, sigma: 7, wins: null, losses: null },
+            {
+                userId: 'player2',
+                guildId: MOCK_GUILD_ID,
+                mu: 48,
+                sigma: 6,
+                wins: 3,
+                losses: undefined,
+            },
+            {
+                userId: 'player3',
+                guildId: MOCK_GUILD_ID,
+                mu: 45,
+                sigma: 7,
+                wins: null,
+                losses: null,
+            },
         ] as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
-        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
+        mockClientUsersFetch.mockImplementation(
+            async (id: string) => ({ id, tag: `${id}Tag` }) as User
+        );
 
         await listCommand.execute(mockIntr, mockEventData);
 
@@ -327,7 +369,7 @@ describe('ListCommand', () => {
                 value: expect.stringContaining('W/L: 0/2'),
             })
         );
-         expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
+        expect(currentMockEmbed.addFields).toHaveBeenCalledWith(
             expect.objectContaining({
                 name: expect.stringContaining('player2Tag'),
                 value: expect.stringContaining('W/L: 3/0'),
@@ -346,10 +388,17 @@ describe('ListCommand', () => {
         (mockIntr.options.getInteger as MockedFunction<any>).mockReturnValue(requestedCount);
 
         const mockPlayers = Array.from({ length: 5 }, (_, i) => ({
-            userId: `user${i + 1}`, guildId: MOCK_GUILD_ID, mu: 100 - i, sigma: 5, wins: i, losses: 1
+            userId: `user${i + 1}`,
+            guildId: MOCK_GUILD_ID,
+            mu: 100 - i,
+            sigma: 5,
+            wins: i,
+            losses: 1,
         })) as unknown as PlayerRatingInstance[];
         mockPlayerRatingFindAllFn.mockResolvedValue(mockPlayers as any);
-        mockClientUsersFetch.mockImplementation(async (id: string) => ({ id, tag: `${id}Tag` } as User));
+        mockClientUsersFetch.mockImplementation(
+            async (id: string) => ({ id, tag: `${id}Tag` }) as User
+        );
 
         await listCommand.execute(mockIntr, mockEventData);
         expect(currentMockEmbed.addFields).toHaveBeenCalledTimes(5);

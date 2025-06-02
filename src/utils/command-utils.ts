@@ -56,7 +56,10 @@ export class CommandUtils {
         const currentChannel = intr.channel;
         const clientUser = intr.client.user;
 
-        if (currentChannel && (currentChannel instanceof GuildChannel || currentChannel instanceof ThreadChannel)) {
+        if (
+            currentChannel &&
+            (currentChannel instanceof GuildChannel || currentChannel instanceof ThreadChannel)
+        ) {
             if (clientUser) {
                 const channelPermissions = currentChannel.permissionsFor(clientUser);
                 // channelPermissions can be null if the user isn't in the guild context for the channel
