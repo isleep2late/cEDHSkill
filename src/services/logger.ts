@@ -60,7 +60,7 @@ export class Logger {
                 })
                 .error(message);
         } else if (obj instanceof Response) {
-            let resText: string = '';
+            let resText = '';
             try {
                 resText = await obj.text();
             } catch {

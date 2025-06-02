@@ -36,7 +36,7 @@ export class PartialUtils {
             }
         }
 
-        return user as User;
+        return user;
     }
 
     public static async fillMessage(msg: Message | PartialMessage): Promise<Message | undefined> {
@@ -56,7 +56,7 @@ export class PartialUtils {
             }
         }
 
-        return msg as Message;
+        return msg;
     }
 
     public static async fillReaction(
@@ -84,6 +84,6 @@ export class PartialUtils {
         }
         msgReaction.message = filledMessage;
 
-        return msgReaction as MessageReaction;
+        return msgReaction;
     }
 }

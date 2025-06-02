@@ -1,6 +1,5 @@
 import express, { Express } from 'express';
 import { createRequire } from 'node:module';
-import util from 'node:util';
 
 import { Controller } from '../controllers/index.js';
 import { checkAuth, handleError } from '../middleware/index.js';
@@ -22,7 +21,7 @@ export class Api {
 
     public async start(): Promise<void> {
         const port = Number(Config.api.port);
-        return new Promise<void>((resolve, reject) => {
+        return await new Promise<void>((resolve, reject) => {
             const server = this.app.listen(port, () => {
                 Logger.info(Logs.info.apiStarted.replaceAll('{PORT}', port.toString()));
                 resolve();
