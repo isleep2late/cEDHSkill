@@ -25,19 +25,22 @@ export class HelpCommand implements Command {
                 break;
             }
             case HelpOption.COMMANDS: {
+                const testCommand = await ClientUtils.findAppCommand(
+                    intr.client,
+                    Lang.getRef('chatCommands.test', Language.Default)
+                );
+                const infoCommand = await ClientUtils.findAppCommand(
+                    intr.client,
+                    Lang.getRef('chatCommands.info', Language.Default)
+                );
+
                 embed = Lang.getEmbed('displayEmbeds.helpCommands', data.lang, {
-                    CMD_LINK_TEST: FormatUtils.commandMention(
-                        await ClientUtils.findAppCommand(
-                            intr.client,
-                            Lang.getRef('chatCommands.test', Language.Default)
-                        )
-                    ),
-                    CMD_LINK_INFO: FormatUtils.commandMention(
-                        await ClientUtils.findAppCommand(
-                            intr.client,
-                            Lang.getRef('chatCommands.info', Language.Default)
-                        )
-                    ),
+                    CMD_LINK_TEST: testCommand
+                        ? FormatUtils.commandMention(testCommand)
+                        : Lang.getRef('info.commandNotFound', data.lang),
+                    CMD_LINK_INFO: infoCommand
+                        ? FormatUtils.commandMention(infoCommand)
+                        : Lang.getRef('info.commandNotFound', data.lang),
                 });
                 break;
             }

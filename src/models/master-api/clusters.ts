@@ -18,6 +18,11 @@ export class Callback {
     @IsString()
     @Length(5, 2000)
     token: string;
+
+    constructor(url: string, token: string) {
+        this.url = url;
+        this.token = token;
+    }
 }
 
 export class RegisterClusterRequest {
@@ -30,6 +35,11 @@ export class RegisterClusterRequest {
     @ValidateNested()
     @Type(() => Callback)
     callback: Callback;
+
+    constructor(shardCount: number, callback: Callback) {
+        this.shardCount = shardCount;
+        this.callback = callback;
+    }
 }
 
 export interface RegisterClusterResponse {

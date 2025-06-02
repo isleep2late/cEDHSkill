@@ -13,9 +13,9 @@ import { EventData } from '../models/internal-models.js';
 import { Lang } from '../services/index.js';
 
 export class CommandUtils {
-    public static findCommand(commands: Command[], commandParts: string[]): Command {
+    public static findCommand(commands: Command[], commandParts: string[]): Command | undefined {
         let found = [...commands];
-        let closestMatch: Command;
+        let closestMatch: Command | undefined;
         for (let [index, commandPart] of commandParts.entries()) {
             found = found.filter(command => command.names[index] === commandPart);
             if (found.length === 0) {
@@ -53,19 +53,29 @@ export class CommandUtils {
             }
         }
 
-        if (
-            (intr.channel instanceof GuildChannel || intr.channel instanceof ThreadChannel) &&
-            !intr.channel.permissionsFor(intr.client.user).has(command.requireClientPerms)
-        ) {
-            await InteractionUtils.send(
-                intr,
-                Lang.getEmbed('validationEmbeds.missingClientPerms', data.lang, {
-                    PERMISSIONS: command.requireClientPerms
-                        .map(perm => `**${Permission.Data[perm].displayName(data.lang)}**`)
-                        .join(', '),
-                })
-            );
-            return false;
+        const currentChannel = intr.channel;
+        const clientUser = intr.client.user;
+
+        if (currentChannel && (currentChannel instanceof GuildChannel || currentChannel instanceof ThreadChannel)) {
+            if (clientUser) {
+                const channelPermissions = currentChannel.permissionsFor(clientUser);
+                // channelPermissions can be null if the user isn't in the guild context for the channel
+                if (channelPermissions && !channelPermissions.has(command.requireClientPerms)) {
+                    await InteractionUtils.send(
+                        intr,
+                        Lang.getEmbed('validationEmbeds.missingClientPerms', data.lang, {
+                            PERMISSIONS: command.requireClientPerms
+                                .map(perm => `**${Permission.Data[perm].displayName(data.lang)}**`)
+                                .join(', '),
+                        })
+                    );
+                    return false;
+                }
+                // If channelPermissions is null, it implies the bot might not have permissions
+                // or the user context is unusual. For now, we only block if permissions are
+                // explicitly insufficient. If command.requireClientPerms is empty,
+                // !channelPermissions.has([]) would be !true (false), so it passes.
+            }
         }
 
         return true;

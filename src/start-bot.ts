@@ -59,7 +59,9 @@ async function start(): Promise<void> {
     // Client
     let client = new CustomClient({
         intents: Config.client.intents,
-        partials: (Config.client.partials as string[]).map(partial => Partials[partial]),
+        partials: (Config.client.partials as string[]).map(
+            partial => Partials[partial as keyof typeof Partials]
+        ),
         makeCache: Options.cacheWithLimits({
             // Keep default caching behavior
             ...Options.DefaultMakeCacheSettings,

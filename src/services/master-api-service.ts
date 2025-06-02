@@ -12,7 +12,7 @@ const require = createRequire(import.meta.url);
 let Config = require('../../config/config.json');
 
 export class MasterApiService {
-    private clusterId: string;
+    private clusterId!: string;
 
     constructor(private httpService: HttpService) {}
 

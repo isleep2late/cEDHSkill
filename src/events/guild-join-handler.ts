@@ -30,15 +30,16 @@ export class GuildJoinHandler implements EventHandler {
         // Send welcome message to the server's notify channel
         let notifyChannel = await ClientUtils.findNotifyChannel(guild, data.langGuild);
         if (notifyChannel) {
+            const helpCommandGuild = await ClientUtils.findAppCommand(
+                guild.client,
+                Lang.getRef('chatCommands.help', Language.Default)
+            );
             await MessageUtils.send(
                 notifyChannel,
                 Lang.getEmbed('displayEmbeds.welcome', data.langGuild, {
-                    CMD_LINK_HELP: FormatUtils.commandMention(
-                        await ClientUtils.findAppCommand(
-                            guild.client,
-                            Lang.getRef('chatCommands.help', Language.Default)
-                        )
-                    ),
+                    CMD_LINK_HELP: helpCommandGuild
+                        ? FormatUtils.commandMention(helpCommandGuild)
+                        : Lang.getRef('info.commandNotFound', data.langGuild),
                 }).setAuthor({
                     name: guild.name,
                     iconURL: guild.iconURL() ?? undefined,
@@ -48,15 +49,16 @@ export class GuildJoinHandler implements EventHandler {
 
         // Send welcome message to owner
         if (owner) {
+            const helpCommandOwner = await ClientUtils.findAppCommand(
+                guild.client,
+                Lang.getRef('chatCommands.help', Language.Default)
+            );
             await MessageUtils.send(
                 owner.user,
                 Lang.getEmbed('displayEmbeds.welcome', data.lang, {
-                    CMD_LINK_HELP: FormatUtils.commandMention(
-                        await ClientUtils.findAppCommand(
-                            guild.client,
-                            Lang.getRef('chatCommands.help', Language.Default)
-                        )
-                    ),
+                    CMD_LINK_HELP: helpCommandOwner
+                        ? FormatUtils.commandMention(helpCommandOwner)
+                        : Lang.getRef('info.commandNotFound', data.lang),
                 }).setAuthor({
                     name: guild.name,
                     iconURL: guild.iconURL() ?? undefined,

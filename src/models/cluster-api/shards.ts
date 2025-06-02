@@ -31,4 +31,10 @@ export class SetShardPresencesRequest {
     @IsDefined()
     @IsUrl()
     url: string;
+
+    constructor(type: string, name: string, url: string) {
+        this.type = type;
+        this.name = name;
+        this.url = url;
+    }
 }

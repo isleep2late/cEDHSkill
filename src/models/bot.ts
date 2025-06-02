@@ -120,21 +120,21 @@ export class Bot {
         }
     }
 
-    private async onMessage(msg: Message): Promise<void> {
+    private async onMessage(initialMsg: Message): Promise<void> {
         if (
             !this.ready ||
-            (Debug.dummyMode.enabled && !Debug.dummyMode.whitelist.includes(msg.author.id))
+            (Debug.dummyMode.enabled && !Debug.dummyMode.whitelist.includes(initialMsg.author.id))
         ) {
             return;
         }
 
         try {
-            msg = await PartialUtils.fillMessage(msg);
-            if (!msg) {
+            const filledMsg = await PartialUtils.fillMessage(initialMsg);
+            if (!filledMsg) {
                 return;
             }
 
-            await this.messageHandler.process(msg);
+            await this.messageHandler.process(filledMsg);
         } catch (error) {
             Logger.error(Logs.error.message, error);
         }
@@ -164,31 +164,31 @@ export class Bot {
     }
 
     private async onReaction(
-        msgReaction: MessageReaction | PartialMessageReaction,
-        reactor: User | PartialUser
+        initialMsgReaction: MessageReaction | PartialMessageReaction,
+        initialReactor: User | PartialUser
     ): Promise<void> {
         if (
             !this.ready ||
-            (Debug.dummyMode.enabled && !Debug.dummyMode.whitelist.includes(reactor.id))
+            (Debug.dummyMode.enabled && !Debug.dummyMode.whitelist.includes(initialReactor.id))
         ) {
             return;
         }
 
         try {
-            msgReaction = await PartialUtils.fillReaction(msgReaction);
-            if (!msgReaction) {
+            const filledReaction = await PartialUtils.fillReaction(initialMsgReaction);
+            if (!filledReaction) {
                 return;
             }
 
-            reactor = await PartialUtils.fillUser(reactor);
-            if (!reactor) {
+            const filledReactor = await PartialUtils.fillUser(initialReactor);
+            if (!filledReactor) {
                 return;
             }
 
             await this.reactionHandler.process(
-                msgReaction,
-                msgReaction.message as Message,
-                reactor
+                filledReaction,
+                filledReaction.message as Message, // fillReaction ensures message is full if reaction is returned
+                filledReactor
             );
         } catch (error) {
             Logger.error(Logs.error.reaction, error);
