@@ -1,4 +1,4 @@
-import express, { Express } from 'express';
+import express, { Express, json } from 'express';
 import { createRequire } from 'node:module';
 
 import { Controller } from '../controllers/index.js';
@@ -14,7 +14,7 @@ export class Api {
 
     constructor(public controllers: Controller[]) {
         this.app = express();
-        this.app.use(express.json());
+        this.app.use(json());
         this.setupControllers();
         this.app.use(handleError());
     }
