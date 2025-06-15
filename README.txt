@@ -180,3 +180,5 @@ Contributions & Feedback
 This project is open to contributions. If you have ideas for more features, optimizations, or want to report issues, open a GitHub issue or pull request: https://github.com/isleep2late/cEDHSkill/
 
 Happy ranking!
+
+https://docs.google.com/document/d/1-LOIF978sc-WC3dLYA96_mB_gOIuQmXse2mVdsfIx8s/edit?usp=sharing
