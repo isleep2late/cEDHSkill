@@ -174,8 +174,8 @@ Credits
 Lead Developer: isleep2late
 Rating Logic: J
 Rating System: Based on OpenSkill
-GitHub: https://github.com/OpenDebates/OpenSkill
-Research: Weng & Lin’s TrueSkill-related publications
+GitHub: https://github.com/philihp/openskill.js
+Research: Weng & Lin’s publication https://www.csie.ntu.edu.tw/~cjlin/papers/online_ranking/online_journal.pdf
 Contributions & Feedback
 This project is open to contributions. If you have ideas for more features, optimizations, or want to report issues, open a GitHub issue or pull request: https://github.com/isleep2late/cEDHSkill/
 
