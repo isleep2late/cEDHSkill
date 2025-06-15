@@ -1,0 +1,28 @@
+{
+  "name": "cedh-ranking-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for competitive EDH ranked games using OpenSkill",
+  "type": "module",
+  "main": "dist/bot.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/loader.js",
+    "register-commands": "node dist/register-commands.js",
+    "commands:register": "tsx src/register-commands.ts"
+  },
+  "author": "isleep2late",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "openskill": "^4.1.0",
+    "sequelize": "^6.35.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "tsx": "^3.12.7",
+    "typescript": "^5.8.3",
+    "@types/node-cron": "^3.0.2"
+  }
+}
