@@ -217,22 +217,30 @@ if (
     };
   }
 
-  // --- CHECK FOR PLAYERS ALREADY IN LIMBO ---
+// --- CHECK FOR PLAYERS ALREADY IN LIMBO ---
 if (!isAdmin) {
   const playersInLimbo: string[] = [];
   
-  // Check existing limbo games for any of our current players
+  // Include both game players AND the submitter (in case submitter is also playing)
+  const allRelevantUsers = new Set([...playerIds, interaction.user.id]);
+  
+  console.log('DEBUG: Checking limbo for users:', Array.from(allRelevantUsers));
+  console.log('DEBUG: Current limbo games:', Array.from(client.limboGames.keys()));
+  
+  // Check existing limbo games for any of our current players or submitter
   for (const [messageId, limboPlayerSet] of client.limboGames) {
-    for (const playerId of playerIds) {
-      if (limboPlayerSet.has(playerId)) {
-        playersInLimbo.push(playerId);
+    console.log(`DEBUG: Limbo game ${messageId} contains players:`, Array.from(limboPlayerSet));
+    for (const userId of allRelevantUsers) {
+      if (limboPlayerSet.has(userId)) {
+        console.log(`DEBUG: Found user ${userId} in limbo game ${messageId}`);
+        playersInLimbo.push(userId);
       }
     }
   }
   
   // If any players are in limbo, return error
   if (playersInLimbo.length > 0) {
-    const conflictingMentions = playersInLimbo.map(id => `<@${id}>`).join(', ');
+    const conflictingMentions = [...new Set(playersInLimbo)].map(id => `<@${id}>`).join(', ');
     await interaction.reply({
       content: `❌ Cannot submit game results. The following players are already in unconfirmed games: ${conflictingMentions}\n\nPlease wait for their current games to be confirmed before submitting new results.`,
       ephemeral: true
@@ -241,7 +249,6 @@ if (!isAdmin) {
   }
 }
 // --- END LIMBO CHECK ---
-
   // Initial embed
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ Game Results ${isAdmin ? 'Auto Confirmed' : 'Pending Confirmation'}`)
@@ -380,8 +387,13 @@ if (!isAdmin) {
     if (client.user?.id) pending.delete(client.user.id);
     await replyMsg.react('👍');
 
-    // Track players in limbo for non-admin games
-    client.limboGames.set(replyMsg.id, new Set(playerIds));
+    // Track players in limbo for non-admin games (include submitter if they're also a player)
+    const limboUsers = new Set(playerIds);
+       if (playerIds.includes(interaction.user.id)) {
+         limboUsers.add(interaction.user.id);
+    }
+    client.limboGames.set(replyMsg.id, limboUsers);
+    console.log('DEBUG: Added to limbo tracking:', Array.from(limboUsers));
 
     const collector = replyMsg.createReactionCollector({
       filter: (reaction, user) =>
