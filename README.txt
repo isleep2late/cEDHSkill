@@ -17,7 +17,9 @@ I recommend watching this popular video https://www.youtube.com/watch?app=deskto
 
 Steps to getting your bot set up for cEDH Skill once you have met all the prerequisites above: 
 
-1- Clone the repo (Open up Command Prompt, and either type “git clone…” [you will need to install Git probably] 
+0- Make sure you have Node.js installed. I was on Node v22.12.0 when building this bot, but I have heard others from older versions (v18.x) having issues.
+
+1- Clone the repo (Open up Command Prompt, and either type “git clone…” [you will need to install Git probably]
 
 or download the zip file containing all the source code to this project [top right corner of our GitHub page] 
 

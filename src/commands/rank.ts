@@ -217,6 +217,31 @@ if (
     };
   }
 
+  // --- CHECK FOR PLAYERS ALREADY IN LIMBO ---
+if (!isAdmin) {
+  const playersInLimbo: string[] = [];
+  
+  // Check existing limbo games for any of our current players
+  for (const [messageId, limboPlayerSet] of client.limboGames) {
+    for (const playerId of playerIds) {
+      if (limboPlayerSet.has(playerId)) {
+        playersInLimbo.push(playerId);
+      }
+    }
+  }
+  
+  // If any players are in limbo, return error
+  if (playersInLimbo.length > 0) {
+    const conflictingMentions = playersInLimbo.map(id => `<@${id}>`).join(', ');
+    await interaction.reply({
+      content: `❌ Cannot submit game results. The following players are already in unconfirmed games: ${conflictingMentions}\n\nPlease wait for their current games to be confirmed before submitting new results.`,
+      ephemeral: true
+    });
+    return;
+  }
+}
+// --- END LIMBO CHECK ---
+
   // Initial embed
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ Game Results ${isAdmin ? 'Auto Confirmed' : 'Pending Confirmation'}`)
@@ -355,6 +380,9 @@ if (
     if (client.user?.id) pending.delete(client.user.id);
     await replyMsg.react('👍');
 
+    // Track players in limbo for non-admin games
+    client.limboGames.set(replyMsg.id, new Set(playerIds));
+
     const collector = replyMsg.createReactionCollector({
       filter: (reaction, user) =>
         reaction.emoji.name === '👍' && pending.has(user.id) && !user.bot,
@@ -365,6 +393,9 @@ if (
       pending.delete(user.id);
       if (pending.size === 0) {
         collector.stop();
+
+        // Remove from limbo tracking
+        client.limboGames.delete(replyMsg.id);
 
         // inline “admin” logic but mark submittedByAdmin=false
         const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
