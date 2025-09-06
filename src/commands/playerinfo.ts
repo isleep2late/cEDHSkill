@@ -26,6 +26,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   const { mu, sigma, wins, losses, draws } = player;
+
+  // Check if player has actually played any games
+  const totalGames = wins + losses + draws;
+  if (totalGames === 0) {
+    return interaction.reply({
+      content: `${user.username} has not played any ranked games yet.`,
+      ephemeral: true
+    });
+  }
   const elo = convertElo(mu, sigma);
 
   // Determine current rank among all players
