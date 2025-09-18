@@ -1,7 +1,10 @@
-// src/commands/reanimate.ts
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { removeExemption } from '../utils/suspicion-utils.js';
-import { config } from '../config.js';  
+import { config } from '../config.js';
+
+function hasModAccess(userId: string): boolean {
+  return config.admins.includes(userId) || config.moderators.includes(userId);
+}
 
 export const data = new SlashCommandBuilder()
   .setName('reanimate')
@@ -11,12 +14,12 @@ export const data = new SlashCommandBuilder()
       .setName('user')
       .setDescription('The player to remove from the exemption list')
       .setRequired(true)
-  )
+  );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const user = interaction.options.getUser('user', true);
 
-if (!config.admins.includes(interaction.user.id)) {
+  if (!hasModAccess(interaction.user.id)) {
     await interaction.reply({
       content: '❌ You are not a bot admin.',
       ephemeral: true

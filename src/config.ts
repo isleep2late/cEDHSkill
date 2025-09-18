@@ -1,7 +1,8 @@
 export const config = {
   token: 'YOUR_DISCORD_BOT_TOKEN',
-  clientId: 'YOUR_DISCORD_BOT_ID',
+  clientId: 'YOUR_BOT_CLIENT_ID',
   guildId: 'YOUR_DISCORD_SERVER_ID',
-  admins: ['ADMIN_USER_ID1', 'ADMIN_USER_ID2'],
-    decayStartDays: 8,
+  admins: ['YOUR_DISCORD_USER_ID_1', 'YOUR_DISCORD_USER_ID_2'],
+  moderators: ['YOUR_DISCORD_USER_ID'], // Add moderator user IDs here
+  decayStartDays: 8
 };

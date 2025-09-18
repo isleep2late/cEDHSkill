@@ -1,4 +1,4 @@
-import {
+﻿import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -15,18 +15,10 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
       .addChoices(
         { name: 'Info', value: 'info' },
-        { name: 'Rank', value: 'rank' },
-        { name: 'List', value: 'list' },
-        { name: 'Player Info', value: 'playerinfo' },
-        { name: 'Predict', value: 'predict' },
-        { name: 'Undo (Admin)', value: 'undo' },
-        { name: 'Redo (Admin)', value: 'redo' },
-        { name: 'Restrict (Admin)', value: 'restrict' },
-        { name: 'Vindicate (Admin)', value: 'vindicate' },
-        { name: 'Reanimate (Admin)', value: 'reanimate' },
-        { name: 'Snap (Admin)', value: 'snap' },
-        { name: 'Thanos Snap (Admin)', value: 'thanos-snap' },
-        { name: 'Endgame (Admin)', value: 'endgame' },
+        { name: 'Player Commands', value: 'player' },
+        { name: 'Deck Commands', value: 'deck' },
+        { name: 'Stats Commands', value: 'stats' },
+        { name: 'Admin Commands', value: 'admin' },
         { name: 'Credits', value: 'credits' }
       )
   );
@@ -35,15 +27,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const userId = interaction.user.id;
   const section = interaction.options.getString('section', true);
   const isAdmin = config.admins.includes(userId);
-
-  const adminOnly = new Set([
-    'undo', 'redo', 'restrict', 'vindicate', 'snap', 'thanos-snap', 'endgame'
-  ]);
-
-  if (adminOnly.has(section) && !isAdmin) {
-    await interaction.reply({ content: '❌ You do not have permission to view this help section.', ephemeral: true });
-    return;
-  }
 
   const embed = new EmbedBuilder()
     .setTitle('cEDHSkill Help')
@@ -55,74 +38,101 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .setDescription('**cEDHSkill** is our enhanced OpenSkill-based rating system.')
         .addFields(
           { name: 'Mu & Sigma', value: 'Mu represents skill. Sigma is confidence in the rating.' },
-          { name: 'Elo Conversion', value: 'Elo = 1000 + (mu-25)*12 - (sigma-8.333)*4' },
-          { name: 'Rating Decay', value: `No decay until ${config.decayStartDays} days of inactivity. Decay slows as sigma increases.` }
+          { name: 'Elo Conversion', value: '`Elo = 1000 + (mu-25)*12 - (sigma-8.333)*4`' },
+          { name: 'Turn Order Tracking', value: 'Optional feature to track performance by turn position.' },
+          { name: 'Dual Systems', value: 'Separate ranking systems for players and commanders/decks.' },
+          { name: 'Qualification', value: 'Minimum 5 games required to appear in official rankings.' },
+          { name: 'Game Modes', value: 'Supports 4 player games with win/loss/draw results only. (3-player games disabled by default)' }
         );
       break;
 
+    case 'player':
+      embed.setDescription('**Player Ranking Commands:**')
+        .addFields(
+          { name: '/rank', value: 'Submit player game results (4 players, w/l/d only). Can include commanders assigned to players. Optional turn order tracking with reactions OR inline specification (e.g., @user w 1 for Turn 1). Also supports deck-only mode when no players are mentioned.' },
+          { name: '/list [count]', value: 'Show top N players (1-64, includes ties). Shows qualification status.' },
+          { name: '/viewstats @user', value: 'View detailed player stats: rating, rank, W/L/D record, and turn order performance.' },
+          { name: '/predict [@users...]', value: 'Predict win chances for players/decks using Elo, turn order, and hybrid predictions. Shows overall turn order win% if no input.' },
+          { name: '/set [commander] [gameid] [1-4]', value: 'Retroactively assign your turn order and/or commander for a specific game using the game ID.' }
+        );
+      break;
+
+    case 'deck':
+      embed.setDescription('**Commander/Deck Ranking Commands:**')
+        .addFields(
+          { name: '/rank (deck mode)', value: 'When no @users are mentioned, /rank works as deck-only mode - ORDER MATTERS! First mentioned = Turn 1, second = Turn 2, etc. Format: "commander-name w/l/d commander-name w/l/d"' },
+          { name: '/list deck [count]', value: 'Show top N commanders (1-64, includes ties). Displays Elo and qualification status.' },
+          { name: '/viewstats [commander]', value: 'View commander stats: rating, rank, W/L/D record, win rate, and turn order performance.' }
+        );
+      break;
+
+    case 'stats':
+      embed.setDescription('**Statistics & Information Commands:**')
+        .addFields(
+          { name: '/leaguestats', value: 'Comprehensive league overview: total players, games played, qualification rates, and activity metrics.' },
+          { name: '/predict', value: 'General turn order statistics across all players when used without arguments.' }
+        );
+      break;
+
+   case 'admin':
+  if (!isAdmin) {
+    embed.setDescription('Admin commands are only available to bot administrators.');
+    break;
+  }
+  embed.setDescription('**Admin Commands:**')
+    .addFields(
+      { 
+        name: 'Unified Match Management', 
+        value: '`/undo [gameid]` - Revert match/set (latest or specific game ID, works for both player and deck games)\n' +
+               '`/redo` - Reapply most recent undone\n'
+      },
+      { 
+        name: 'Game Injection (NEW)', 
+        value: '`/rank aftergame:GAMEID` - Inject player game after specified game ID\n' +
+               '*Automatically recalculates all ratings chronologically*'
+      },
+      { 
+        name: 'Player Management', 
+        value: '`/restrict @user` - Ban user from ranked games\n' +
+               '`/vindicate @user` - Unban user and clear suspicion\n' +
+               '`/reanimate @user` - Remove suspicion exemption'
+      },
+      { 
+        name: 'System Management', 
+        value: '`/backup` - Download database backup via DM\n' +
+               '`/snap` - Delete all unconfirmed game messages (both player and deck games)\n' +
+               '`/set @user|deck-name parameters` - Directly modify player or deck ratings\n' +
+               'Parameters: `mu:25.0 sigma:8.3 elo:1200 wld:3/4/5` (any combination, any order)'
+      },
+      { 
+        name: 'History & Data Export (Admin Only)', 
+        value: '`/printhistory [target]` - Export detailed history to text file:\n' +
+               '  • No target: Complete league history\n' +
+               '  • `admin`: Admin activity report\n' +
+               '  • `players`: All players report\n' +
+               '  • `decay`: All rating decay logs\n' +
+               '  • `setrank`: All manual rating adjustments\n' +
+               '  • `undo`: All undo/redo operations\n' +
+               '  • `player:@user`: Specific player history\n' +
+               '  • `commander:deck-name`: Specific deck history'
+      },
+      { 
+        name: 'Season Management', 
+        value: '`/thanossnap` - End season, show rankings, reset data\n'
+      }
+    );
+  break;
+
     case 'credits':
       embed.setDescription([
-        '**Lead developer:** isleep2late',
-        '**Co-developer:** J who helped set up the initial logic integration',
-        '**OpenSkill:** https://github.com/philihp/openskill.js',
-        '**Research:** https://www.csie.ntu.edu.tw/~cjlin/papers/online_ranking/online_journal.pdf',
-        '**Thank you to ChatGPT** for assisting with debugging the code.',
-        '**Shout out to ASM** for creating a ranked bot many years ago. Features such as "reaction confirmation" were inspired by this.',
-        '**Thank you to everyone in the cEDH Bot Testing server** for enabling this project to thrive, and thank you to everyone in the cEDH community for your support in making this possible!'
+        '**👨‍💻 Lead developer:** isleep2late',
+        '**👨‍💻 Dev Team:** J who helped set up the initial logic integration & AEtheriumSlinky who has contributed in a significant manner to additional logic',
+        '**🧮 OpenSkill:** https://github.com/philihp/openskill.js',
+        '**📊 Research:** https://www.csie.ntu.edu.tw/~cjlin/papers/online_ranking/online_journal.pdf',
+        '**📖 Thank you to LLMs** for assisting with debugging the code.',
+        '**⚔️ Shout out to ASM** for creating a ranked bot many years ago. Features such as "reaction confirmation" were inspired by this.',
+        '**🙏 Thank you to everyone in the cEDH Bot Testing server** for enabling this project to thrive, and thank you to everyone in the cEDH community for your support in making this possible!'
       ].join('\n'));
-      break;
-
-    case 'rank':
-      embed.setDescription([
-        '/rank @user [team:label] [w/l/d or placement] ...',
-        'Supports any number ≥2 of players, teams, mixed scores, and tied places.',
-        'Results go limbo until all mentioned react 👍.',
-        '(CURRENTLY IN CEDH MODE-ONLY ACCEPTS 3-4 PLAYERS AND UP TO 1 WINNER)'
-      ].join('\n'));
-      break;
-
-    case 'list':
-      embed.setDescription('/list count: Show top N players (1–50, includes ties at boundary).');
-      break;
-
-    case 'playerinfo':
-      embed.setDescription('/playerinfo @user: View Elo, mu, sigma, W/L/D, and rank position.');
-      break;
-
-    case 'predict':
-      embed.setDescription('/predict @p1 [team:Blue] @p2 [team:Red] ...: Guess win% for each player/team. (CEDH MODE=TEAM LABELS NOT ALLOWED)');
-      break;
-
-    case 'undo':
-      embed.setDescription('Admin only: /undo = revert the most recent confirmed match.');
-      break;
-
-    case 'redo':
-      embed.setDescription('Admin only: /redo = reapply the last undone match.');
-      break;
-
-    case 'restrict':
-      embed.setDescription('Admin only: /restrict @user = ban from ranked');
-      break;
-
-    case 'vindicate':
-      embed.setDescription('Admin only: /vindicate @user = lift ban & clear suspicion.');
-      break;
-
-    case 'reanimate':
-      embed.setDescription('Admin only: /reanimate = removes the effects of vindicate clearing suspicion.');
-      break;
-
-    case 'snap':
-      embed.setDescription('Admin only: /snap = delete all unconfirmed (limbo) game messages.');
-      break;
-
-    case 'thanos-snap':
-      embed.setDescription('Admin only: /thanos-snap = end season, show top players, then reset all data.');
-      break;
-
-    case 'endgame':
-      embed.setDescription('Admin only: /endgame = restore last season backup and announce restoration.');
       break;
   }
 

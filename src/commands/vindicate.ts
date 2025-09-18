@@ -1,14 +1,14 @@
-// src/commands/vindicate.ts
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  PermissionFlagsBits
 } from 'discord.js';
-// Use unrestrictPlayer to lift ranked ban
 import { unrestrictPlayer } from '../db/player-utils.js';
-// Use exemptPlayer to clear suspicion
-import { exemptPlayer }    from '../utils/suspicion-utils.js';
+import { exemptPlayer } from '../utils/suspicion-utils.js';
 import { config } from '../config.js';  
+
+function hasModAccess(userId: string): boolean {
+  return config.admins.includes(userId) || config.moderators.includes(userId);
+}
 
 export const data = new SlashCommandBuilder()
   .setName('vindicate')
@@ -18,22 +18,20 @@ export const data = new SlashCommandBuilder()
       .setName('user')
       .setDescription('The user to allow back into ranked play and clear suspicion')
       .setRequired(true)
-  )
+  );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const user = interaction.options.getUser('user', true);
 
-if (!config.admins.includes(interaction.user.id)) {
+  if (!hasModAccess(interaction.user.id)) {
     await interaction.reply({
-      content: '❌ You are not a bot admin.',
+      content: '❌ You are not a bot admin/mod.',
       ephemeral: true
     });
     return;
   }
 
-  // 1) Lift ranked restriction
   await unrestrictPlayer(user.id);
-  // 2) Clear any future suspicion alerts
   await exemptPlayer(user.id);
 
   await interaction.reply({
