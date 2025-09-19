@@ -1455,7 +1455,6 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
     const turnOrderSelections = new Map<string, number>();
 
-// Replace the admin turnOrderCollector with this approach
 const turnOrderCollector = replyMsg.createReactionCollector({
   filter: (reaction, user) => !user.bot,
   time: 30 * 60 * 1000
@@ -1463,6 +1462,7 @@ const turnOrderCollector = replyMsg.createReactionCollector({
 
 // Maintain clean state for admin collector too
 const adminCleanTurnOrderState = new Map<string, number>();
+const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
 
 turnOrderCollector.on('collect', async (reaction, user) => {
   // Always remove unauthorized reactions immediately
@@ -1476,6 +1476,16 @@ turnOrderCollector.on('collect', async (reaction, user) => {
       console.error('Failed to remove unauthorized admin reaction:', error);
     }
     return; // Exit immediately
+  }
+
+  // BOUNCER: Check if user has already reacted to turn order once
+  if (userHasReactedToTurnOrder.has(user.id)) {
+    try {
+      await reaction.users.remove(user.id);
+    } catch (error) {
+      console.error('Failed to remove second admin turn order reaction:', error);
+    }
+    return;
   }
 
   const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
@@ -1497,6 +1507,9 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     }
     return;
   }
+
+  // Mark user as having reacted to turn order
+  userHasReactedToTurnOrder.add(user.id);
 
   // Update our clean state (not Discord reactions)
   adminCleanTurnOrderState.set(user.id, turnOrder);
@@ -1660,6 +1673,7 @@ const collector = replyMsg.createReactionCollector({
 
 // Maintain our own clean state - ignore Discord reactions for display
 const cleanTurnOrderState = new Map<string, number>();
+const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
 
 collector.on('collect', async (reaction, user) => {
   // Always remove unauthorized reactions immediately
@@ -1699,7 +1713,7 @@ collector.on('collect', async (reaction, user) => {
     }
   }
 
-  // Handle confirmation
+  // Handle confirmation - ALLOW all game participants to confirm
   if (reaction.emoji.name === '👍' && pending.has(user.id)) {
     pending.delete(user.id);
     
@@ -1741,9 +1755,19 @@ collector.on('collect', async (reaction, user) => {
     return;
   }
 
-  // Handle turn order reactions
+  // Handle turn order reactions with bouncer for turn order only
   const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
   if (turnOrderEmojis.includes(reaction.emoji.name!)) {
+    // BOUNCER: Check if user has already reacted to turn order once
+    if (userHasReactedToTurnOrder.has(user.id)) {
+      try {
+        await reaction.users.remove(user.id);
+      } catch (error) {
+        console.error('Failed to remove second turn order reaction:', error);
+      }
+      return;
+    }
+
     const isParticipant = players.some(p => p.userId === user.id);
     const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
     
@@ -1768,6 +1792,9 @@ collector.on('collect', async (reaction, user) => {
       }
       return;
     }
+
+    // Mark user as having reacted to turn order
+    userHasReactedToTurnOrder.add(user.id);
 
     // Update our clean state (not Discord reactions)
     cleanTurnOrderState.set(user.id, turnOrder);
@@ -2319,7 +2346,7 @@ for (const recipientId of alertRecipients) {
 
 // Process commander ratings with phantom opponents
 // ENHANCED: New function that processes commander ratings with phantoms, allowing unassigned turn orders
-async function processCommanderRatingsEnhanced(
+export async function processCommanderRatingsEnhanced(
   playersWithCommanders: PlayerEntry[],
   allPlayers: PlayerEntry[],
   gameId: string,

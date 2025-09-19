@@ -12,6 +12,7 @@ import { getDatabase } from '../db/init.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js'; 
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
+import { processCommanderRatingsEnhanced } from '../commands/rank.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -107,41 +108,71 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   try {
-  // Determine the operation type based on parameters
-  
-  // Check if this is a game modification (admin only)
-  // FIXED: Also check if gameId is provided with active/results parameters
-  if ((target && await isGameId(target)) || results || (gameId && (active !== null || results))) {
-    if (!isAdmin) {
-      await interaction.reply({
-        content: 'Only admins can modify game results.',
-        ephemeral: true
-      });
-      return;
-    }
-    // Use gameId parameter if target is not provided, otherwise use target
-    const targetGameId = target || gameId;
-    await handleGameModification(interaction, targetGameId, results, active, requesterId);
-    return;
-  }
-
-  // Check if this is a player modification
-  if (target && target.match(/<@!?(\d+)>/)) {
-    const userId = target.replace(/\D/g, '');
+    // Determine the operation type based on parameters
     
-    // For non-admins, only allow self-modification and only deck/turn order
-    if (!isAdmin) {
-      if (userId !== requesterId) {
+    // Check if this is a game modification (admin only)
+    if ((target && await isGameId(target)) || results || (gameId && (active !== null || results))) {
+      if (!isAdmin) {
         await interaction.reply({
-          content: 'You can only modify your own settings.',
+          content: 'Only admins can modify game results.',
           ephemeral: true
         });
         return;
       }
+      const targetGameId = target || gameId;
+      await handleGameModification(interaction, targetGameId, results, active, requesterId);
+      return;
+    }
+
+    // Check if this is a player modification
+    if (target && target.match(/<@!?(\d+)>/)) {
+      const userId = target.replace(/\D/g, '');
       
+      // For non-admins, only allow self-modification and only deck/turn order
+      if (!isAdmin) {
+        if (userId !== requesterId) {
+          await interaction.reply({
+            content: 'You can only modify your own settings.',
+            ephemeral: true
+          });
+          return;
+        }
+        
+        // Check if user is trying to assign to a game they're not in (unless turn order is 0)
+        if (gameId && gameId !== 'allgames' && turnOrder !== 0) {
+          const isInGame = await checkUserInGame(userId, gameId);
+          if (!isInGame) {
+            await interaction.reply({
+              content: 'You can only assign decks or turn order to games you are participating in.',
+              ephemeral: true
+            });
+            return;
+          }
+        }
+      }
+      
+      await handlePlayerModification(interaction, userId, deckName, gameId, turnOrder, mu, sigma, elo, wldString, requesterId);
+      return;
+    }
+
+    // Check if this is a commander rating modification (admin only)
+    if (target && !target.match(/<@!?(\d+)>/) && (mu !== null || sigma !== null || elo !== null || wldString)) {
+      if (!isAdmin) {
+        await interaction.reply({
+          content: 'Only admins can modify commander ratings.',
+          ephemeral: true
+        });
+        return;
+      }
+      await handleCommanderRatingModification(interaction, target, mu, sigma, elo, wldString, requesterId);
+      return;
+    }
+
+    // Handle self-assignments without target parameter
+    if (!target && (deckName || (turnOrder !== null && gameId))) {
       // Check if user is trying to assign to a game they're not in (unless turn order is 0)
       if (gameId && gameId !== 'allgames' && turnOrder !== 0) {
-        const isInGame = await checkUserInGame(userId, gameId);
+        const isInGame = await checkUserInGame(requesterId, gameId);
         if (!isInGame) {
           await interaction.reply({
             content: 'You can only assign decks or turn order to games you are participating in.',
@@ -150,55 +181,42 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           return;
         }
       }
+      
+      await handlePlayerModification(interaction, requesterId, deckName, gameId, turnOrder, null, null, null, null, requesterId);
+      return;
     }
-    
-    await handlePlayerModification(interaction, userId, deckName, gameId, turnOrder, mu, sigma, elo, wldString, requesterId);
-    return;
-  }
 
-  // Check if this is a commander rating modification (admin only)
-  if (target && !target.match(/<@!?(\d+)>/) && (mu !== null || sigma !== null || elo !== null || wldString)) {
-    if (!isAdmin) {
+    await interaction.reply({
+      content: 'Invalid parameters. Use /set gameid:GAMEID active:false to deactivate a game, or /set deck:commander for your own settings.',
+      ephemeral: true
+    });
+
+  } catch (error) {
+    console.error('Error in /set command:', error);
+    
+    // FIXED: Check for specific EDHREC validation errors and provide helpful feedback
+    if (error instanceof Error && error.message.includes('not a valid commander name according to EDHREC')) {
       await interaction.reply({
-        content: 'Only admins can modify commander ratings.',
+        content: `⚠️ ${error.message}\nPlease check the spelling and use the format from EDHREC URLs (e.g., "atraxa-praetors-voice").`,
         ephemeral: true
       });
       return;
     }
-    await handleCommanderRatingModification(interaction, target, mu, sigma, elo, wldString, requesterId);
-    return;
-  }
-
-  // Handle self-assignments without target parameter
-  if (!target && (deckName || (turnOrder !== null && gameId))) {
-    // Check if user is trying to assign to a game they're not in (unless turn order is 0)
-    if (gameId && gameId !== 'allgames' && turnOrder !== 0) {
-      const isInGame = await checkUserInGame(requesterId, gameId);
-      if (!isInGame) {
-        await interaction.reply({
-          content: 'You can only assign decks or turn order to games you are participating in.',
-          ephemeral: true
-        });
-        return;
-      }
+    
+    if (error instanceof Error && error.message.includes('Unable to validate commander')) {
+      await interaction.reply({
+        content: `⚠️ ${error.message}\nThe EDHREC validation service may be temporarily unavailable. Please try again later.`,
+        ephemeral: true
+      });
+      return;
     }
     
-    await handlePlayerModification(interaction, requesterId, deckName, gameId, turnOrder, null, null, null, null, requesterId);
-    return;
+    // Generic error fallback
+    await interaction.reply({
+      content: 'An error occurred while updating settings.',
+      ephemeral: true
+    });
   }
-
-  await interaction.reply({
-    content: 'Invalid parameters. Use /set gameid:GAMEID active:false to deactivate a game, or /set deck:commander for your own settings.',
-    ephemeral: true
-  });
-
-} catch (error) {
-  console.error('Error in /set command:', error);
-  await interaction.reply({
-    content: 'An error occurred while updating settings.',
-    ephemeral: true
-  });
-}
 }
 
 // ENHANCED: handleTurnOrderWithAdmin now supports turn order 0 for removal
@@ -466,7 +484,6 @@ async function handleGameModification(
 ) {
   const db = getDatabase();
   
-  // If gameId is provided, use it. If results are provided without gameId, error
   if (!gameId && results) {
     await interaction.reply({
       content: 'Game ID is required when setting results.',
@@ -499,17 +516,38 @@ async function handleGameModification(
   const snapshot = await createGameModificationSnapshot(gameId, adminId, gameInfo, active);
 
   const modifications = [];
+  let needsRecalculation = false;
 
   // Handle active status change
   if (active !== null) {
-    await db.run('UPDATE games_master SET active = ? WHERE gameId = ?', [active ? 1 : 0, gameId]);
-    await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?', [active ? 1 : 0, gameId]);
-    modifications.push(`Active status: ${active ? 'true' : 'false'}`);
+    const oldActive = gameInfo.active === 1;
+    const newActive = active;
+    
+    if (oldActive !== newActive) {
+      // Update database first
+      await db.run('UPDATE games_master SET active = ? WHERE gameId = ?', [active ? 1 : 0, gameId]);
+      await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?', [active ? 1 : 0, gameId]);
+      modifications.push(`Active status: ${oldActive ? 'true' : 'false'} → ${newActive ? 'true' : 'false'}`);
+      
+      if (!newActive) {
+        // Game is being deactivated - recalculate ALL ratings from scratch
+        // This effectively removes this game from all calculations
+        modifications.push('⚠️ Game deactivated: All player and deck ratings will be recalculated excluding this game');
+        needsRecalculation = true;
+      } else {
+        // Game is being reactivated - need to recalculate from this game's sequence
+        modifications.push('✅ Game reactivated: All ratings from this point forward will be recalculated');
+        needsRecalculation = true;
+      }
+    } else {
+      modifications.push(`Active status: ${active ? 'true' : 'false'} (no change)`);
+    }
   }
 
   // Handle results modification
   if (results) {
     await modifyGameResults(gameId, results, gameInfo.gameType, modifications);
+    needsRecalculation = true;
   }
 
   // Save snapshot
@@ -517,9 +555,43 @@ async function handleGameModification(
     saveOperationSnapshot(snapshot);
   }
 
-  // Recalculate all ratings if game was modified
-  if (modifications.length > 0) {
-    await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+  // ENHANCED: Proper recalculation logic instead of resetting to defaults
+  if (needsRecalculation) {
+    if (active === false) {
+      // Game was deactivated - recalculate everything from scratch excluding this game
+      modifications.push('🔄 Recalculating all player ratings from scratch...');
+      await recalculateAllPlayersFromScratch();
+      
+      // Also recalculate deck ratings if this was a game with commanders
+      const hasCommanders = await db.get(`
+        SELECT COUNT(*) as count FROM matches 
+        WHERE gameId = ? AND assignedDeck IS NOT NULL
+      `, gameId);
+      
+      const hasDeckMatches = await db.get(`
+        SELECT COUNT(*) as count FROM deck_matches 
+        WHERE gameId = ?
+      `, gameId);
+      
+      if (hasCommanders?.count > 0 || hasDeckMatches?.count > 0) {
+        modifications.push('🔄 Recalculating all deck ratings from scratch...');
+        await recalculateAllDecksFromScratch();
+      }
+      
+      modifications.push('✅ Complete recalculation finished - all ratings now exclude the deactivated game');
+      
+    } else if (active === true) {
+      // Game was reactivated - recalculate from this game's sequence forward
+      modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards...`);
+      await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+      modifications.push('✅ Recalculation finished - all ratings now include the reactivated game');
+      
+    } else {
+      // Results were modified - recalculate from this game forward
+      modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards due to result changes...`);
+      await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+      modifications.push('✅ Recalculation finished');
+    }
   }
 
   const embed = new EmbedBuilder()
@@ -529,6 +601,63 @@ async function handleGameModification(
     .setTimestamp();
 
   await interaction.editReply({ embeds: [embed] });
+}
+
+// ENHANCED: Add the missing recalculation functions from rank.ts to set.ts
+// (Copy these functions from rank.ts if they're not already in set.ts)
+
+async function recalculateAllPlayersFromScratch(): Promise<void> {
+  console.log('[SET] Starting complete player rating recalculation...');
+  
+  const db = getDatabase();
+
+  // Get all players and reset their ratings to defaults
+  const allPlayers = await getAllPlayers();
+  for (const player of allPlayers) {
+    await updatePlayerRating(player.userId, 25.0, 8.333, 0, 0, 0);
+  }
+
+  // Get all ACTIVE games in chronological order (by sequence)
+  const allGames = await db.all(`
+    SELECT gameId, gameSequence 
+    FROM games_master 
+    WHERE gameType = 'player' AND status = 'confirmed' AND active = 1
+    ORDER BY gameSequence ASC
+  `);
+
+  // Replay each game in order
+  for (const game of allGames) {
+    await replayPlayerGame(game.gameId);
+  }
+
+  console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
+}
+
+async function recalculateAllDecksFromScratch(): Promise<void> {
+  console.log('[SET] Starting complete deck rating recalculation...');
+  
+  const db = getDatabase();
+
+  // Get all decks and reset their ratings to defaults
+  const allDecks = await getAllDecks();
+  for (const deck of allDecks) {
+    await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
+  }
+
+  // Get all ACTIVE games in chronological order (by sequence)
+  const allGames = await db.all(`
+    SELECT gameId, gameSequence 
+    FROM games_master 
+    WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
+    ORDER BY gameSequence ASC
+  `);
+
+  // Replay each game in order
+  for (const game of allGames) {
+    await replayDeckGame(game.gameId);
+  }
+
+  console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
 }
 
 async function modifyGameResults(gameId: string, results: string, gameType: string, modifications: string[]) {
@@ -815,6 +944,32 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
       stats.losses,
       stats.draws
     );
+  }
+
+ // CRITICAL: Process commander ratings if any players have assigned decks
+  const playersWithCommanders = originalMatches.filter(match => match.assignedDeck);
+  if (playersWithCommanders.length > 0) {
+    // First, clean up any existing deck_matches for this game
+    await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
+    
+    // Convert matches to the format expected by processCommanderRatingsEnhanced
+    const playerEntries = playersWithCommanders.map(match => ({
+      userId: match.userId,
+      status: match.status,
+      turnOrder: match.turnOrder,
+      commander: match.assignedDeck, // This is the normalized name
+      normalizedCommanderName: match.assignedDeck
+    }));
+    
+    const allPlayerEntries = originalMatches.map(match => ({
+      userId: match.userId,
+      status: match.status,
+      turnOrder: match.turnOrder,
+      commander: match.assignedDeck || undefined,
+      normalizedCommanderName: match.assignedDeck || undefined
+    }));
+    
+    await processCommanderRatingsEnhanced(playerEntries, allPlayerEntries, gameId, `${gameId}-recalc`);
   }
 }
 
@@ -1409,13 +1564,170 @@ async function handleDeckAssignment(
   const player = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', targetUserId);
   const beforeDefaultDeck = player?.defaultDeck || null;
 
+  // VALIDATION: Check EDHREC for non-removal deck assignments
+  if (deckName !== 'nocommander') {
+    try {
+      if (!await validateCommander(deckName)) {
+        throw new Error(`"${deckName}" is not a valid commander name according to EDHREC.`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not a valid commander name')) {
+        throw error; // Re-throw our custom validation error
+      }
+      throw new Error(`Unable to validate commander "${deckName}" against EDHREC database.`);
+    }
+  }
+
+  // ENHANCED: Handle commander removal with proper recalculation
+  if (deckName === 'nocommander') {
+    if (gameId === 'allgames') {
+      // Get all games where this user has assigned decks for comprehensive recalculation
+      const gamesWithDecks = await db.all(`
+        SELECT DISTINCT gameId FROM matches 
+        WHERE userId = ? AND assignedDeck IS NOT NULL
+      `, targetUserId);
+      
+      await db.run('DELETE FROM player_deck_assignments WHERE userId = ?', targetUserId);
+      await db.run('UPDATE players SET defaultDeck = NULL WHERE userId = ?', targetUserId);
+      await db.run('UPDATE matches SET assignedDeck = NULL WHERE userId = ?', targetUserId);
+      
+      // Remove deck_matches records for this player across all games
+      await db.run(`
+        DELETE FROM deck_matches 
+        WHERE gameId IN (
+          SELECT gameId FROM matches WHERE userId = ?
+        ) AND assignedPlayer = ?
+      `, [targetUserId, targetUserId]);
+      
+      // Trigger comprehensive recalculation for all affected games
+      if (gamesWithDecks.length > 0) {
+        await recalculateAllDecksFromScratch();
+      }
+      
+      return `Removed all deck assignments for ${displayName} and recalculated commander ratings`;
+      
+    } else if (gameId) {
+      // Get the specific game's sequence for targeted recalculation
+      const gameInfo = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ?', gameId);
+      
+      // Get current assignment to see if we need to recalculate
+      const currentAssignment = await db.get(`
+        SELECT deckNormalizedName FROM player_deck_assignments 
+        WHERE userId = ? AND gameId = ?
+      `, targetUserId, gameId);
+      
+      await db.run('DELETE FROM player_deck_assignments WHERE userId = ? AND gameId = ?', targetUserId, gameId);
+      await db.run('UPDATE matches SET assignedDeck = NULL WHERE userId = ? AND gameId = ?', targetUserId, gameId);
+      
+      // Remove specific deck_matches for this game and player
+      await db.run(`
+        DELETE FROM deck_matches 
+        WHERE gameId = ? AND assignedPlayer = ?
+      `, [gameId, targetUserId]);
+      
+      // If there was an assignment, trigger recalculation from this game's sequence
+      if (currentAssignment && gameInfo) {
+        await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+      }
+      
+      return `Removed deck assignment for ${displayName} in game ${gameId} and recalculated ratings`;
+      
+    } else {
+      // Default deck removal - affects all future games and past games without specific assignments
+      const gamesWithDefaultDeck = await db.all(`
+        SELECT DISTINCT gameId FROM matches 
+        WHERE userId = ? AND assignedDeck IS NOT NULL AND gameId NOT IN (
+          SELECT gameId FROM player_deck_assignments WHERE userId = ?
+        )
+      `, [targetUserId, targetUserId]);
+      
+      await db.run('UPDATE players SET defaultDeck = NULL WHERE userId = ?', targetUserId);
+      await db.run(`
+        UPDATE matches SET assignedDeck = NULL 
+        WHERE userId = ? AND gameId NOT IN (
+          SELECT gameId FROM player_deck_assignments WHERE userId = ?
+        )
+      `, [targetUserId, targetUserId]);
+      
+      // Remove deck_matches for games that used default deck
+      await db.run(`
+        DELETE FROM deck_matches 
+        WHERE assignedPlayer = ? AND gameId NOT IN (
+          SELECT gameId FROM player_deck_assignments WHERE userId = ?
+        )
+      `, [targetUserId, targetUserId]);
+      
+      // Recalculate if there were affected games
+      if (gamesWithDefaultDeck.length > 0) {
+        await recalculateAllDecksFromScratch();
+      }
+      
+      return `Removed default deck for ${displayName} and recalculated commander ratings`;
+    }
+  } else {
+    // Normal deck assignment logic (unchanged)
+    const normalizedName = normalizeCommanderName(deckName);
+    
+    // Create deck AFTER validation passes
+    await getOrCreateDeck(normalizedName, deckName);
+    
+    if (gameId === 'allgames') {
+      await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
+      await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ?', normalizedName, targetUserId);
+      await db.run(`
+        UPDATE deck_matches 
+        SET assignedPlayer = ? 
+        WHERE deckNormalizedName = ? AND assignedPlayer IS NULL
+      `, targetUserId, normalizedName);
+      
+      // Recalculate all deck ratings since we changed all assignments
+      await recalculateAllDecksFromScratch();
+      
+      return `Set ${deckName} as default deck for ${displayName} (all games) and recalculated ratings`;
+      
+    } else if (gameId) {
+      await db.run(`
+        INSERT OR REPLACE INTO player_deck_assignments 
+        (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
+        VALUES (?, ?, ?, ?, 'game_specific', ?)
+      `, [targetUserId, gameId, normalizedName, deckName, requesterId]);
+      
+      await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?', normalizedName, targetUserId, gameId);
+      
+      // Get game info for sequence-based recalculation
+      const gameInfo = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ?', gameId);
+      if (gameInfo) {
+        // Trigger comprehensive recalculation that includes both player and deck ratings
+        await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+      }
+      
+      return `Assigned ${deckName} to ${displayName} for game ${gameId} and recalculated ratings`;
+      
+    } else {
+      await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
+      
+      // Update all matches that don't have game-specific assignments
+      await db.run(`
+        UPDATE matches SET assignedDeck = ? 
+        WHERE userId = ? AND gameId NOT IN (
+          SELECT gameId FROM player_deck_assignments WHERE userId = ?
+        )
+      `, [normalizedName, targetUserId, targetUserId]);
+      
+      // Recalculate deck ratings for affected games
+      await recalculateAllDecksFromScratch();
+      
+      return `Set ${deckName} as default deck for ${displayName} and recalculated ratings`;
+    }
+  }
+
+  // Create snapshots BEFORE operations for audit trail
   if (deckName === 'nocommander' || (!gameId || gameId === 'allgames')) {
     const normalizedName = deckName !== 'nocommander' ? normalizeCommanderName(deckName) : null;
     
-    // Create snapshot for default deck changes
     const snapshot: SetCommandSnapshot = {
       matchId: `set-${Date.now()}`,
-      gameId: gameId || 'manual',
+      gameId: gameId || 'manual', // Handle null gameId
       gameSequence: Date.now(),
       gameType: 'set_command',
       operationType: 'deck_assignment',
@@ -1432,13 +1744,11 @@ async function handleDeckAssignment(
       description: `Set deck assignment for ${displayName}`
     };
 
-    // Save snapshot BEFORE making changes
     saveOperationSnapshot(snapshot);
   }
   
   // For game-specific assignments, also create snapshots
   if (gameId && gameId !== 'allgames' && gameId !== 'manual') {
-    // Get current game-specific assignment
     const currentAssignment = await db.get(`
       SELECT deckNormalizedName FROM player_deck_assignments 
       WHERE userId = ? AND gameId = ?
@@ -1448,7 +1758,7 @@ async function handleDeckAssignment(
     
     const snapshot: SetCommandSnapshot = {
       matchId: `set-${Date.now()}`,
-      gameId: gameId,
+      gameId: gameId!, // gameId is guaranteed non-null here due to if condition
       gameSequence: Date.now(),
       gameType: 'set_command',
       operationType: 'deck_assignment',
@@ -1466,48 +1776,5 @@ async function handleDeckAssignment(
     };
 
     saveOperationSnapshot(snapshot);
-  }
-  
-  if (deckName === 'nocommander') {
-    if (gameId === 'allgames') {
-      await db.run('DELETE FROM player_deck_assignments WHERE userId = ?', targetUserId);
-      await db.run('UPDATE players SET defaultDeck = NULL WHERE userId = ?', targetUserId);
-      return `Removed all deck assignments for ${displayName}`;
-    } else if (gameId) {
-      await db.run('DELETE FROM player_deck_assignments WHERE userId = ? AND gameId = ?', targetUserId, gameId);
-      return `Removed deck assignment for ${displayName} in game ${gameId}`;
-    } else {
-      await db.run('UPDATE players SET defaultDeck = NULL WHERE userId = ?', targetUserId);
-      return `Removed default deck for ${displayName}`;
-    }
-  } else {
-    const normalizedName = normalizeCommanderName(deckName);
-    
-    await getOrCreateDeck(normalizedName, deckName);
-    
-    if (gameId === 'allgames') {
-      await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
-      await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ?', normalizedName, targetUserId);
-      await db.run(`
-        UPDATE deck_matches 
-        SET assignedPlayer = ? 
-        WHERE deckNormalizedName = ? AND assignedPlayer IS NULL
-      `, targetUserId, normalizedName);
-      
-      return `Set ${deckName} as default deck for ${displayName} (all games)`;
-    } else if (gameId) {
-      await db.run(`
-        INSERT OR REPLACE INTO player_deck_assignments 
-        (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
-        VALUES (?, ?, ?, ?, 'game_specific', ?)
-      `, [targetUserId, gameId, normalizedName, deckName, requesterId]);
-      
-      await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?', normalizedName, targetUserId, gameId);
-      
-      return `Assigned ${deckName} to ${displayName} for game ${gameId}`;
-    } else {
-      await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
-      return `Set ${deckName} as default deck for ${displayName}`;
-    }
   }
 }
