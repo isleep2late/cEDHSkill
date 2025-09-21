@@ -1464,6 +1464,73 @@ const turnOrderCollector = replyMsg.createReactionCollector({
 const adminCleanTurnOrderState = new Map<string, number>();
 const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
 
+// Add auto-assignment logic for admin games
+const checkAndApplyAdminAutoAssignment = () => {
+  const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined || adminCleanTurnOrderState.has(p.userId));
+  const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined && !adminCleanTurnOrderState.has(p.userId));
+  
+  // If exactly 3 players have turn orders and 1 doesn't, auto-assign
+  if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
+    const providedTurnOrders = new Set([
+      ...players.filter(p => p.turnOrder !== undefined).map(p => p.turnOrder!),
+      ...Array.from(adminCleanTurnOrderState.values())
+    ]);
+    
+    const allTurnOrders = [1, 2, 3, 4];
+    const missingTurnOrder = allTurnOrders.find(t => !providedTurnOrders.has(t));
+    
+    if (missingTurnOrder) {
+      const playerWithoutTurnOrder = playersWithoutTurnOrder[0];
+      adminCleanTurnOrderState.set(playerWithoutTurnOrder.userId, missingTurnOrder);
+      
+      return {
+        autoAssigned: true,
+        player: playerWithoutTurnOrder,
+        turnOrder: missingTurnOrder
+      };
+    }
+  }
+  
+  return { autoAssigned: false };
+};
+
+// Updated admin embed update function
+const updateAdminEmbedWithTurnOrders = async () => {
+  const validUsers = new Set(players.map(p => p.userId));
+  
+  // Check for auto-assignment
+  const autoAssignResult = checkAndApplyAdminAutoAssignment();
+  
+  const currentTurnOrders = Array.from(adminCleanTurnOrderState.entries())
+    .filter(([userId, order]: [string, number]) => validUsers.has(userId) && order > 0)
+    .map(([userId, order]: [string, number]) => {
+      const isAutoAssigned = autoAssignResult.autoAssigned && 
+                            autoAssignResult.player?.userId === userId;
+      return `<@${userId}>: Turn ${order}${isAutoAssigned ? ' (auto-assigned)' : ''}`;
+    })
+    .join(', ');
+  
+  try {
+    const updatedEmbed = EmbedBuilder.from(adminEmbed);
+    
+    if (currentTurnOrders) {
+      let footerText = `Turn orders recorded: ${currentTurnOrders}`;
+      
+      if (autoAssignResult.autoAssigned) {
+        footerText += ` | ✨ Auto-assigned Turn ${autoAssignResult.turnOrder} to <@${autoAssignResult.player!.userId}>`;
+      }
+      
+      updatedEmbed.setFooter({ text: footerText });
+    } else {
+      updatedEmbed.setFooter({ text: 'Turn order collection period (30 minutes)' });
+    }
+    
+    await replyMsg.edit({ embeds: [updatedEmbed] });
+  } catch (error) {
+    console.error('Failed to update admin embed with turn order progress:', error);
+  }
+};
+
 turnOrderCollector.on('collect', async (reaction, user) => {
   // Always remove unauthorized reactions immediately
   const validUsers = new Set(players.map(p => p.userId));
@@ -1518,25 +1585,12 @@ turnOrderCollector.on('collect', async (reaction, user) => {
   for (const [otherUserId, otherOrder] of Array.from(adminCleanTurnOrderState.entries())) {
     if (otherUserId !== user.id && otherOrder === turnOrder) {
       adminCleanTurnOrderState.delete(otherUserId);
+      userHasReactedToTurnOrder.delete(otherUserId);
     }
   }
 
   // Update embed using our clean state only
-  const currentTurnOrders = Array.from(adminCleanTurnOrderState.entries())
-    .filter(([userId, order]) => validUsers.has(userId) && order > 0) // Extra validation
-    .map(([userId, order]) => `<@${userId}>: Turn ${order}`)
-    .join(', ');
-  
-  if (currentTurnOrders) {
-    try {
-      const updatedEmbed = EmbedBuilder.from(adminEmbed)
-        .setFooter({ text: `Turn orders recorded: ${currentTurnOrders}` });
-      
-      await replyMsg.edit({ embeds: [updatedEmbed] });
-    } catch (error) {
-      console.error('Failed to update admin embed with turn order progress:', error);
-    }
-  }
+  await updateAdminEmbedWithTurnOrders();
 });
 
 turnOrderCollector.on('end', async (collected, reason) => {
@@ -1545,6 +1599,15 @@ turnOrderCollector.on('end', async (collected, reason) => {
       // Use our clean state instead of Discord reactions
       const finalTurnOrders: [string, number][] = Array.from(adminCleanTurnOrderState.entries())
         .filter(([userId, order]) => players.some(p => p.userId === userId) && order > 0);
+
+        // Apply any auto-assignments from the collection period
+for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
+  // Only add if this player didn't already have a turn order from the original command
+  const playerHadOriginalTurnOrder = players.find(p => p.userId === userId)?.turnOrder !== undefined;
+  if (!playerHadOriginalTurnOrder && !finalTurnOrders.some(([id]) => id === userId)) {
+    finalTurnOrders.push([userId, turnOrder]);
+  }
+}
       
       if (finalTurnOrders.length > 0) {
         console.log(`Updating ${finalTurnOrders.length} turn orders for admin game ${gameId}`);
@@ -1672,8 +1735,76 @@ const collector = replyMsg.createReactionCollector({
 });
 
 // Maintain our own clean state - ignore Discord reactions for display
+// Maintain our own clean state - ignore Discord reactions for display
 const cleanTurnOrderState = new Map<string, number>();
 const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
+
+// Add this function for auto-assignment logic
+const checkAndApplyAutoAssignment = () => {
+  const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined || cleanTurnOrderState.has(p.userId));
+  const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined && !cleanTurnOrderState.has(p.userId));
+  
+  // If exactly 3 players have turn orders and 1 doesn't, auto-assign
+  if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
+    const providedTurnOrders = new Set([
+      ...players.filter(p => p.turnOrder !== undefined).map(p => p.turnOrder!),
+      ...Array.from(cleanTurnOrderState.values())
+    ]);
+    
+    const allTurnOrders = [1, 2, 3, 4];
+    const missingTurnOrder = allTurnOrders.find(t => !providedTurnOrders.has(t));
+    
+    if (missingTurnOrder) {
+      const playerWithoutTurnOrder = playersWithoutTurnOrder[0];
+      cleanTurnOrderState.set(playerWithoutTurnOrder.userId, missingTurnOrder);
+      
+      return {
+        autoAssigned: true,
+        player: playerWithoutTurnOrder,
+        turnOrder: missingTurnOrder
+      };
+    }
+  }
+  
+  return { autoAssigned: false };
+};
+
+// Updated embed update function that shows auto-assignments
+const updateEmbedWithTurnOrders = async () => {
+  const validUsers = new Set(players.map(p => p.userId));
+  
+  // Check for auto-assignment
+  const autoAssignResult = checkAndApplyAutoAssignment();
+  
+  const currentTurnOrders = Array.from(cleanTurnOrderState.entries())
+    .filter(([userId, order]: [string, number]) => validUsers.has(userId) && order > 0)
+    .map(([userId, order]: [string, number]) => {
+      const isAutoAssigned = autoAssignResult.autoAssigned && 
+                            autoAssignResult.player?.userId === userId;
+      return `<@${userId}>: Turn ${order}${isAutoAssigned ? ' (auto-assigned)' : ''}`;
+    })
+    .join(', ');
+  
+  try {
+    const updatedEmbed = EmbedBuilder.from(nonAdminEmbed);
+    
+    if (currentTurnOrders) {
+      let footerText = `Turn orders recorded: ${currentTurnOrders}`;
+      
+      if (autoAssignResult.autoAssigned) {
+        footerText += `\n\n✨ Auto-assigned Turn ${autoAssignResult.turnOrder} to <@${autoAssignResult.player!.userId}> (3/4 orders provided)`;
+      }
+      
+      updatedEmbed.setFooter({ text: footerText });
+    } else {
+      updatedEmbed.setFooter(null);
+    }
+    
+    await replyMsg.edit({ embeds: [updatedEmbed] });
+  } catch (error) {
+    console.error('Failed to update embed:', error);
+  }
+};
 
 collector.on('collect', async (reaction, user) => {
   // Always remove unauthorized reactions immediately
@@ -1716,6 +1847,20 @@ collector.on('collect', async (reaction, user) => {
   // Handle confirmation - ALLOW all game participants to confirm
   if (reaction.emoji.name === '👍' && pending.has(user.id)) {
     pending.delete(user.id);
+    
+    // Apply auto-assignment if applicable before checking completion
+    checkAndApplyAutoAssignment();
+    
+    // Update embed to show current confirmation status
+    try {
+      if (pending.size > 0) {
+        const remainingUsers = Array.from(pending).map(id => `<@${id}>`).join(', ');
+        const updatedContent = `📢 Game results submitted. Waiting for confirmations from: ${remainingUsers}`;
+        await interaction.editReply({ content: updatedContent });
+      }
+    } catch (error) {
+      console.error('Failed to update confirmation status:', error);
+    }
     
     if (pending.size === 0) {
       collector.stop('confirmed');
@@ -1807,24 +1952,9 @@ collector.on('collect', async (reaction, user) => {
     }
 
     // Update embed using our clean state only
-    const currentTurnOrders = Array.from(cleanTurnOrderState.entries())
-      .filter(([userId, order]) => validUsers.has(userId) && order > 0) // Extra validation
-      .map(([userId, order]) => `<@${userId}>: Turn ${order}`)
-      .join(', ');
-    
-    if (currentTurnOrders) {
-      try {
-        const updatedEmbed = EmbedBuilder.from(nonAdminEmbed)
-          .setFooter({ text: `Turn orders recorded: ${currentTurnOrders}` });
-        
-        await replyMsg.edit({ embeds: [updatedEmbed] });
-      } catch (error) {
-        console.error('Failed to update embed:', error);
-      }
-    }
+    await updateEmbedWithTurnOrders();
   }
 });
-
 collector.on('end', async (collected, reason) => {
   try {
     if (reason === 'time') {
@@ -2208,6 +2338,23 @@ async function processGameResults(
   }
   
   const results: string[] = [];
+
+// Auto-apply default decks for players without commanders
+for (const player of players) {
+  if (!player.commander) {
+    // Query default deck directly from database
+    const { getDatabase } = await import('../db/init.js');
+    const db = getDatabase();
+    const playerData = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', player.userId);
+    
+    if (playerData?.defaultDeck) {
+      // Get the display name for the default deck
+      const deckData = await getOrCreateDeck(playerData.defaultDeck, playerData.defaultDeck);
+      player.commander = deckData.displayName;
+      player.normalizedCommanderName = playerData.defaultDeck;
+    }
+  }
+}
 
   // ENHANCED: Process commanders if any are assigned
   const playersWithCommanders = players.filter(p => p.commander);
