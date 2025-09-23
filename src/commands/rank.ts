@@ -1734,7 +1734,9 @@ const collector = replyMsg.createReactionCollector({
   time: 60 * 60 * 1000
 });
 
-// Maintain our own clean state - ignore Discord reactions for display
+// Add processing flag to prevent double processing
+let isProcessing = false;
+
 // Maintain our own clean state - ignore Discord reactions for display
 const cleanTurnOrderState = new Map<string, number>();
 const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
@@ -1824,6 +1826,7 @@ collector.on('collect', async (reaction, user) => {
   // Handle cancellation
   if (reaction.emoji.name === '❌' && user.id === interaction.user.id) {
     try {
+      if (isProcessing) return; // Prevent cancellation during processing
       collector.stop('cancelled');
       client.limboGames.delete(replyMsg.id);
       
@@ -1862,39 +1865,48 @@ collector.on('collect', async (reaction, user) => {
       console.error('Failed to update confirmation status:', error);
     }
     
-    if (pending.size === 0) {
-      collector.stop('confirmed');
-      client.limboGames.delete(replyMsg.id);
-
-      // Use our clean state instead of reading from Discord reactions
-      for (const player of players) {
-        if (!player.turnOrder && cleanTurnOrderState.has(player.userId)) {
-          player.turnOrder = cleanTurnOrderState.get(player.userId);
-        }
-      }
-
-      // Auto-assign logic
-      const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined);
-      const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined);
+    // CRITICAL FIX: Add processing guard
+    if (pending.size === 0 && !isProcessing) {
+      isProcessing = true; // Set flag immediately
       
-      if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
-        const finalProvidedTurnOrders = new Set(playersWithTurnOrder.map(p => p.turnOrder!));
-        const allTurnOrders = [1, 2, 3, 4];
-        const finalMissingTurnOrder = allTurnOrders.find(t => !finalProvidedTurnOrders.has(t));
+      try {
+        collector.stop('confirmed');
+        client.limboGames.delete(replyMsg.id);
+
+        // Use our clean state instead of reading from Discord reactions
+        for (const player of players) {
+          if (!player.turnOrder && cleanTurnOrderState.has(player.userId)) {
+            player.turnOrder = cleanTurnOrderState.get(player.userId);
+          }
+        }
+
+        // Auto-assign logic
+        const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined);
+        const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined);
         
-        if (finalMissingTurnOrder) {
-          playersWithoutTurnOrder[0].turnOrder = finalMissingTurnOrder;
+        if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
+          const finalProvidedTurnOrders = new Set(playersWithTurnOrder.map(p => p.turnOrder!));
+          const allTurnOrders = [1, 2, 3, 4];
+          const finalMissingTurnOrder = allTurnOrders.find(t => !finalProvidedTurnOrders.has(t));
+          
+          if (finalMissingTurnOrder) {
+            playersWithoutTurnOrder[0].turnOrder = finalMissingTurnOrder;
+          }
         }
-      }
 
-      await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, replyMsg, client, isCEDHMode);
-      
-      if (afterGameId) {
-        await recalculateAllPlayersFromScratch();
-        if (playersWithCommanders.length > 0) {
-          await recalculateAllDecksFromScratch();
+        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, replyMsg, client, isCEDHMode);
+        
+        if (afterGameId) {
+          await recalculateAllPlayersFromScratch();
+          if (playersWithCommanders.length > 0) {
+            await recalculateAllDecksFromScratch();
+          }
+          await showTop50PlayersAndDecks(interaction);
         }
-        await showTop50PlayersAndDecks(interaction);
+      } catch (error) {
+        console.error('Error processing game results:', error);
+        isProcessing = false; // Reset flag on error
+        throw error; // Re-throw to handle properly
       }
     }
     return;
@@ -2191,6 +2203,9 @@ if (decks.length === 4) {
     await replyMsg.react('👍');
     await replyMsg.react('❌'); // Add cancel option
 
+    // Add processing flag to prevent double processing for deck battles
+    let isProcessingDeck = false;
+
     // Track confirmations (any 2 people can confirm)
     const confirmations = new Set<string>();
     const requiredConfirmations = 2;
@@ -2248,16 +2263,25 @@ if (decks.length === 4) {
         
         await replyMsg.edit({ embeds: [updatedEmbed] });
         
-        if (confirmations.size >= requiredConfirmations) {
-          collector.stop('confirmed');
-          client.limboGames.delete(replyMsg.id);
+        // CRITICAL FIX: Add processing guard for deck battles too
+        if (confirmations.size >= requiredConfirmations && !isProcessingDeck) {
+          isProcessingDeck = true; // Set flag immediately
           
-          // Process deck results
-          await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, replyMsg);
-          
-          // If this was a deck game injection, recalculate all deck ratings
-          if (afterGameId) {
-            await recalculateAllDecksFromScratch();
+          try {
+            collector.stop('confirmed');
+            client.limboGames.delete(replyMsg.id);
+            
+            // Process deck results
+            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, replyMsg);
+            
+            // If this was a deck game injection, recalculate all deck ratings
+            if (afterGameId) {
+              await recalculateAllDecksFromScratch();
+            }
+          } catch (error) {
+            console.error('Error processing deck results:', error);
+            isProcessingDeck = false; // Reset flag on error
+            throw error;
           }
         }
       }
