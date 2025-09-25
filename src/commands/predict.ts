@@ -471,14 +471,17 @@ async function generatePredictions(interaction: ChatInputCommandInteraction, ent
 }
 
 function calculateEloPredictions(participants: ParticipantWithStats[]): Array<{name: string, turnOrder: number, pct: number}> {
-  // Bradley-Terry model for Elo predictions
-  const totalElo = participants.reduce((sum, p) => sum + p.elo, 0);
+  // Use Bradley-Terry model with exponential scaling for proper skill-based win probabilities
+  // This converts Elo ratings to win probabilities using the same math as chess/OpenSkill
+  
+  const eloStrengths = participants.map(p => Math.pow(10, p.elo / 400));
+  const totalStrength = eloStrengths.reduce((sum, strength) => sum + strength, 0);
   
   return participants
-    .map(p => ({ 
+    .map((p, index) => ({ 
       name: p.displayName, 
       turnOrder: p.turnOrder,
-      pct: Math.round((p.elo / totalElo) * 100) 
+      pct: Math.round((eloStrengths[index] / totalStrength) * 100) 
     }))
     .sort((a, b) => b.pct - a.pct);
 }
@@ -520,11 +523,10 @@ function calculateEnhancedTurnOrderPredictions(participants: ParticipantWithStat
 
 function calculateHybridPredictions(participants: ParticipantWithStats[], leagueBaseline: Record<number, number>): Array<{name: string, turnOrder: number, pct: number}> {
   const hybridResults = participants.map(p => {
-    // Normalize Elo to 0-1 scale based on actual data range
-    const allElos = participants.map(entry => entry.elo);
-    const minElo = Math.min(...allElos);
-    const maxElo = Math.max(...allElos);
-    const normalizedElo = maxElo === minElo ? 0.5 : (p.elo - minElo) / (maxElo - minElo);
+    // Calculate proper Elo-based strength using Bradley-Terry model
+    const eloStrengths = participants.map(entry => Math.pow(10, entry.elo / 400));
+    const totalEloStrength = eloStrengths.reduce((sum, strength) => sum + strength, 0);
+    const eloWinProbability = Math.pow(10, p.elo / 400) / totalEloStrength;
     
     // Calculate enhanced turn rate (same logic as enhanced turn order model)
     const leagueWinRate = leagueBaseline[p.turnOrder] || 0.25;
@@ -532,7 +534,7 @@ function calculateHybridPredictions(participants: ParticipantWithStats[], league
     const blendedTurnRate = (p.turnOrderWinRate * personalWeight) + (leagueWinRate * (1 - personalWeight));
     
     // Weighted combination: 60% skill/strength, 40% positional advantage
-    const hybridScore = (normalizedElo * 0.6) + (blendedTurnRate * 0.4);
+    const hybridScore = (eloWinProbability * 0.6) + (blendedTurnRate * 0.4);
     
     return {
       name: p.displayName,
