@@ -1060,6 +1060,34 @@ for (let i = 0; i < tokens.length; i++) {
   }
 }
 
+// CRITICAL FIX: Validate that each player has AT MOST one commander assignment
+const playerCommanderCount = new Map<string, number>();
+for (const player of players) {
+  if (player.commander) {
+    const count = (playerCommanderCount.get(player.userId) || 0) + 1;
+    playerCommanderCount.set(player.userId, count);
+  }
+}
+
+// Check for players with multiple commanders
+const playersWithMultipleCommanders = Array.from(playerCommanderCount.entries())
+  .filter(([_, count]) => count > 1);
+
+if (playersWithMultipleCommanders.length > 0) {
+  const problematicPlayers = playersWithMultipleCommanders
+    .map(([userId]) => `<@${userId}>`)
+    .join(', ');
+  
+  await interaction.reply({
+    content: `⚠️ Invalid format: Each player can only have ONE commander assigned per game.\n` +
+             `The following players have multiple commanders: ${problematicPlayers}\n\n` +
+             `Correct format: \`@user commander-name w\` or \`@user w commander-name\`\n` +
+             `Incorrect format: \`@user deck1 deck2 w\` or \`@user deck1 w deck2\``,
+    ephemeral: true
+  });
+  return;
+}
+
 // Don't forget the last player
 if (current && current.status) {
   players.push(current);
@@ -2363,22 +2391,44 @@ async function processGameResults(
   
   const results: string[] = [];
 
-// Auto-apply default decks for players without commanders
+// FIXED: Auto-apply default decks ONLY for players without commanders AND only for FUTURE games
 for (const player of players) {
   if (!player.commander) {
     // Query default deck directly from database
     const { getDatabase } = await import('../db/init.js');
     const db = getDatabase();
-    const playerData = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', player.userId);
     
-    if (playerData?.defaultDeck) {
-      // Get the display name for the default deck
-      const deckData = await getOrCreateDeck(playerData.defaultDeck, playerData.defaultDeck);
-      player.commander = deckData.displayName;
-      player.normalizedCommanderName = playerData.defaultDeck;
+    // Check if this is a NEW game (being submitted now) or an OLD game (already exists)
+    const existingMatch = await db.get(
+      'SELECT assignedDeck FROM matches WHERE userId = ? AND gameId = ?',
+      player.userId,
+      gameId
+    );
+    
+    // CRITICAL: Only auto-apply default deck if this is a NEW game submission
+    // Do NOT auto-apply for existing games (replays, recalculations, etc.)
+    if (!existingMatch) {
+      const playerData = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', player.userId);
+      
+      if (playerData?.defaultDeck) {
+        // Get the display name for the default deck
+        const deckData = await getOrCreateDeck(playerData.defaultDeck, playerData.defaultDeck);
+        player.commander = deckData.displayName;
+        player.normalizedCommanderName = playerData.defaultDeck;
+        
+        console.log(`[AUTO-ASSIGN] Applied default deck ${player.commander} to ${player.userId} for new game ${gameId}`);
+      }
+    } else if (existingMatch.assignedDeck) {
+      // This is an existing game - use whatever deck was ALREADY assigned
+      const deckData = await db.get('SELECT displayName FROM decks WHERE normalizedName = ?', existingMatch.assignedDeck);
+      player.commander = deckData?.displayName || existingMatch.assignedDeck;
+      player.normalizedCommanderName = existingMatch.assignedDeck;
+      
+      console.log(`[EXISTING] Preserved existing deck ${player.commander} for ${player.userId} in game ${gameId}`);
     }
   }
 }
+
 
   // ENHANCED: Process commanders if any are assigned
   const playersWithCommanders = players.filter(p => p.commander);
@@ -2414,7 +2464,8 @@ for (const player of players) {
         [], 
         p.score, 
         submittedByAdmin,
-        p.turnOrder
+        p.turnOrder,
+        p.normalizedCommanderName || null  // CRITICAL: Pass the normalized commander name
       );
     } catch (error) {
       console.error(`Failed to update player ${p.userId} rating/match:`, error);

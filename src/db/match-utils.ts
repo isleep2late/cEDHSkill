@@ -10,32 +10,35 @@ export async function recordMatch(
   sigma: number,
   teams: string[],
   scores: number[],
-  score?: number,
-  submittedByAdmin: boolean = false,
-  turnOrder?: number
+  score: number | undefined,
+  submittedByAdmin: boolean,
+  turnOrder?: number,
+  assignedDeck?: string | null  // NEW PARAMETER
 ): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    INSERT INTO matches 
-    (id, gameId, userId, status, matchDate, mu, sigma, teams, scores, score, submittedByAdmin, turnOrder)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  
-  await stmt.run(
-    matchId,
-    gameId,
-    userId,
-    status,
-    matchDate.toISOString(),
-    mu,
-    sigma,
-    JSON.stringify(teams),
-    JSON.stringify(scores),
-    score ?? null,
-    submittedByAdmin ? 1 : 0,
-    turnOrder
+
+  await db.run(
+    `INSERT INTO matches 
+    (id, gameId, userId, status, matchDate, mu, sigma, teams, scores, score, submittedByAdmin, turnOrder, assignedDeck) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      matchId,
+      gameId,
+      userId,
+      status,
+      matchDate.toISOString(),
+      mu,
+      sigma,
+      JSON.stringify(teams),
+      JSON.stringify(scores),
+      score ?? null,
+      submittedByAdmin ? 1 : 0,
+      turnOrder ?? null,
+      assignedDeck ?? null  // CRITICAL: Store the assigned deck
+    ]
   );
 }
+
 
 export async function getRecentMatches(userId: string, limit: number = 50): Promise<any[]> {
   const db = getDatabase();

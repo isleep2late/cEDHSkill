@@ -8,7 +8,7 @@ function hasModAccess(userId: string): boolean {
 }
 
 export const data = new SlashCommandBuilder()
-  .setName('printhistory')
+  .setName('print')
   .setDescription('Admin/Mod: Export league history to a text file with various filtering options')
   .addStringOption(option =>
     option
@@ -138,7 +138,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
 
   } catch (error) {
-    console.error('Error in printhistory command:', error);
+    console.error('Error in print command:', error);
     await interaction.editReply({
       content: `❌ An error occurred while generating history: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
@@ -225,13 +225,12 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
   output += `Filter Type: ${filterType}\n\n`;
 
   if (filterType === 'admin') {
-    // NEW FEATURE: Admin activity report
     output += await generateAdminActivityReport(interaction);
   } else if (filterType === 'restricted') {
-    // NEW FEATURE: Restricted players report
     output += await generateRestrictedPlayersReport(interaction);
   } else if (filterType === 'decay') {
-    const changes = await getAllRatingChanges(1000, 'decay');
+    // FIXED: Remove limit to get ALL decay changes
+    const changes = await getAllRatingChanges(999999, 'decay');
     output += `📉 DECAY HISTORY (${changes.length} entries)\n`;
     output += '═'.repeat(80) + '\n';
     
@@ -254,8 +253,10 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       output += `📈 After:  ${change.newElo} Elo (μ=${change.newMu.toFixed(2)}, σ=${change.newSigma.toFixed(2)})\n`;
       output += `📉 Change: ${eloDiff >= 0 ? '+' : ''}${eloDiff} Elo\n`;
       
-      if (change.oldWins !== undefined && change.newWins !== undefined) {
-        output += `📊 Record: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
+      // FIXED: Always show W/L/D if available
+      if (change.oldWins !== undefined && change.oldWins !== null && 
+          change.newWins !== undefined && change.newWins !== null) {
+        output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
       }
       
       if (i < changes.length - 1) {
@@ -263,8 +264,9 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       }
     }
   } else if (filterType === 'setrank') {
-    const manualChanges = await getAllRatingChanges(1000, 'manual');
-    const wldChanges = await getAllRatingChanges(1000, 'wld_adjustment');
+    // FIXED: Remove limit to get ALL setrank changes
+    const manualChanges = await getAllRatingChanges(999999, 'manual');
+    const wldChanges = await getAllRatingChanges(999999, 'wld_adjustment');
     const allChanges = [...manualChanges, ...wldChanges].sort((a, b) => 
       new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime()
     );
@@ -294,7 +296,8 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       }
       
       if (change.changeType === 'wld_adjustment') {
-        output += `📊 Record Change: ${change.oldWins || 0}/${change.oldLosses || 0}/${change.oldDraws || 0} → ${change.newWins || 0}/${change.newLosses || 0}/${change.newDraws || 0}\n`;
+        // FIXED: Always show W/L/D for wld_adjustment
+        output += `📊 Record Change: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
         output += `📈 Rating: ${change.oldElo} Elo (unchanged)\n`;
       } else {
         const eloDiff = change.newElo - change.oldElo;
@@ -302,8 +305,10 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
         output += `📈 After:  ${change.newElo} Elo (μ=${change.newMu.toFixed(2)}, σ=${change.newSigma.toFixed(2)})\n`;
         output += `📉 Change: ${eloDiff >= 0 ? '+' : ''}${eloDiff} Elo\n`;
         
-        if (change.oldWins !== undefined && change.newWins !== undefined) {
-          output += `📊 Record: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
+        // FIXED: Always show W/L/D if available
+        if (change.oldWins !== undefined && change.oldWins !== null && 
+            change.newWins !== undefined && change.newWins !== null) {
+          output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
         }
       }
       
@@ -312,7 +317,8 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       }
     }
   } else if (filterType === 'undo') {
-    const undoChanges = await getAllRatingChanges(1000, 'undo');
+    // FIXED: Remove limit to get ALL undo changes
+    const undoChanges = await getAllRatingChanges(999999, 'undo');
     output += `↩️ UNDO/REDO HISTORY (${undoChanges.length} entries)\n`;
     output += '═'.repeat(80) + '\n';
     
@@ -343,8 +349,10 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       output += `📈 After:  ${change.newElo} Elo (μ=${change.newMu.toFixed(2)}, σ=${change.newSigma.toFixed(2)})\n`;
       output += `📉 Change: ${eloDiff >= 0 ? '+' : ''}${eloDiff} Elo\n`;
       
-      if (change.oldWins !== undefined && change.newWins !== undefined) {
-        output += `📊 Record: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
+      // FIXED: Always show W/L/D if available
+      if (change.oldWins !== undefined && change.oldWins !== null && 
+          change.newWins !== undefined && change.newWins !== null) {
+        output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
       }
       
       if (i < undoChanges.length - 1) {
@@ -360,7 +368,6 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
   return output;
 }
 
-// NEW FEATURE: Admin activity report
 async function generateAdminActivityReport(interaction: ChatInputCommandInteraction): Promise<string> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
@@ -421,7 +428,6 @@ async function generateAdminActivityReport(interaction: ChatInputCommandInteract
   return output;
 }
 
-// NEW FEATURE: Restricted players report
 async function generateRestrictedPlayersReport(interaction: ChatInputCommandInteraction): Promise<string> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
@@ -430,7 +436,6 @@ async function generateRestrictedPlayersReport(interaction: ChatInputCommandInte
   output += `🚫 RESTRICTED PLAYERS REPORT\n`;
   output += '═'.repeat(80) + '\n';
   
-  // Get all restricted players
   const restrictedPlayers = await db.all('SELECT userId FROM restricted ORDER BY userId');
   
   if (restrictedPlayers.length === 0) {
@@ -447,7 +452,6 @@ async function generateRestrictedPlayersReport(interaction: ChatInputCommandInte
         output += `${i + 1}. <@${player.userId}> (${player.userId})\n`;
       }
       
-      // Get player stats if they exist
       const playerStats = await db.get('SELECT * FROM players WHERE userId = ?', player.userId);
       if (playerStats) {
         const elo = calculateElo(playerStats.mu, playerStats.sigma);
@@ -489,7 +493,8 @@ async function generateRatingChangeHistory(
   output += `\n\n🔧 RATING CHANGE HISTORY\n`;
   output += '═'.repeat(80) + '\n';
   
-  const changes = await getRatingChangesForTarget(targetType, targetId, 100);
+  // FIXED: Remove limit to get ALL changes
+  const changes = await getRatingChangesForTarget(targetType, targetId, 999999);
   
   if (changes.length === 0) {
     output += 'No rating changes found.\n';
@@ -526,7 +531,8 @@ async function generateRatingChangeHistory(
       } catch {
         output += `👤 Admin: <@${change.adminUserId}>\n`;
       }
-      output += `📊 W/L/D Change: ${change.oldWins || 0}/${change.oldLosses || 0}/${change.oldDraws || 0} → ${change.newWins || 0}/${change.newLosses || 0}/${change.newDraws || 0}\n`;
+      // FIXED: Always show W/L/D for wld_adjustment
+      output += `📊 W/L/D Change: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
       output += `📈 Rating: ${change.oldElo} Elo (unchanged)\n`;
       continue;
     } else if (change.changeType === 'game' && change.parameters) {
@@ -535,6 +541,7 @@ async function generateRatingChangeHistory(
         output += `🎮 Game ID: ${params.gameId || 'Unknown'}\n`;
         output += `🎲 Result: ${(params.result === 'w' ? '🏆 WIN' : params.result === 'd' ? '🤝 DRAW' : '💀 LOSS')}\n`;
         if (params.turnOrder) output += `🔢 Turn Order: ${params.turnOrder}\n`;
+        if (params.commander) {output += `🃏 Commander: ${params.commander}\n`;}
         if (params.submittedByAdmin !== undefined) output += `👑 Admin Submitted: ${params.submittedByAdmin ? 'Yes' : 'No'}\n`;
       } catch {
         output += `🎮 Game result\n`;
@@ -564,12 +571,14 @@ async function generateRatingChangeHistory(
     output += `📈 After:  ${change.newElo} Elo (μ=${change.newMu.toFixed(2)}, σ=${change.newSigma.toFixed(2)})\n`;
     output += `📉 Change: ${eloDiff >= 0 ? '+' : ''}${eloDiff} Elo (μ${muDiff >= 0 ? '+' : ''}${muDiff.toFixed(3)}, σ${sigmaDiff >= 0 ? '+' : ''}${sigmaDiff.toFixed(3)})\n`;
     
-    if (change.oldWins !== undefined && change.newWins !== undefined) {
+    // FIXED: Always show W/L/D if available
+    if (change.oldWins !== undefined && change.oldWins !== null && 
+        change.newWins !== undefined && change.newWins !== null) {
       const winDiff = change.newWins - change.oldWins;
       const lossDiff = (change.newLosses || 0) - (change.oldLosses || 0);
       const drawDiff = (change.newDraws || 0) - (change.oldDraws || 0);
       if (winDiff !== 0 || lossDiff !== 0 || drawDiff !== 0) {
-        output += `📊 Record: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D `;
+        output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D `;
         output += `(${winDiff >= 0 ? '+' : ''}${winDiff}W ${lossDiff >= 0 ? '+' : ''}${lossDiff}L ${drawDiff >= 0 ? '+' : ''}${drawDiff}D)\n`;
       }
     }
@@ -593,7 +602,7 @@ async function generateFullLeagueHistory(interaction: ChatInputCommandInteractio
   output += `Generated: ${new Date().toLocaleString()}\n`;
   output += `Export Type: Full League History\n\n`;
 
-  // Get league statistics (ENHANCED to include restricted players)
+  // Get league statistics
   const playerCount = await db.get('SELECT COUNT(*) as count FROM players WHERE wins + losses + draws > 0');
   const allPlayersCount = await db.get('SELECT COUNT(*) as count FROM players');
   const restrictedCount = await db.get('SELECT COUNT(*) as count FROM restricted');
@@ -601,6 +610,7 @@ async function generateFullLeagueHistory(interaction: ChatInputCommandInteractio
   const playerGameCount = await db.get('SELECT COUNT(DISTINCT gameId) as count FROM matches');
   const deckGameCount = await db.get('SELECT COUNT(DISTINCT gameId) as count FROM deck_matches');
   const adminGameCount = await db.get('SELECT COUNT(DISTINCT gameId) as count FROM games_master WHERE submittedByAdmin = 1');
+  const inactiveGameCount = await db.get('SELECT COUNT(*) as count FROM games_master WHERE active = 0');
 
   output += '📊 LEAGUE SUMMARY\n';
   output += '─'.repeat(50) + '\n';
@@ -610,14 +620,11 @@ async function generateFullLeagueHistory(interaction: ChatInputCommandInteractio
   output += `Active Decks: ${deckCount?.count || 0}\n`;
   output += `Total Player Games: ${playerGameCount?.count || 0}\n`;
   output += `Total Deck Games: ${deckGameCount?.count || 0}\n`;
-  output += `Admin Submitted Games: ${adminGameCount?.count || 0}\n\n`;
+  output += `Admin Submitted Games: ${adminGameCount?.count || 0}\n`;
+  output += `Inactive Games: ${inactiveGameCount?.count || 0}\n\n`;
 
-  // Add inactive games count
-const inactiveGameCount = await db.get('SELECT COUNT(*) as count FROM games_master WHERE active = 0');
-output += `Inactive Games: ${inactiveGameCount?.count || 0}\n`;
-
-  // Add complete audit trail for full history
-  const allChanges = await getAllRatingChanges(50000);
+  // FIXED: Get ALL rating changes without limit
+  const allChanges = await getAllRatingChanges(999999);
   output += `🔧 COMPLETE AUDIT TRAIL (${allChanges.length} entries)\n`;
   output += '═'.repeat(80) + '\n';
 
@@ -649,8 +656,10 @@ output += `Inactive Games: ${inactiveGameCount?.count || 0}\n`;
     const eloDiff = change.newElo - change.oldElo;
     output += `📈 Elo: ${change.oldElo} → ${change.newElo} (${eloDiff >= 0 ? '+' : ''}${eloDiff})\n`;
     
-    if (change.oldWins !== undefined && change.newWins !== undefined) {
-      output += `📊 Record: ${change.oldWins || 0}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins || 0}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
+    // FIXED: Always show W/L/D if available
+    if (change.oldWins !== undefined && change.oldWins !== null && 
+        change.newWins !== undefined && change.newWins !== null) {
+      output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
     }
     
     if (i < allChanges.length - 1) {
@@ -683,7 +692,6 @@ async function generatePlayerHistory(userId: string, interaction: ChatInputComma
   output += `User ID: ${userId}\n`;
   output += `Generated: ${new Date().toLocaleString()}\n\n`;
 
-  // Check if player is restricted (ENHANCED FEATURE)
   const isRestricted = await db.get('SELECT userId FROM restricted WHERE userId = ?', userId);
   if (isRestricted) {
     output += '🚫 RESTRICTED PLAYER\n';
@@ -714,6 +722,7 @@ async function generatePlayerHistory(userId: string, interaction: ChatInputComma
       gm.gameSequence, 
       gm.submittedBy,
       gm.submittedByAdmin,
+      gm.active,
       m.matchDate,
       gm.status
     FROM games_master gm
@@ -742,7 +751,7 @@ async function generatePlayerHistory(userId: string, interaction: ChatInputComma
     if (!playerMatch) continue;
 
     const activeStatus = game.active === 0 ? ' | INACTIVE' : '';
-output += `\n🎯 Game ${i + 1}: ${game.gameId} | Sequence: ${game.gameSequence} | ${game.status.toUpperCase()}${activeStatus}\n`;
+    output += `\n🎯 Game ${i + 1}: ${game.gameId} | Sequence: ${game.gameSequence} | ${game.status.toUpperCase()}${activeStatus}\n`;
     output += `📅 Date: ${new Date(game.matchDate).toLocaleString()}\n`;
     output += `👑 Admin Submitted: ${game.submittedByAdmin ? 'Yes' : 'No'}\n`;
     
@@ -759,7 +768,9 @@ output += `\n🎯 Game ${i + 1}: ${game.gameId} | Sequence: ${game.gameSequence}
     
     output += `🎲 YOUR RESULT: ${result}${turnInfo}\n`;
     if (playerMatch.assignedDeck) {
-      output += `🃏 Assigned Deck: ${playerMatch.assignedDeck}\n`;
+        const deckData = await db.get('SELECT displayName FROM decks WHERE normalizedName = ?', playerMatch.assignedDeck);
+  const commanderDisplay = deckData?.displayName || playerMatch.assignedDeck;
+  output += `🃏 Commander Used: ${commanderDisplay}\n`;
     }
     output += `📈 Rating After Game: ${elo} Elo (μ=${playerMatch.mu.toFixed(2)}, σ=${playerMatch.sigma.toFixed(2)})\n`;
     output += `👥 Opponents (${allMatches.length}):\n`;
@@ -814,7 +825,6 @@ async function generateDeckHistory(deckNormalizedName: string, originalName: str
   output += `Record: ${deckStats.wins || 0}W/${deckStats.losses || 0}L/${deckStats.draws || 0}D\n`;
   output += `Total Games: ${(deckStats.wins || 0) + (deckStats.losses || 0) + (deckStats.draws || 0)}\n`;
   
-  // ENHANCED: Show deck assignments
   const assignedPlayers = await db.all(`
     SELECT DISTINCT m.userId, COUNT(*) as gameCount
     FROM matches m 
@@ -842,6 +852,7 @@ async function generateDeckHistory(deckNormalizedName: string, originalName: str
       gm.gameSequence, 
       gm.submittedBy,
       gm.submittedByAdmin,
+      gm.active,
       dm.matchDate,
       gm.status
     FROM games_master gm
@@ -869,7 +880,8 @@ async function generateDeckHistory(deckNormalizedName: string, originalName: str
 
     if (!deckMatch) continue;
 
-    output += `\n🎯 Game ${i + 1}: ${game.gameId} | Sequence: ${game.gameSequence} | ${game.status.toUpperCase()}\n`;
+    const activeStatus = game.active === 0 ? ' | INACTIVE' : '';
+    output += `\n🎯 Game ${i + 1}: ${game.gameId} | Sequence: ${game.gameSequence} | ${game.status.toUpperCase()}${activeStatus}\n`;
     output += `📅 Date: ${new Date(game.matchDate).toLocaleString()}\n`;
     output += `👑 Admin Submitted: ${game.submittedByAdmin ? 'Yes' : 'No'}\n`;
 

@@ -1,17 +1,27 @@
-# cEDHSkill v0.02: Enhanced Discord Ranking Bot for Competitive EDH
+# cEDHSkill v0.03: Enhanced Discord Ranking Bot for Competitive EDH
 
-## 🚀 What's New in v0.02
+## 🚀 What's New in v0.03
 
-### Major System Overhaul: Unified Commands & Deck Assignment System
+### Command Consolidation & Commander Assignment Fixes
 
-**Key Features:**
-- **Unified `/rank` Command**: Automatically detects player mode (with @mentions) or deck-only mode. Supports game injection for mods.
-- **Player-Deck Assignment System**: Players can assign commanders to themselves for dual tracking
-- **Phantom Deck Calculations**: Assigned decks compete against virtual 1000 Elo opponents when needed
-- **Unified `/set` Command**: Combines "setrank" (admins) and "setturnorder" with deck assignment capabilities
-- **Enhanced Admin Tools**: Comprehensive audit trails and history exports
-- **Unified Statistics**: `/viewstats` replaces playerinfo and deckinfo with enhanced features
-- **Enhanced prediction**: Three-tiered model for predicting winners.
+**Major Changes:**
+- **Unified `/view` Command**: Combines `/viewstats` and `/leaguestats` into one command with type selection (league, player, commander, game)
+- **Renamed `/print` Command**: Simplified from `/printhistory` for easier access to history exports
+- **Commander Assignment Fixes**: Critical fixes to prevent multiple commanders per player and ensure proper assignment behavior
+- **Game View Feature**: NEW ability to view detailed game information by Game ID including all player ratings, W/L/D changes, and commander assignments
+- **Enhanced History Exports**: `/print` now displays W/L/D correctly and includes complete audit trails
+
+**Bug Fixes:**
+- ✅ Fixed: Only ONE commander can be assigned per player per game (validation added)
+- ✅ Fixed: `/rank` commander assignments now properly override default deck settings
+- ✅ Fixed: `/set` with game ID now only affects that specific game (not all games)
+- ✅ Fixed: `/set` default deck assignment no longer retroactively changes past games
+- ✅ Fixed: `/view` game details now show commander assignments for each player
+- ✅ Fixed: `/print` exports now include commander assignments in player and league history
+- ✅ Fixed: W/L/D records display correctly in all history exports
+- ✅ Fixed: Full league history export now retrieves ALL entries (removed artificial limits)
+
+---
 
 ## TL;DR: Quick Setup Guide
 
@@ -66,7 +76,7 @@ npm start
 
 ---
 
-## Complete Command Reference
+## Complete Command Reference (15 Commands)
 
 ### 🎮 Unified Game Submission
 
@@ -80,6 +90,8 @@ npm start
 ```
 - Format: `@user [commander] [turn-order] w/l/d`
 - Commander and turn order are optional
+- **Only ONE commander per player per game** (validated)
+- Commander specified in `/rank` overrides any default deck setting
 - Assigned decks compete against phantom 1000 Elo decks for missing slots
 - Requires all players to confirm (admins auto-confirm)
 
@@ -97,45 +109,71 @@ npm start
 #### `/set` - Universal Settings Command
 **For Regular Users:**
 ```bash
-# Set default deck
+# Set default deck (affects FUTURE games only, NOT past games)
 /set deck:nekusar-the-mindrazer
 
-# Assign deck to specific game
+# Assign deck to specific game (only affects that ONE game)
 /set deck:nekusar gameid:ABC123
 
 # Set turn order for past game
 /set gameid:ABC123 turnorder:2 (use 0 to remove turn order assignment)
 
-# Assign deck to all past games
+# Assign deck to ALL games (past, present, future)
 /set deck:nekusar gameid:allgames
 
 # Remove deck assignment
-/set deck:nocommander
-/set deck:nocommander gameid:ABC123
+/set deck:nocommander                    # Removes default (future games only)
+/set deck:nocommander gameid:ABC123      # Removes from specific game only
+/set deck:nocommander gameid:allgames    # Removes from ALL games
 ```
+
+**Important Notes on Deck Assignment Behavior:**
+- **Default Assignment (`/set deck:commander`)**: Only applies to NEW games from now on, does NOT change past games
+- **Game-Specific Assignment (`/set deck:commander gameid:ABC123`)**: Only affects that ONE specific game, overrides default
+- **All Games Assignment (`/set deck:commander gameid:allgames`)**: Changes ALL past, present, and future games (use carefully!)
+- **Commander in `/rank` always overrides default**: If you specify a commander when submitting a game, it uses that commander regardless of default setting
 
 **For Admins (additional features):**
 ```bash
 # Set ratings for other players
-/set user:@player elo:1200 wld:10/5/2
+/set target:@player elo:1200 wld:10/5/2
 
 # Assign decks to other players
-/set user:@player deck:nekusar-the-mindrazer gameid:allgames
+/set target:@player deck:nekusar-the-mindrazer gameid:allgames
 
 # Combined operations
-/set user:@player deck:nekusar elo:1200 gameid:ABC123 turnorder:3
+/set target:@player deck:nekusar elo:1200 gameid:ABC123 turnorder:3
 ```
 
 ### 📊 Statistics & Information
 
-#### `/viewstats` - Universal Stats Command
+#### `/view` - Unified View Command (NEW in v0.03!)
+**Replaces `/viewstats` and `/leaguestats` with enhanced functionality**
+
 ```bash
+# View league statistics (default)
+/view
+/view type:league
+
 # View player statistics (includes top 5 performing decks)
-/viewstats player:@user
+/view type:player player:@user
 
 # View commander statistics
-/viewstats commander:nekusar-the-mindrazer
+/view type:commander commander:nekusar-the-mindrazer
+
+# NEW: View specific game details (shows all players, rating changes, commanders)
+/view type:game gameid:ABC123
 ```
+
+**Game View Shows:**
+- All 4 players/decks with their results (🏆/🤝/💀)
+- Rating BEFORE and AFTER the game for each player
+- W/L/D records BEFORE and AFTER for each player
+- Turn order assignments
+- **Commander assignments** for each player
+- Current ratings for comparison
+- Game status (active/inactive)
+- Admin submission indicator
 
 #### `/list` - Rankings with Type Selection (using "Olympic" tie display)
 ```bash
@@ -151,18 +189,11 @@ npm start
 
 ### 📈 Enhanced Statistics
 
-#### `/leaguestats` - Comprehensive League Overview
-- Total players and commanders used in the league
-- Qualification rates and activity metrics
-- Turn order performance analysis
-- Most played commanders
-- System health indicators
-
-##### `/predict` - Prediction System
+#### `/predict` - Prediction System
 - General turn order statistics across all players when used without arguments
 - Enhanced prediction model for estimating game outcomes
 
-#### 👮‍♂️ Player Management
+### 👮‍♂️ Player Management
 ```bash
 # Ban user from ranked games
 /restrict @user
@@ -174,7 +205,7 @@ npm start
 /reanimate @user
 ```
 
-#### 🛠️ System Management
+### 🛠️ System Management
 ```bash
 # Download database backup via DM
 /backup
@@ -189,31 +220,50 @@ npm start
 /redo
 ```
 
-#### 📋 History & Data Export
-```bash
-# Export detailed history to text file (various filtering options)
-/printhistory [target]
+### 📋 History & Data Export
 
-# Available targets:
-/printhistory                    # Complete league history
-/printhistory player:@user       # Specific player history
-/printhistory commander:deck-name # Specific deck history
+#### `/print` - Export History (RENAMED from `/printhistory`)
+**Enhanced with complete audit trails and commander assignments**
+
+```bash
+# Export complete league history (now shows ALL entries, not limited)
+/print
+
+# Export specific player history (includes commander assignments)
+/print target:@user
+
+# Export specific commander history
+/print target:commander-name
+
+# Export filtered histories
+/print target:decay        # All rating decay logs
+/print target:setrank      # All manual rating adjustments
+/print target:undo         # All undo/redo operations
+/print target:admin        # Admin activity report
+/print target:restricted   # Restricted players report
 ```
 
-### 🔴 Admin Commands
+**Improvements in v0.03:**
+- ✅ W/L/D records now display correctly in ALL exports
+- ✅ Full league history retrieves ALL entries (no artificial limits)
+- ✅ Commander assignments shown in player and game histories
+- ✅ Complete audit trail with all rating changes
+
+---
+
+## 🔴 Admin Commands
 
 **Admins have all moderator commands PLUS:**
 
-#### ⚙️ Enhanced Settings Management
+### ⚙️ Enhanced Settings Management
 
-##### `/set` - Admin Override Capabilities
-**For Admins (can modify other users and ratings):**
+#### `/set` - Admin Override Capabilities
 ```bash
 # Set ratings for other players
 /set target:@player elo:1200 wld:10/5/2
 
-# Assign decks to other players
-/set target:@player deck:nekusar-the-mindrazer gameid:allgames
+# Assign decks to other players (game-specific or default)
+/set target:@player deck:nekusar-the-mindrazer gameid:ABC123
 
 # Set game results directly
 /set results:"@user1 w @user2 l @user3 l @user4 d"
@@ -224,38 +274,40 @@ npm start
 # Combined operations
 /set target:@player deck:nekusar elo:1200 gameid:ABC123 turnorder:3
 
-# Deactivate games
+# Deactivate/reactivate games
 /set gameid:GAMEID active:false
+/set gameid:GAMEID active:true
 ```
 
-#### 🎮 Advanced Game Management
+### 🎮 Advanced Game Management
 ```bash
 # Inject games anywhere in history with automatic recalculation
 /rank aftergame:GAMEID @user1 w @user2 l @user3 l @user4 d
+
 # Use aftergame:0 to inject game before all other games
+/rank aftergame:0 @user1 w @user2 l @user3 l @user4 d
 
 # Admin games are auto-confirmed (no player confirmation needed)
 ```
 
-#### 📊 Advanced History & Data Export
+### 📊 Advanced History & Data Export
 ```bash
 # Admin-only history exports
-/printhistory target:admin      # Admin activity report
-/printhistory target:players    # All players report
-/printhistory target:decay      # All rating decay logs
-/printhistory target:setrank    # All manual rating adjustments
-/printhistory target:undo       # All undo/redo operations
-/printhistory target:restricted # Restricted players report
+/print target:admin         # Admin activity report
+/print target:decay         # All rating decay logs
+/print target:setrank       # All manual rating adjustments
+/print target:undo          # All undo/redo operations
+/print target:restricted    # Restricted players report
 ```
 
-#### 🗃️ Season Management
+### 🗃️ Season Management
 ```bash
 # End season, show rankings, reset all data
-/thanossnap (NOTE:/endgame NO LONGER exists! It is baked into thanossnap by sending a backup to all moderators/admins)
-
+/thanossnap
+# (NOTE: /endgame NO LONGER exists! Functionality is in /thanossnap)
 ```
 
-#### 📧 Admin Notifications
+### 📧 Admin Notifications
 **DM Commands for Admins:**
 - `!optout` - Stop receiving suspicious activity alerts
 - `!optin` - Resume receiving suspicious activity alerts
@@ -264,23 +316,68 @@ npm start
 
 ## New Features Deep Dive
 
-### Player-Deck Assignment System
+### Commander Assignment System (v0.03 Fixes)
 
 **How It Works:**
-1. Players assign commanders to themselves using `/set deck:commander-name`
+1. Players assign commanders using `/set deck:commander-name` OR specify in `/rank` when submitting games
 2. When they play games, both their player rating AND their assigned deck rating are affected
 3. If only some players have assigned decks, the system creates "phantom decks" with 1000 Elo for fair competition
 
+**Assignment Priority (Highest to Lowest):**
+1. **Commander specified in `/rank`**: Always takes precedence
+2. **Game-specific assignment** (`/set deck:X gameid:ABC123`): Overrides default for that game
+3. **Default deck** (`/set deck:X`): Used for new games where no specific assignment exists
+
 **Assignment Types:**
-- **Default Assignment**: `/set deck:nekusar-the-mindrazer` - Used for all future games
-- **Game-Specific**: `/set deck:nekusar-the-mindrazer gameid:ABC123` - Only for that specific game  
-- **All Games**: `/set deck:nekusar-the-mindrazer gameid:allgames` - Retroactively assigns to all past games
+- **Default Assignment**: `/set deck:nekusar-the-mindrazer` - Used for FUTURE games only (does NOT change past games)
+- **Game-Specific**: `/set deck:nekusar-the-mindrazer gameid:ABC123` - Only for that ONE specific game
+- **All Games**: `/set deck:nekusar-the-mindrazer gameid:allgames` - Retroactively assigns to ALL past games (use carefully!)
+
+**Key Rules (v0.03 Enforced):**
+- ✅ **Only ONE commander per player per game** - System validates and rejects multiple assignments
+- ✅ **Commander in `/rank` overrides default** - Explicit assignment always wins
+- ✅ **Game-specific assignments isolated** - Only affect the specified game, not others
+- ✅ **Default assignments NOT retroactive** - Only apply to new games from that point forward
 
 **Benefits:**
 - Track both individual skill AND deck performance simultaneously
 - See which commanders perform best for which players
 - Maintain separate but linked ranking systems
 - Enhanced statistics showing player-deck synergies
+- Full transparency with `/view type:game` showing all assignments
+
+### Unified View Command (NEW in v0.03)
+
+The new `/view` command consolidates multiple commands into one interface:
+
+**League View** (`/view` or `/view type:league`):
+- Total players and commanders
+- Qualification rates
+- Turn order performance analysis
+- Most played commanders
+- System health indicators
+
+**Player View** (`/view type:player player:@user`):
+- Current rating and rank
+- Win/loss/draw record
+- Top 5 performing decks
+- Turn order performance
+- Recent game history
+
+**Commander View** (`/view type:commander commander:name`):
+- Current rating and rank
+- Win/loss/draw record
+- Turn order performance
+- Top players using this deck
+- Recent game history
+
+**Game View** (`/view type:game gameid:ABC123`) - NEW!:
+- All 4 players with results
+- Rating changes (before → after)
+- W/L/D changes (before → after)
+- Turn order for each player
+- **Commander assignments for each player**
+- Game status and admin indicator
 
 ### Permission System Overview
 
@@ -288,11 +385,11 @@ npm start
 |---------|--------------|------------|--------|
 | Submit games (`/rank`) | ✅ | ✅ | ✅ (auto-confirm) |
 | Personal deck assignment | ✅ | ✅ | ✅ |
-| View statistics | ✅ | ✅ | ✅ |
+| View statistics (`/view`) | ✅ | ✅ | ✅ |
 | Restrict/vindicate/reanimate | ❌ | ✅ | ✅ |
 | Undo/redo operations | ❌ | ✅ | ✅ |
 | System backups | ❌ | ✅ | ✅ |
-| Basic history exports | ❌ | ✅ | ✅ |
+| Basic history exports (`/print`) | ❌ | ✅ | ✅ |
 | Modify other users' settings | ❌ | ❌ | ✅ |
 | Admin history exports | ❌ | ❌ | ✅ |
 | Season management | ❌ | ❌ | ✅ |
@@ -313,7 +410,7 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 
 The unified undo system now handles:
 - **Player games with deck assignments**: Reverts both player and deck ratings
-- **Deck-only games with player assignments**: Reverts both deck and player ratings  
+- **Deck-only games with player assignments**: Reverts both deck and player ratings
 - **Mixed scenarios**: Properly handles any combination of assignments
 - **Complete audit trail**: Every change is logged and reversible
 - **Moderator/Admin Access**: Both moderators and admins can undo/redo operations
@@ -323,9 +420,9 @@ The unified undo system now handles:
 ## Technical Architecture
 
 ### Database Enhancements
-- **player_deck_assignments**: New table tracking all deck assignments
-- **Enhanced matches table**: Now includes `assignedDeck` column
-- **Enhanced deck_matches table**: Now includes `assignedPlayer` column
+- **player_deck_assignments**: Table tracking game-specific deck assignments
+- **Enhanced matches table**: Includes `assignedDeck` column
+- **Enhanced deck_matches table**: Includes `assignedPlayer` column
 - **Comprehensive indexes**: Optimized for new query patterns
 
 ### Rating System Integration
@@ -338,18 +435,24 @@ The unified undo system now handles:
 - Complete logging of all rating changes
 - Deck assignment tracking
 - Admin and moderator action monitoring
-- Exportable history reports with appropriate permission filtering
+- Exportable history reports with complete W/L/D records
 
 ---
-## Migration from v0.01
 
-The bot automatically migrates existing data:
+## Migration from v0.02 to v0.03
+
+The bot automatically handles the transition:
 1. **Preserves all existing ratings** for both players and decks
 2. **Maintains game history** with enhanced tracking
-3. **Adds new columns** to existing database tables
-4. **Imports deck assignments** from existing match data where possible
+3. **No database schema changes** required
+4. **Commander assignments remain intact**
 
-**No data loss** - all your existing league data remains intact while gaining new features.
+**Breaking Changes:**
+- `/viewstats` removed → Use `/view type:player` or `/view type:commander`
+- `/leaguestats` removed → Use `/view` or `/view type:league`
+- `/printhistory` removed → Use `/print`
+
+**All functionality preserved** - just consolidated for easier use!
 
 ---
 
@@ -359,7 +462,7 @@ The bot automatically migrates existing data:
 ```typescript
 export const config = {
   token: 'YOUR_DISCORD_BOT_TOKEN',
-  clientId: 'YOUR_BOT_CLIENT_ID', 
+  clientId: 'YOUR_BOT_CLIENT_ID',
   guildId: 'YOUR_DISCORD_SERVER_ID',
   admins: ['ADMIN_USER_ID1', 'ADMIN_USER_ID2'],
   moderators: ['MOD_USER_ID'],
@@ -381,25 +484,30 @@ export const config = {
 - **Commands not working**: Run `npm run commands:register` after updates
 - **Database migration errors**: Check write permissions in `/data` folder
 - **Deck assignments not working**: Verify commander names against EDHREC
-- **Performance issues**: Database includes new indexes for optimization
+- **Multiple commanders error**: Only assign ONE commander per player per game
+- **Default deck changing past games**: Use `/set deck:X` NOT `/set deck:X gameid:allgames`
 
 ### Data Management
 - **Manual Backups**: Use `/backup` command
 - **Database Location**: `data/cEDHSkill.db`
+- **View Game Details**: Use `/view type:game gameid:ABC123`
 
 ---
 
-## Command Deprecation Notice
+## Command Changes in v0.03
 
-**Removed Commands** (functionality moved to unified commands):
-- `/rankdeck` → Use `/rank` with deck-only format
-- `/playerinfo` → Use `/viewstats player:@user`
-- `/deckinfo` → Use `/viewstats commander:name`
-- `/setrank` → Use `/set` with rating parameters
-- `/setturnorder` → Use `/set` with turn order parameters
-- `/listdeck` → Use `/list type:decks`
+**Removed Commands** (functionality consolidated):
+- `/viewstats` → Use `/view type:player` or `/view type:commander`
+- `/leaguestats` → Use `/view` or `/view type:league`
+- `/printhistory` → Use `/print`
 
-**All functionality preserved** in the new unified commands with enhanced features.
+**New Features:**
+- `/view type:game gameid:ABC123` - View detailed game information
+- Enhanced `/print` with complete audit trails
+- Commander assignment validation in `/rank`
+- Fixed `/set` behavior for game-specific assignments
+
+**All functionality preserved** with improved usability!
 
 ---
 
@@ -407,9 +515,10 @@ export const config = {
 
 - **Enhanced Prediction Models**: Machine learning integration for win probability
 - **Tournament Mode**: Bracket management and Swiss pairings
-- **Advanced Analytics**: Detailed meta analysis and trend tracking
+- **Advanced Analytics**: Player-commander synergy analysis
 - **Mobile Integration**: Discord slash command optimization for mobile users
 - **API Endpoints**: External integration capabilities
+- **Deck Performance Tracking**: Enhanced statistics for commander matchups
 
 ---
 

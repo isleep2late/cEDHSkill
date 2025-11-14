@@ -1560,10 +1560,6 @@ async function handleDeckAssignment(
   const db = getDatabase();
   const displayName = targetUser?.displayName || targetUserId;
 
-  // Get current state for snapshot
-  const player = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', targetUserId);
-  const beforeDefaultDeck = player?.defaultDeck || null;
-
   // VALIDATION: Check EDHREC for non-removal deck assignments
   if (deckName !== 'nocommander') {
     try {
@@ -1581,7 +1577,7 @@ async function handleDeckAssignment(
   // ENHANCED: Handle commander removal with proper recalculation
   if (deckName === 'nocommander') {
     if (gameId === 'allgames') {
-      // Get all games where this user has assigned decks for comprehensive recalculation
+      // Remove from ALL games (past, present, future)
       const gamesWithDecks = await db.all(`
         SELECT DISTINCT gameId FROM matches 
         WHERE userId = ? AND assignedDeck IS NOT NULL
@@ -1594,20 +1590,18 @@ async function handleDeckAssignment(
       // Remove deck_matches records for this player across all games
       await db.run(`
         DELETE FROM deck_matches 
-        WHERE gameId IN (
-          SELECT gameId FROM matches WHERE userId = ?
-        ) AND assignedPlayer = ?
-      `, [targetUserId, targetUserId]);
+        WHERE assignedPlayer = ?
+      `, targetUserId);
       
       // Trigger comprehensive recalculation for all affected games
       if (gamesWithDecks.length > 0) {
         await recalculateAllDecksFromScratch();
       }
       
-      return `Removed all deck assignments for ${displayName} and recalculated commander ratings`;
+      return `Removed all deck assignments (past, present, future) for ${displayName} and recalculated commander ratings`;
       
     } else if (gameId) {
-      // Get the specific game's sequence for targeted recalculation
+      // Remove from SPECIFIC game only (does NOT affect other games)
       const gameInfo = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ?', gameId);
       
       // Get current assignment to see if we need to recalculate
@@ -1630,62 +1624,35 @@ async function handleDeckAssignment(
         await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
       }
       
-      return `Removed deck assignment for ${displayName} in game ${gameId} and recalculated ratings`;
+      return `Removed deck assignment for ${displayName} in game ${gameId} ONLY and recalculated ratings`;
       
     } else {
-      // Default deck removal - affects all future games and past games without specific assignments
-      const gamesWithDefaultDeck = await db.all(`
-        SELECT DISTINCT gameId FROM matches 
-        WHERE userId = ? AND assignedDeck IS NOT NULL AND gameId NOT IN (
-          SELECT gameId FROM player_deck_assignments WHERE userId = ?
-        )
-      `, [targetUserId, targetUserId]);
-      
+      // CRITICAL FIX: Remove ONLY the default deck setting
+      // This does NOT affect past games - only future games without specific assignments
       await db.run('UPDATE players SET defaultDeck = NULL WHERE userId = ?', targetUserId);
-      await db.run(`
-        UPDATE matches SET assignedDeck = NULL 
-        WHERE userId = ? AND gameId NOT IN (
-          SELECT gameId FROM player_deck_assignments WHERE userId = ?
-        )
-      `, [targetUserId, targetUserId]);
       
-      // Remove deck_matches for games that used default deck
-      await db.run(`
-        DELETE FROM deck_matches 
-        WHERE assignedPlayer = ? AND gameId NOT IN (
-          SELECT gameId FROM player_deck_assignments WHERE userId = ?
-        )
-      `, [targetUserId, targetUserId]);
-      
-      // Recalculate if there were affected games
-      if (gamesWithDefaultDeck.length > 0) {
-        await recalculateAllDecksFromScratch();
-      }
-      
-      return `Removed default deck for ${displayName} and recalculated commander ratings`;
+      return `Removed default deck for ${displayName} (only affects FUTURE games without specific assignments)`;
     }
   } else {
-    // Normal deck assignment logic (unchanged)
+    // Normal deck assignment logic
     const normalizedName = normalizeCommanderName(deckName);
     
     // Create deck AFTER validation passes
     await getOrCreateDeck(normalizedName, deckName);
     
     if (gameId === 'allgames') {
+      // CRITICAL: This assigns to ALL games (past, present, future) and recalculates everything
       await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ?', normalizedName, targetUserId);
-      await db.run(`
-        UPDATE deck_matches 
-        SET assignedPlayer = ? 
-        WHERE deckNormalizedName = ? AND assignedPlayer IS NULL
-      `, targetUserId, normalizedName);
       
-      // Recalculate all deck ratings since we changed all assignments
+      // Recalculate all deck ratings since we changed ALL assignments
       await recalculateAllDecksFromScratch();
       
-      return `Set ${deckName} as default deck for ${displayName} (all games) and recalculated ratings`;
+      return `Set ${deckName} for ${displayName} in ALL games (past, present, future) and recalculated ratings`;
       
     } else if (gameId) {
+      // CRITICAL FIX: Game-specific assignment (HIGHEST PRIORITY - overrides any default)
+      // This ONLY affects the specified game, not any other games
       await db.run(`
         INSERT OR REPLACE INTO player_deck_assignments 
         (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
@@ -1701,80 +1668,14 @@ async function handleDeckAssignment(
         await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
       }
       
-      return `Assigned ${deckName} to ${displayName} for game ${gameId} and recalculated ratings`;
+      return `Assigned ${deckName} to ${displayName} for game ${gameId} ONLY (does not affect other games) and recalculated ratings`;
       
     } else {
+      // CRITICAL FIX: Set default deck for FUTURE games ONLY
+      // This does NOT retroactively change past games - only affects NEW games from now on
       await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       
-      // Update all matches that don't have game-specific assignments
-      await db.run(`
-        UPDATE matches SET assignedDeck = ? 
-        WHERE userId = ? AND gameId NOT IN (
-          SELECT gameId FROM player_deck_assignments WHERE userId = ?
-        )
-      `, [normalizedName, targetUserId, targetUserId]);
-      
-      // Recalculate deck ratings for affected games
-      await recalculateAllDecksFromScratch();
-      
-      return `Set ${deckName} as default deck for ${displayName} and recalculated ratings`;
+      return `Set ${deckName} as default deck for ${displayName} (applies to FUTURE games only, does NOT change past games)`;
     }
-  }
-
-  // Create snapshots BEFORE operations for audit trail
-  if (deckName === 'nocommander' || (!gameId || gameId === 'allgames')) {
-    const normalizedName = deckName !== 'nocommander' ? normalizeCommanderName(deckName) : null;
-    
-    const snapshot: SetCommandSnapshot = {
-      matchId: `set-${Date.now()}`,
-      gameId: gameId || 'manual', // Handle null gameId
-      gameSequence: Date.now(),
-      gameType: 'set_command',
-      operationType: 'deck_assignment',
-      targetType: 'player',
-      targetId: targetUserId,
-      before: { defaultDeck: beforeDefaultDeck },
-      after: { defaultDeck: normalizedName },
-      metadata: {
-        adminUserId: requesterId,
-        parameters: JSON.stringify({ deckName, gameId }),
-        reason: `Deck assignment change via /set command`
-      },
-      timestamp: new Date().toISOString(),
-      description: `Set deck assignment for ${displayName}`
-    };
-
-    saveOperationSnapshot(snapshot);
-  }
-  
-  // For game-specific assignments, also create snapshots
-  if (gameId && gameId !== 'allgames' && gameId !== 'manual') {
-    const currentAssignment = await db.get(`
-      SELECT deckNormalizedName FROM player_deck_assignments 
-      WHERE userId = ? AND gameId = ?
-    `, targetUserId, gameId);
-    
-    const normalizedName = deckName !== 'nocommander' ? normalizeCommanderName(deckName) : null;
-    
-    const snapshot: SetCommandSnapshot = {
-      matchId: `set-${Date.now()}`,
-      gameId: gameId!, // gameId is guaranteed non-null here due to if condition
-      gameSequence: Date.now(),
-      gameType: 'set_command',
-      operationType: 'deck_assignment',
-      targetType: 'player',
-      targetId: targetUserId,
-      before: { gameSpecificDeck: currentAssignment?.deckNormalizedName || null },
-      after: { gameSpecificDeck: normalizedName },
-      metadata: {
-        adminUserId: requesterId,
-        parameters: JSON.stringify({ deckName, gameId }),
-        reason: `Game-specific deck assignment via /set command`
-      },
-      timestamp: new Date().toISOString(),
-      description: `Set deck assignment for ${displayName} in game ${gameId}`
-    };
-
-    saveOperationSnapshot(snapshot);
   }
 }
