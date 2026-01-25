@@ -77,19 +77,22 @@ const rest = new REST({ version: '10' }).setToken(config.token);
 
 (async () => {
   try {
-    console.log('\n🔄 Clearing old global commands...');
-    await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
-
-    console.log('🔄 Clearing old guild commands...');
+    console.log('\n🔄 Clearing old guild commands (single server)...');
     await rest.put(Routes.applicationGuildCommands(config.clientId, config.guildId), { body: [] });
 
-    console.log('📝 Registering guild commands...');
+    console.log('🔄 Clearing old global commands...');
+    await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
+
+    console.log('📝 Registering GLOBAL commands (will work in all servers)...');
+    console.log('⏱️  Note: Global commands can take up to 1 hour to propagate\n');
     await rest.put(
-      Routes.applicationGuildCommands(config.clientId, config.guildId),
+      Routes.applicationCommands(config.clientId),
       { body: commands }
     );
     
-    console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.03!\n`);
+    console.log(`\n🎉 Successfully registered ${commands.length} GLOBAL commands for cEDHSkill v0.03!`);
+    console.log('✅ Commands will appear in ALL servers the bot is in');
+    console.log('⏱️  Allow up to 1 hour for commands to fully propagate\n');
     
     // Display command summary by category
     console.log('📋 Command Summary:');
