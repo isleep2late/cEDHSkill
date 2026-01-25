@@ -80,6 +80,9 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     console.log('\n🔄 Clearing old global commands...');
     await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
 
+    console.log('🔄 Clearing old guild commands...');
+    await rest.put(Routes.applicationGuildCommands(config.clientId, config.guildId), { body: [] });
+
     console.log('📝 Registering guild commands...');
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
