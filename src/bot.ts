@@ -12,7 +12,7 @@ import {
 } from 'discord.js';
 import { config } from './config.js';
 import { setAlertOptIn } from './utils/suspicion-utils.js';
-import { getAllPlayers, updatePlayerRating } from './db/player-utils.js';
+import { getAllPlayers, updatePlayerRatingForDecay } from './db/player-utils.js';
 import { calculateElo } from './utils/elo-utils.js';
 import cron from 'node-cron';
 import fs from 'node:fs';
@@ -87,7 +87,7 @@ async function applyRatingDecay(): Promise<void> {
       `(μ: ${p.mu.toFixed(2)}→${newMu.toFixed(2)}, σ: ${p.sigma.toFixed(2)}→${newSigma.toFixed(2)})`
     );
 
-    await updatePlayerRating(p.userId, newMu, newSigma, p.wins, p.losses, p.draws);
+    await updatePlayerRatingForDecay(p.userId, newMu, newSigma, p.wins, p.losses, p.draws);
     // Log the decay change for audit trail
     try {
       await logRatingChange({

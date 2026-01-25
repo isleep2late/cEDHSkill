@@ -81,12 +81,30 @@ export async function updatePlayerRating(
 ): Promise<void> {
   const db = getDatabase();
   const stmt = await db.prepare(`
-    UPDATE players 
-    SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?, 
-        gamesPlayed = ?, lastPlayed = ? 
+    UPDATE players
+    SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
+        gamesPlayed = ?, lastPlayed = ?
     WHERE userId = ?
   `);
   await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, new Date().toISOString(), userId);
+}
+
+export async function updatePlayerRatingForDecay(
+  userId: string,
+  mu: number,
+  sigma: number,
+  wins: number,
+  losses: number,
+  draws: number
+): Promise<void> {
+  const db = getDatabase();
+  const stmt = await db.prepare(`
+    UPDATE players
+    SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
+        gamesPlayed = ?
+    WHERE userId = ?
+  `);
+  await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, userId);
 }
 
 export async function getAllPlayers() {
