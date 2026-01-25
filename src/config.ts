@@ -1,8 +1,25 @@
+// Helper function to parse comma-separated IDs
+function parseIds(envVar: string | undefined, defaultValue: string[] = []): string[] {
+  if (!envVar || envVar.trim() === '') return defaultValue;
+  return envVar.split(',').map(id => id.trim()).filter(id => id !== '');
+}
+
+// Validate required environment variables
+const requiredEnvVars = ['DISCORD_TOKEN', 'CLIENT_ID', 'GUILD_ID'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missingVars.join(', ')}\n` +
+    'Please create a .env file based on .env.example'
+  );
+}
+
 export const config = {
-  token: 'YOUR_DISCORD_BOT_TOKEN',
-  clientId: 'YOUR_BOT_CLIENT_ID',
-  guildId: 'YOUR_DISCORD_SERVER_ID',
-  admins: ['YOUR_DISCORD_USER_ID_1', 'YOUR_DISCORD_USER_ID_2'],
-  moderators: ['YOUR_DISCORD_USER_ID'], // Add moderator user IDs here
-  decayStartDays: 8
+  token: process.env.DISCORD_TOKEN!,
+  clientId: process.env.CLIENT_ID!,
+  guildId: process.env.GUILD_ID!,
+  admins: parseIds(process.env.ADMINS),
+  moderators: parseIds(process.env.MODERATORS),
+  decayStartDays: parseInt(process.env.DECAY_START_DAYS || '8', 10)
 };
