@@ -9,6 +9,8 @@
     "start": "node dist/loader.js",
     "register-commands": "node dist/register-commands.js",
     "commands:register": "tsx src/register-commands.ts",
+    "commands:list": "tsx src/list-commands.ts",
+    "commands:clear-other": "tsx src/clear-other-servers.ts",
     "dev": "tsx src/loader.ts"
   },
   "author": "isleep2late",

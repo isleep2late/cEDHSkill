@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname } from 'path';
 import { REST, Routes } from 'discord.js';
@@ -79,13 +80,18 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     console.log('\n🔄 Clearing old global commands...');
     await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
 
-    console.log('📝 Registering guild commands...');
+    console.log('🔄 Clearing old guild commands...');
+    await rest.put(Routes.applicationGuildCommands(config.clientId, config.guildId), { body: [] });
+
+    console.log(`📝 Registering guild commands for server: ${config.guildId}...\n`);
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
       { body: commands }
     );
-    
-    console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.03!\n`);
+
+    console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.03!`);
+    console.log('✅ Commands registered for your cEDH server only');
+    console.log('💡 Commands update instantly for guild-specific registration\n');
     
     // Display command summary by category
     console.log('📋 Command Summary:');
