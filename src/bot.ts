@@ -13,7 +13,7 @@ import {
 import { config } from './config.js';
 import { setAlertOptIn } from './utils/suspicion-utils.js';
 import { getAllPlayers, updatePlayerRatingForDecay } from './db/player-utils.js';
-import { calculateElo } from './utils/elo-utils.js';
+import { calculateElo, muFromElo } from './utils/elo-utils.js';
 import cron from 'node-cron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,52 +42,70 @@ client.commands = new Collection();
 client.limboGames = new Map();
 
 // =============================================
-// Rating Decay System (Integrated)
+// Rating Decay System (Linear -1 Elo/day)
 // =============================================
-const DECAY_RATE_PER_RUN = 0.005;
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1 day
-const GRACE_RUNS = config.decayStartDays || 8;
-const GRACE_PERIOD_MS = RUN_INTERVAL_MS * GRACE_RUNS;
-const ELO_CUTOFF = 1050;
-const MAX_SIGMA = 10;
+const GRACE_DAYS = config.decayStartDays || 6; // Default 6 days grace period
+const GRACE_PERIOD_MS = RUN_INTERVAL_MS * GRACE_DAYS;
+const ELO_CUTOFF = 1050; // Stop decay at this Elo
+const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day
+const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncertainty grows)
 
-function muFromElo(targetElo: number, sigma: number): number {
-  const sigmaPenalty = (sigma - 8.333) * 4;
-  return ((targetElo - 1000 + sigmaPenalty) / 12) + 25;
-}
-
-async function applyRatingDecay(): Promise<void> {
-  console.log('[DECAY] Starting rating decay process...');
+/**
+ * Linear Rating Decay System
+ *
+ * After GRACE_DAYS days of not playing:
+ * - Players with Elo > ELO_CUTOFF lose exactly DECAY_ELO_PER_DAY Elo per day
+ * - Decay continues until Elo reaches ELO_CUTOFF, then stops
+ * - Playing a game resets the decay counter
+ * - Decay happens to anyone who has played at least 1 game
+ *
+ * Example: John has 1066 Elo on day 1. After 6 days of not playing:
+ * Day 7: 1065, Day 8: 1064, Day 9: 1063... until 1050 (then stops)
+ */
+export async function applyRatingDecay(): Promise<void> {
+  console.log('[DECAY] Starting linear rating decay process...');
   const now = Date.now();
   const players = await getAllPlayers();
   let decayedCount = 0;
 
   for (const p of players) {
-    // Skip players who haven't played any games
+    // Skip players who haven't played any games (never participated in ranked)
     if (p.gamesPlayed === 0) continue;
 
-    // Skip players who played recently
+    // Skip players who have no lastPlayed timestamp
     if (!p.lastPlayed) continue;
+
     const msSinceLast = now - new Date(p.lastPlayed).getTime();
-    if (msSinceLast < GRACE_PERIOD_MS) continue;
+    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
 
-    // Skip players under Elo cutoff
+    // Skip players who played within the grace period
+    if (daysSinceLast <= GRACE_DAYS) continue;
+
+    // Calculate current Elo
     const currentElo = calculateElo(p.mu, p.sigma);
-    if (currentElo < ELO_CUTOFF) continue;
 
-    // Apply decay
-    const sigmaInc = (MAX_SIGMA - p.sigma) * (1 - Math.exp(-DECAY_RATE_PER_RUN));
-    const newSigma = Math.min(p.sigma + sigmaInc, MAX_SIGMA);
+    // Skip players who are already at or below the cutoff
+    if (currentElo <= ELO_CUTOFF) continue;
 
-    const muClamp = muFromElo(ELO_CUTOFF, newSigma);
-    const newMu = muClamp + (p.mu - muClamp) * Math.exp(-DECAY_RATE_PER_RUN);
+    // Calculate how much to decay (linear: -1 Elo per day)
+    // Only decay 1 point per decay run (cron runs daily)
+    const targetElo = Math.max(currentElo - DECAY_ELO_PER_DAY, ELO_CUTOFF);
+
+    // Calculate new mu to achieve the target Elo (sigma stays mostly stable with small increase)
+    const newSigma = Math.min(p.sigma + SIGMA_INCREMENT_PER_DECAY, 10); // Cap sigma at 10
+    const newMu = muFromElo(targetElo, newSigma);
+
+    const newElo = calculateElo(newMu, newSigma);
 
     console.log(
-      `[DECAY] ${p.userId}: Elo ${currentElo}→${calculateElo(newMu, newSigma)} ` +
-      `(μ: ${p.mu.toFixed(2)}→${newMu.toFixed(2)}, σ: ${p.sigma.toFixed(2)}→${newSigma.toFixed(2)})`
+      `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} ` +
+      `(μ: ${p.mu.toFixed(3)}→${newMu.toFixed(3)}, σ: ${p.sigma.toFixed(3)}→${newSigma.toFixed(3)}) ` +
+      `[${daysSinceLast} days inactive, grace: ${GRACE_DAYS} days]`
     );
 
     await updatePlayerRatingForDecay(p.userId, newMu, newSigma, p.wins, p.losses, p.draws);
+
     // Log the decay change for audit trail
     try {
       await logRatingChange({
@@ -100,8 +118,13 @@ async function applyRatingDecay(): Promise<void> {
         oldElo: currentElo,
         newMu: newMu,
         newSigma: newSigma,
-        newElo: calculateElo(newMu, newSigma),
-        parameters: JSON.stringify({ daysSinceLastPlayed: Math.floor(msSinceLast / (24 * 60 * 60 * 1000)) })
+        newElo: newElo,
+        parameters: JSON.stringify({
+          daysSinceLastPlayed: daysSinceLast,
+          graceDays: GRACE_DAYS,
+          decayAmount: currentElo - newElo,
+          eloCutoff: ELO_CUTOFF
+        })
       });
     } catch (auditError) {
       console.error('Error logging decay change to audit trail:', auditError);
@@ -110,7 +133,7 @@ async function applyRatingDecay(): Promise<void> {
     decayedCount++;
   }
 
-  console.log(`[DECAY] Applied decay to ${decayedCount} players`);
+  console.log(`[DECAY] Applied linear decay (-${DECAY_ELO_PER_DAY} Elo) to ${decayedCount} players`);
 }
 
 async function main() {
@@ -147,7 +170,7 @@ async function main() {
     console.log(`🤖 Bot logged in as ${client.user?.tag}`);
     console.log(`📊 Database initialized`);
     console.log(`⚙️ Loaded ${client.commands.size} commands`);
-    console.log(`📄 Rating decay system active (${config.decayStartDays} day grace period)`);
+    console.log(`📄 Linear rating decay system active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day after grace period)`);
     
     // Run initial decay check
     await applyRatingDecay();
