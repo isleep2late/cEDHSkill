@@ -1,6 +1,6 @@
 {
   "name": "cedh-ranking-bot",
-  "version": "0.02",
+  "version": "0.03",
   "description": "Discord bot for competitive EDH ranked games using OpenSkill",
   "type": "module",
   "main": "dist/bot.js",
