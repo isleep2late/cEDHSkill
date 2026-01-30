@@ -21,5 +21,5 @@ export const config = {
   guildId: process.env.GUILD_ID!,
   admins: parseIds(process.env.ADMINS),
   moderators: parseIds(process.env.MODERATORS),
-  decayStartDays: parseInt(process.env.DECAY_START_DAYS || '8', 10)
+  decayStartDays: parseInt(process.env.DECAY_START_DAYS || '6', 10)
 };

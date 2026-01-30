@@ -16,7 +16,10 @@ import {
   getAllDecks
 } from '../db/deck-utils.js';
 import { saveMatchSnapshot } from '../utils/snapshot-utils.js';
-import { calculateElo } from '../utils/elo-utils.js';
+import { calculateElo, muFromElo } from '../utils/elo-utils.js';
+
+// Participation bonus: +1 Elo for playing a ranked game
+const PARTICIPATION_BONUS_ELO = 1;
 import { generateUniqueGameId, recordGameId } from '../utils/game-id-utils.js';
 import { config } from '../config.js';
 import crypto from 'crypto';
@@ -504,7 +507,10 @@ async function replayPlayerGame(gameId: string): Promise<void> {
 
     // Apply minimum rating changes
     const oldRating = playerRatings[match.userId];
-    const adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
+    let adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    adjustedRating = applyParticipationBonus(adjustedRating);
 
     // Update win/loss/draw counts
     const stats = playerStats[match.userId];
@@ -618,7 +624,10 @@ async function replayDeckGame(gameId: string): Promise<void> {
   // Apply aggregated changes to each unique deck
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
-    
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    const bonusedRating = applyParticipationBonus(changes.newRating);
+
     // Count total wins/losses/draws for this deck in this game
     for (const status of changes.statusUpdates) {
       if (status === 'w') stats.wins++;
@@ -630,8 +639,8 @@ async function replayDeckGame(gameId: string): Promise<void> {
     await updateDeckRating(
       deckName,
       stats.displayName,
-      changes.newRating.mu,
-      changes.newRating.sigma,
+      bonusedRating.mu,
+      bonusedRating.sigma,
       stats.wins,
       stats.losses,
       stats.draws
@@ -647,15 +656,16 @@ async function replayDeckGame(gameId: string): Promise<void> {
         oldMu: deckRatings[deckName].mu,
         oldSigma: deckRatings[deckName].sigma,
         oldElo: calculateElo(deckRatings[deckName].mu, deckRatings[deckName].sigma),
-        newMu: changes.newRating.mu,
-        newSigma: changes.newRating.sigma,
-        newElo: calculateElo(changes.newRating.mu, changes.newRating.sigma),
+        newMu: bonusedRating.mu,
+        newSigma: bonusedRating.sigma,
+        newElo: calculateElo(bonusedRating.mu, bonusedRating.sigma),
         parameters: JSON.stringify({
           gameId: gameId,
           duplicateCount: changes.statusUpdates.length,
           results: changes.statusUpdates,
           recalculation: true,
-          is3DeckPenalty: matches.length === 3
+          is3DeckPenalty: matches.length === 3,
+          participationBonus: PARTICIPATION_BONUS_ELO
         })
       });
     } catch (auditError) {
@@ -796,7 +806,7 @@ function ensureMinimumRatingChange(oldRating: Rating, newRating: Rating, status:
   const oldElo = calculateElo(oldRating.mu, oldRating.sigma);
   const newElo = calculateElo(newRating.mu, newRating.sigma);
   const actualChange = newElo - oldElo;
-  
+
   if (status === 'w') {
     // Winners must gain at least 2 points, always
     if (actualChange < 2) {
@@ -815,8 +825,19 @@ function ensureMinimumRatingChange(oldRating: Rating, newRating: Rating, status:
     }
   }
   // Draw players (status === 'd') can have any rating change
-  
+
   return newRating;
+}
+
+/**
+ * Apply participation bonus (+1 Elo) to a rating.
+ * This is applied AFTER all other calculations as a reward for playing ranked.
+ */
+function applyParticipationBonus(rating: Rating): Rating {
+  const currentElo = calculateElo(rating.mu, rating.sigma);
+  const bonusElo = currentElo + PARTICIPATION_BONUS_ELO;
+  const newMu = muFromElo(bonusElo, rating.sigma);
+  return { mu: newMu, sigma: rating.sigma };
 }
 
 // Suspicious activity detection, admin games skipped entirely
@@ -2436,15 +2457,25 @@ for (const player of players) {
     await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId);
   }
 
+  // Track final ratings (including participation bonus) for snapshot
+  const finalRatings: Record<string, Rating> = {};
+
   // Process player ratings (existing logic)
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
     const oldR = preRatings[p.userId];
     let newR = newMatrix[i][0];
-    
+
     try {
+      // Step 1: Apply minimum rating change guarantee
       newR = ensureMinimumRatingChange(oldR, newR, p.status!);
-      
+
+      // Step 2: Apply participation bonus (+1 Elo for playing ranked)
+      newR = applyParticipationBonus(newR);
+
+      // Track final rating for snapshot
+      finalRatings[p.userId] = newR;
+
       const rec = records[p.userId];
       if (p.status === 'w') rec.wins++;
       else if (p.status === 'l') rec.losses++;
@@ -2527,10 +2558,10 @@ for (const player of players) {
       turnOrder: p.turnOrder,
       commander: p.commander || undefined
     })),
-    after: players.map((p, i) => ({
+    after: players.map((p) => ({
       userId: p.userId,
-      mu: newMatrix[i][0].mu,
-      sigma: newMatrix[i][0].sigma,
+      mu: finalRatings[p.userId].mu,
+      sigma: finalRatings[p.userId].sigma,
       wins: records[p.userId].wins,
       losses: records[p.userId].losses,
       draws: records[p.userId].draws,
@@ -2647,16 +2678,19 @@ export async function processCommanderRatingsEnhanced(
   for (let i = 0; i < commanderEntries.length; i++) {
     const entry = commanderEntries[i];
     if (entry.isPhantom) continue; // Skip phantoms
-    
+
     const oldR = commanderRatings[entry.normalizedName];
     const newR = newMatrix[i][0];
-    
+
     // Apply penalty
-    const finalRating = {
+    let finalRating: Rating = {
       mu: 25 + (newR.mu - 25) * penalty,
       sigma: newR.sigma
     };
-    
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    finalRating = applyParticipationBonus(finalRating);
+
     const rec = commanderRecords[entry.normalizedName];
     if (entry.status === 'w') rec.wins++;
     else if (entry.status === 'l') rec.losses++;
@@ -2794,13 +2828,22 @@ async function processDeckResults(
   
   // Update deck records and ratings
   const results: string[] = [];
-  
+
+  // Track final deck ratings (with participation bonus) for snapshot
+  const finalDeckRatings: Record<string, Rating> = {};
+
   for (const [normalizedName, update] of Object.entries(deckUpdates)) {
     const oldR = deckRatings[normalizedName];
-    const newR = update.newRating;
+    let newR = update.newRating;
     const rec = deckRecords[normalizedName];
     const displayName = update.instances[0].commander;
-    
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    newR = applyParticipationBonus(newR);
+
+    // Track final rating for snapshot
+    finalDeckRatings[normalizedName] = newR;
+
     // Update win/loss/draw counts with aggregated results
     rec.wins += update.winCount;
     rec.losses += update.lossCount;
@@ -2808,12 +2851,12 @@ async function processDeckResults(
 
     // Update database
     await updateDeckRating(
-      normalizedName, 
+      normalizedName,
       displayName,
-      newR.mu, 
-      newR.sigma, 
-      rec.wins, 
-      rec.losses, 
+      newR.mu,
+      newR.sigma,
+      rec.wins,
+      rec.losses,
       rec.draws
     );
 
@@ -2902,8 +2945,8 @@ async function processDeckResults(
       return {
         normalizedName,
         displayName: update.instances[0].commander,
-        mu: update.newRating.mu,
-        sigma: update.newRating.sigma,
+        mu: finalDeckRatings[normalizedName].mu,
+        sigma: finalDeckRatings[normalizedName].sigma,
         wins: rec.wins,
         losses: rec.losses,
         draws: rec.draws,
