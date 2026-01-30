@@ -25,6 +25,7 @@ console.log(`Found ${commandFiles.length} command files:\n`);
 
 const expectedCommands = [
   'backup.js',
+  'help.js',
   'list.js',
   'predict.js',
   'print.js',        // RENAMED from printhistory.js
@@ -35,6 +36,7 @@ const expectedCommands = [
   'set.js',
   'snap.js',
   'thanossnap.js',
+  'timewalk.js',     // Admin-only: fast-forward decay cycle for testing
   'undo.js',
   'view.js',         // NEW unified command (replaces viewstats.js and leaguestats.js)
   'vindicate.js'
@@ -117,10 +119,12 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     console.log('   /undo        - Undo latest operation');
     console.log('   /redo        - Restore undone operation');
     console.log('   /thanossnap  - End season and reset data (admin only)');
+    console.log('   /timewalk    - Fast-forward decay cycle (admin only)');
+    console.log('   /help        - Show help for commands');
     console.log('');
     
     // Verify expected command count
-    const EXPECTED_COMMAND_COUNT = 15;
+    const EXPECTED_COMMAND_COUNT = 16;
     if (commands.length !== EXPECTED_COMMAND_COUNT) {
       console.warn(`⚠️  Warning: Expected ${EXPECTED_COMMAND_COUNT} commands but registered ${commands.length}`);
       console.warn('   This may indicate missing or extra command files.');
@@ -130,12 +134,10 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     
     console.log('');
     console.log('📖 Changes in v0.03:');
-    console.log('   • /printhistory → /print (renamed for simplicity)');
-    console.log('   • /viewstats + /leaguestats → /view (unified command)');
-    console.log('   • Total commands: 17 → 15 (consolidation)');
-    console.log('   • New feature: /view type:game gameid:ABC123');
-    console.log('   • Fixed: Commander assignment validation');
-    console.log('   • Fixed: /print now shows complete W/L/D records');
+    console.log('   • Linear rating decay: -1 Elo/day after 6 days inactive (stops at 1050)');
+    console.log('   • Participation bonus: +1 Elo for every ranked game played');
+    console.log('   • New /timewalk command: fast-forward decay cycle for testing');
+    console.log('   • New /help command: show help for commands');
     console.log('');
     
   } catch (error) {
