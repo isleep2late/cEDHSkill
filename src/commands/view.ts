@@ -43,10 +43,23 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const type = interaction.options.getString('type') || 'league';
   const targetUser = interaction.options.getUser('player');
   const commanderName = interaction.options.getString('commander');
   const gameId = interaction.options.getString('gameid');
+
+  // Infer type from provided options, or use explicit type, or default to 'league'
+  let type = interaction.options.getString('type');
+  if (!type) {
+    if (targetUser) {
+      type = 'player';
+    } else if (commanderName) {
+      type = 'commander';
+    } else if (gameId) {
+      type = 'game';
+    } else {
+      type = 'league';
+    }
+  }
 
   // Route to appropriate function based on type
   if (type === 'league') {
