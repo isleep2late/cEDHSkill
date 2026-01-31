@@ -18,6 +18,7 @@ import cron from 'node-cron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logRatingChange } from './utils/rating-audit-utils.js';
+import { saveOperationSnapshot, DecaySnapshot, DecayPlayerState } from './utils/snapshot-utils.js';
 
 export interface ExtendedClient extends Client {
   commands: Collection<string, {
@@ -62,12 +63,18 @@ const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncer
  *
  * Example: John has 1066 Elo on day 1. After 6 days of not playing:
  * Day 7: 1065, Day 8: 1064, Day 9: 1063... until 1050 (then stops)
+ *
+ * @param triggeredBy - 'cron' for scheduled decay, 'timewalk' for manual trigger
+ * @param adminUserId - Admin user ID if triggered by timewalk
  */
-export async function applyRatingDecay(): Promise<void> {
+export async function applyRatingDecay(
+  triggeredBy: 'cron' | 'timewalk' = 'cron',
+  adminUserId?: string
+): Promise<number> {
   console.log('[DECAY] Starting linear rating decay process...');
   const now = Date.now();
   const players = await getAllPlayers();
-  let decayedCount = 0;
+  const decayedPlayers: DecayPlayerState[] = [];
 
   for (const p of players) {
     // Skip players who haven't played any games (never participated in ranked)
@@ -104,6 +111,18 @@ export async function applyRatingDecay(): Promise<void> {
       `[${daysSinceLast} days inactive, grace: ${GRACE_DAYS} days]`
     );
 
+    // Track player state for undo snapshot
+    decayedPlayers.push({
+      userId: p.userId,
+      beforeMu: p.mu,
+      beforeSigma: p.sigma,
+      afterMu: newMu,
+      afterSigma: newSigma,
+      wins: p.wins,
+      losses: p.losses,
+      draws: p.draws
+    });
+
     await updatePlayerRatingForDecay(p.userId, newMu, newSigma, p.wins, p.losses, p.draws);
 
     // Log the decay change for audit trail
@@ -123,17 +142,41 @@ export async function applyRatingDecay(): Promise<void> {
           daysSinceLastPlayed: daysSinceLast,
           graceDays: GRACE_DAYS,
           decayAmount: currentElo - newElo,
-          eloCutoff: ELO_CUTOFF
+          eloCutoff: ELO_CUTOFF,
+          triggeredBy: triggeredBy
         })
       });
     } catch (auditError) {
       console.error('Error logging decay change to audit trail:', auditError);
     }
-
-    decayedCount++;
   }
 
-  console.log(`[DECAY] Applied linear decay (-${DECAY_ELO_PER_DAY} Elo) to ${decayedCount} players`);
+  // Save decay snapshot for undo/redo if any players were affected
+  if (decayedPlayers.length > 0) {
+    const timestamp = new Date().toISOString();
+    const decaySnapshot: DecaySnapshot = {
+      matchId: `decay-${Date.now()}`,
+      gameId: 'decay',
+      gameSequence: Date.now(),
+      gameType: 'decay',
+      players: decayedPlayers,
+      metadata: {
+        graceDays: GRACE_DAYS,
+        eloCutoff: ELO_CUTOFF,
+        decayAmount: DECAY_ELO_PER_DAY,
+        triggeredBy: triggeredBy,
+        adminUserId: adminUserId
+      },
+      timestamp: timestamp,
+      description: `Decay cycle affecting ${decayedPlayers.length} player(s)`
+    };
+
+    saveOperationSnapshot(decaySnapshot);
+    console.log(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
+  }
+
+  console.log(`[DECAY] Applied linear decay (-${DECAY_ELO_PER_DAY} Elo) to ${decayedPlayers.length} players`);
+  return decayedPlayers.length;
 }
 
 async function main() {
