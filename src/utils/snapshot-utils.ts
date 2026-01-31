@@ -50,15 +50,15 @@ export interface SetCommandSnapshot {
     wins?: number;
     losses?: number;
     draws?: number;
-    
+
     // For deck assignments
     defaultDeck?: string | null;
     gameSpecificDeck?: string | null;
-    
+
     // For turn order
     turnOrder?: number | null;
     gamesWithTurnOrder?: string[];
-    
+
     // For game modifications
     active?: boolean;
 
@@ -84,8 +84,37 @@ export interface SetCommandSnapshot {
   description: string;
 }
 
+// Decay snapshot for undoable decay operations
+export interface DecayPlayerState {
+  userId: string;
+  beforeMu: number;
+  beforeSigma: number;
+  afterMu: number;
+  afterSigma: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export interface DecaySnapshot {
+  matchId: string; // Use unique ID like "decay-{timestamp}"
+  gameId: string;  // Use "decay" as identifier
+  gameSequence: number;
+  gameType: 'decay';
+  players: DecayPlayerState[];
+  metadata: {
+    graceDays: number;
+    eloCutoff: number;
+    decayAmount: number;
+    triggeredBy: 'cron' | 'timewalk';
+    adminUserId?: string;
+  };
+  timestamp: string;
+  description: string;
+}
+
 // Union type for all snapshot types
-export type UniversalSnapshot = MatchSnapshot | SetCommandSnapshot;
+export type UniversalSnapshot = MatchSnapshot | SetCommandSnapshot | DecaySnapshot;
 
 // Main stacks for undo/redo functionality
 const rankOpHistoryStack: UniversalSnapshot[] = [];
@@ -140,18 +169,20 @@ export async function undoLastOperation(): Promise<UniversalSnapshot | null> {
     console.log('[SNAPSHOT] No operations to undo');
     return null;
   }
-  
+
   const snapshot = rankOpHistoryStack.pop()!;
-  
+
   if (snapshot.gameType === 'set_command') {
     await undoSetCommand(snapshot as SetCommandSnapshot);
+  } else if (snapshot.gameType === 'decay') {
+    await undoDecay(snapshot as DecaySnapshot);
   } else {
     await ensureCompleteGameMetadata(snapshot as MatchSnapshot);
     await removeGameFromDatabase(snapshot.gameId, snapshot.gameType);
   }
-  
+
   undoneStack.push(snapshot);
-  
+
   console.log(`[SNAPSHOT] Undid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} remaining, ${undoneStack.length} undone)`);
   return snapshot;
 }
@@ -161,16 +192,18 @@ export async function redoLastOperation(): Promise<UniversalSnapshot | null> {
     console.log('[SNAPSHOT] No operations to redo');
     return null;
   }
-  
+
   const snapshot = undoneStack.pop()!;
-  
+
   if (snapshot.gameType === 'set_command') {
     await redoSetCommand(snapshot as SetCommandSnapshot);
+  } else if (snapshot.gameType === 'decay') {
+    await redoDecay(snapshot as DecaySnapshot);
   }
   // Game restoration handled in redo command for match snapshots
-  
+
   rankOpHistoryStack.push(snapshot);
-  
+
   console.log(`[SNAPSHOT] Redid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} active, ${undoneStack.length} undone)`);
   return snapshot;
 }
@@ -384,6 +417,45 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
   }
   
   console.log(`[SNAPSHOT] Redid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
+}
+
+// Decay undo/redo handlers
+async function undoDecay(snapshot: DecaySnapshot): Promise<void> {
+  const { updatePlayerRatingForDecay } = await import('../db/player-utils.js');
+
+  // Restore all players to their pre-decay state
+  for (const player of snapshot.players) {
+    await updatePlayerRatingForDecay(
+      player.userId,
+      player.beforeMu,
+      player.beforeSigma,
+      player.wins,
+      player.losses,
+      player.draws
+    );
+    console.log(`[SNAPSHOT] Restored player ${player.userId} to pre-decay state`);
+  }
+
+  console.log(`[SNAPSHOT] Undid decay affecting ${snapshot.players.length} players`);
+}
+
+async function redoDecay(snapshot: DecaySnapshot): Promise<void> {
+  const { updatePlayerRatingForDecay } = await import('../db/player-utils.js');
+
+  // Re-apply decay to all players
+  for (const player of snapshot.players) {
+    await updatePlayerRatingForDecay(
+      player.userId,
+      player.afterMu,
+      player.afterSigma,
+      player.wins,
+      player.losses,
+      player.draws
+    );
+    console.log(`[SNAPSHOT] Re-applied decay to player ${player.userId}`);
+  }
+
+  console.log(`[SNAPSHOT] Redid decay affecting ${snapshot.players.length} players`);
 }
 
 // Utility functions

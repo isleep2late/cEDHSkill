@@ -13,7 +13,7 @@ import {
   getMatchesByGameId,
   getDeckMatchesByGameId
 } from '../db/database-utils.js';
-import { 
+import {
   undoLastOperation,
   undoToSpecificGame,
   getPlayerSnapshotDiffs,
@@ -21,8 +21,9 @@ import {
   MatchSnapshot,
   PlayerSnapshot,
   DeckSnapshot,
-  UniversalSnapshot, 
+  UniversalSnapshot,
   SetCommandSnapshot,
+  DecaySnapshot,
   undoLastMatch,
   findOperationByGameId,
   createSnapshotFromCurrentState
@@ -64,8 +65,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     // Restore ratings to before-operation state for match operations only
-    // Set command operations are handled internally by undoLastOperation()
-    if (undoneSnapshot.gameType !== 'set_command') {
+    // Set command and decay operations are handled internally by undoLastOperation()
+    if (undoneSnapshot.gameType !== 'set_command' && undoneSnapshot.gameType !== 'decay') {
       const matchSnapshot = undoneSnapshot as MatchSnapshot;
       await restoreRatingsFromSnapshot(matchSnapshot, userId);
     }
@@ -192,14 +193,14 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
   if (firstSnapshot.gameType === 'set_command') {
     const setSnapshot = firstSnapshot as SetCommandSnapshot;
     embed.setDescription(`Successfully undone **${setSnapshot.operationType}**: **${setSnapshot.description}**`);
-    
+
     // Show what changed for set commands
     let changesSummary = '';
     if (setSnapshot.operationType === 'rating_change') {
       const oldElo = calculateElo(setSnapshot.after.mu!, setSnapshot.after.sigma!);
       const newElo = calculateElo(setSnapshot.before.mu!, setSnapshot.before.sigma!);
       changesSummary = `Elo: ${oldElo.toFixed(0)} → ${newElo.toFixed(0)}`;
-      
+
       if (setSnapshot.before.wins !== setSnapshot.after.wins) {
         changesSummary += `\nW/L/D: ${setSnapshot.after.wins}/${setSnapshot.after.losses}/${setSnapshot.after.draws} → ${setSnapshot.before.wins}/${setSnapshot.before.losses}/${setSnapshot.before.draws}`;
       }
@@ -216,7 +217,7 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
       const newOrder = setSnapshot.before.turnOrder || 'None';
       changesSummary = `Turn Order: ${oldOrder} → ${newOrder}`;
     }
-    
+
     if (changesSummary) {
       embed.addFields({
         name: 'Changes Reverted',
@@ -224,23 +225,61 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
         inline: false
       });
     }
+  } else if (firstSnapshot.gameType === 'decay') {
+    const decaySnapshot = firstSnapshot as DecaySnapshot;
+    embed.setDescription(`Successfully undone **Decay Cycle**: ${decaySnapshot.description}`);
+
+    // Show affected players
+    let playerSummary = '';
+    for (const player of decaySnapshot.players.slice(0, 10)) {
+      const beforeElo = calculateElo(player.beforeMu, player.beforeSigma);
+      const afterElo = calculateElo(player.afterMu, player.afterSigma);
+      try {
+        const user = await interaction.client.users.fetch(player.userId);
+        playerSummary += `@${user.username}: ${afterElo} → ${beforeElo} Elo (restored)\n`;
+      } catch {
+        playerSummary += `<@${player.userId}>: ${afterElo} → ${beforeElo} Elo (restored)\n`;
+      }
+    }
+
+    if (decaySnapshot.players.length > 10) {
+      playerSummary += `... and ${decaySnapshot.players.length - 10} more players`;
+    }
+
+    if (playerSummary) {
+      embed.addFields({
+        name: 'Players Restored',
+        value: playerSummary.trim(),
+        inline: false
+      });
+    }
+
+    embed.addFields({
+      name: 'Decay Details',
+      value: `Triggered by: ${decaySnapshot.metadata.triggeredBy === 'timewalk' ? '/timewalk' : 'Scheduled (midnight)'}\nGrace period: ${decaySnapshot.metadata.graceDays} days\nDecay amount: -${decaySnapshot.metadata.decayAmount} Elo/day`,
+      inline: false
+    });
   } else {
     const matchSnapshot = firstSnapshot as MatchSnapshot;
-    
+
     // Simple game type determination - either 'player' or 'deck'
     const gameTypeDescription = matchSnapshot.gameType === 'player' ? 'Player' : 'Deck';
-    
+
     embed.setDescription(`Successfully undone **${gameTypeDescription}** game: **${matchSnapshot.gameId}**`);
   }
 
-  // Show rating changes for the undone operation
+  // Show rating changes for the undone operation (skip for decay - already shown above)
+  if (firstSnapshot.gameType === 'decay') {
+    return embed;
+  }
+
   const snapshot = firstSnapshot;
-  
-  // Add player diffs if any
-  const playerBefore = Array.isArray(snapshot.before) 
+
+  // Add player diffs if any (for match and set_command snapshots)
+  const playerBefore = 'before' in snapshot && Array.isArray(snapshot.before)
     ? snapshot.before.filter((s: any) => 'userId' in s) as PlayerSnapshot[]
     : [];
-  const playerAfter = Array.isArray(snapshot.after) 
+  const playerAfter = 'after' in snapshot && Array.isArray(snapshot.after)
     ? snapshot.after.filter((s: any) => 'userId' in s) as PlayerSnapshot[]
     : [];
   
@@ -286,11 +325,11 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
     });
   }
 
-  // Add deck diffs if any
-  const deckBefore = Array.isArray(snapshot.before) 
+  // Add deck diffs if any (for match and set_command snapshots)
+  const deckBefore = 'before' in snapshot && Array.isArray(snapshot.before)
     ? snapshot.before.filter((s: any) => 'normalizedName' in s) as DeckSnapshot[]
     : [];
-  const deckAfter = Array.isArray(snapshot.after) 
+  const deckAfter = 'after' in snapshot && Array.isArray(snapshot.after)
     ? snapshot.after.filter((s: any) => 'normalizedName' in s) as DeckSnapshot[]
     : [];
   

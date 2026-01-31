@@ -40,15 +40,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle`);
 
-    // Execute the decay process
-    await applyRatingDecay();
+    // Execute the decay process with timewalk trigger and admin ID
+    const decayedCount = await applyRatingDecay('timewalk', userId);
 
     const embed = new EmbedBuilder()
       .setTitle('Time Walk')
       .setDescription(
-        'Successfully executed manual decay cycle.\n\n' +
-        'The rating decay process has been triggered as if midnight had passed.\n' +
-        'Check the console logs for details on which players (if any) were affected.'
+        `Successfully executed manual decay cycle.\n\n` +
+        `**Players affected:** ${decayedCount}\n\n` +
+        (decayedCount > 0
+          ? `Use \`/undo\` to reverse this decay if needed.`
+          : `No players met the decay criteria this cycle.`)
       )
       .setColor(0x9B59B6) // Purple for the "time magic" theme
       .setFooter({ text: 'Note: This does not affect player lastPlayed timestamps' })

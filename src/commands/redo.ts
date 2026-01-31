@@ -4,15 +4,16 @@ import {
   EmbedBuilder 
 } from 'discord.js';
 import { config } from '../config.js';
-import { 
+import {
   redoLastOperation,
   getPlayerSnapshotDiffs,
   getDeckSnapshotDiffs,
   MatchSnapshot,
   PlayerSnapshot,
   DeckSnapshot,
-  UniversalSnapshot, 
-  SetCommandSnapshot 
+  UniversalSnapshot,
+  SetCommandSnapshot,
+  DecaySnapshot
 } from '../utils/snapshot-utils.js';
 import { updatePlayerRating } from '../db/player-utils.js';
 import { updateDeckRating } from '../db/deck-utils.js';
@@ -62,6 +63,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       // Set command redo is handled internally by redoLastOperation()
       // Log the restoration for audit purposes
       await logSetCommandRedo(redoneSnapshot as SetCommandSnapshot, userId);
+    } else if (redoneSnapshot.gameType === 'decay') {
+      // Decay redo is handled internally by redoLastOperation()
+      // Just log for audit purposes
+      console.log(`[REDO] Restored decay cycle affecting ${(redoneSnapshot as DecaySnapshot).players.length} players`);
     } else {
       // Restore ratings to after-game state and restore game to database
       const gameSnapshot = redoneSnapshot as MatchSnapshot;
@@ -308,14 +313,14 @@ async function createRedoEmbed(snapshot: UniversalSnapshot, interaction: ChatInp
   if (snapshot.gameType === 'set_command') {
     const setSnapshot = snapshot as SetCommandSnapshot;
     embed.setDescription(`Successfully restored **${setSnapshot.operationType}**: **${setSnapshot.description}**`);
-    
+
     // Show what was restored
     let changesSummary = '';
     if (setSnapshot.operationType === 'rating_change') {
       const oldElo = calculateElo(setSnapshot.before.mu!, setSnapshot.before.sigma!);
       const newElo = calculateElo(setSnapshot.after.mu!, setSnapshot.after.sigma!);
       changesSummary = `Elo: ${oldElo.toFixed(0)} → ${newElo.toFixed(0)}`;
-      
+
       if (setSnapshot.before.wins !== setSnapshot.after.wins) {
         changesSummary += `\nW/L/D: ${setSnapshot.before.wins}/${setSnapshot.before.losses}/${setSnapshot.before.draws} → ${setSnapshot.after.wins}/${setSnapshot.after.losses}/${setSnapshot.after.draws}`;
       }
@@ -332,7 +337,7 @@ async function createRedoEmbed(snapshot: UniversalSnapshot, interaction: ChatInp
       const newOrder = setSnapshot.after.turnOrder || 'None';
       changesSummary = `Turn Order: ${oldOrder} → ${newOrder}`;
     }
-    
+
     if (changesSummary) {
       embed.addFields({
         name: 'Changes Restored',
@@ -340,6 +345,42 @@ async function createRedoEmbed(snapshot: UniversalSnapshot, interaction: ChatInp
         inline: false
       });
     }
+
+    return embed;
+  } else if (snapshot.gameType === 'decay') {
+    const decaySnapshot = snapshot as DecaySnapshot;
+    embed.setDescription(`Successfully restored **Decay Cycle**: ${decaySnapshot.description}`);
+
+    // Show affected players
+    let playerSummary = '';
+    for (const player of decaySnapshot.players.slice(0, 10)) {
+      const beforeElo = calculateElo(player.beforeMu, player.beforeSigma);
+      const afterElo = calculateElo(player.afterMu, player.afterSigma);
+      try {
+        const user = await interaction.client.users.fetch(player.userId);
+        playerSummary += `@${user.username}: ${beforeElo} → ${afterElo} Elo (decay re-applied)\n`;
+      } catch {
+        playerSummary += `<@${player.userId}>: ${beforeElo} → ${afterElo} Elo (decay re-applied)\n`;
+      }
+    }
+
+    if (decaySnapshot.players.length > 10) {
+      playerSummary += `... and ${decaySnapshot.players.length - 10} more players`;
+    }
+
+    if (playerSummary) {
+      embed.addFields({
+        name: 'Players Affected',
+        value: playerSummary.trim(),
+        inline: false
+      });
+    }
+
+    embed.addFields({
+      name: 'Decay Details',
+      value: `Triggered by: ${decaySnapshot.metadata.triggeredBy === 'timewalk' ? '/timewalk' : 'Scheduled (midnight)'}\nGrace period: ${decaySnapshot.metadata.graceDays} days\nDecay amount: -${decaySnapshot.metadata.decayAmount} Elo/day`,
+      inline: false
+    });
 
     return embed;
   } else {
