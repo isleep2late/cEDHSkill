@@ -52,9 +52,39 @@ const ELO_CUTOFF = 1050; // Stop decay at this Elo
 const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day
 const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncertainty grows)
 
+// Cumulative timewalk tracking - tracks virtual time advancement
+let cumulativeTimewalkDays = 0;
+
+/**
+ * Add days to the cumulative timewalk counter.
+ * Called after each successful timewalk.
+ */
+export function addTimewalkDays(days: number): void {
+  cumulativeTimewalkDays += days;
+  console.log(`[TIMEWALK] Cumulative simulated days: ${cumulativeTimewalkDays}`);
+}
+
+/**
+ * Reset the cumulative timewalk counter.
+ * Called when ratings are recalculated from scratch (e.g., after /set, undo/redo).
+ */
+export function resetTimewalkDays(): void {
+  if (cumulativeTimewalkDays > 0) {
+    console.log(`[TIMEWALK] Resetting cumulative days from ${cumulativeTimewalkDays} to 0`);
+  }
+  cumulativeTimewalkDays = 0;
+}
+
+/**
+ * Get the current cumulative timewalk days.
+ */
+export function getTimewalkDays(): number {
+  return cumulativeTimewalkDays;
+}
+
 /**
  * Calculate the minimum number of days to simulate to trigger decay.
- * - If any eligible player is already past grace period: returns 1
+ * - If any eligible player is already past grace period (including cumulative timewalk): returns 1
  * - Otherwise: returns the minimum days needed to pass the grace period
  *
  * @returns The optimal number of days to simulate for the next decay
@@ -78,15 +108,18 @@ export async function getMinDaysForNextDecay(): Promise<number> {
     if (currentElo <= ELO_CUTOFF) continue;
 
     const msSinceLast = now - new Date(p.lastPlayed).getTime();
-    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+    const actualDaysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
 
-    if (daysSinceLast > GRACE_DAYS) {
-      // Player is already past grace period - just need 1 day
+    // Include cumulative timewalk days in the calculation
+    const effectiveDaysSinceLast = actualDaysSinceLast + cumulativeTimewalkDays;
+
+    if (effectiveDaysSinceLast > GRACE_DAYS) {
+      // Player is already past grace period (including virtual time) - just need 1 day
       anyPastGrace = true;
       break;
     } else {
       // Calculate days needed to pass grace period
-      const daysNeeded = GRACE_DAYS + 1 - daysSinceLast;
+      const daysNeeded = GRACE_DAYS + 1 - effectiveDaysSinceLast;
       minDaysNeeded = Math.min(minDaysNeeded, daysNeeded);
     }
   }
@@ -121,9 +154,15 @@ export async function applyRatingDecay(
   simulatedDaysOffset: number = 0
 ): Promise<number> {
   console.log('[DECAY] Starting linear rating decay process...');
-  if (simulatedDaysOffset > 0) {
-    console.log(`[DECAY] Timewalk: Simulating ${simulatedDaysOffset} extra day(s) passing`);
+
+  // For timewalk: calculate total virtual time and NEW days to decay
+  // We only want to decay for the NEW simulated days, not re-decay previous days
+  const isTimewalk = triggeredBy === 'timewalk';
+
+  if (isTimewalk && simulatedDaysOffset > 0) {
+    console.log(`[DECAY] Timewalk: Adding ${simulatedDaysOffset} day(s) to ${cumulativeTimewalkDays} cumulative`);
   }
+
   const now = Date.now();
   const players = await getAllPlayers();
   const decayedPlayers: DecayPlayerState[] = [];
@@ -137,10 +176,29 @@ export async function applyRatingDecay(
 
     const msSinceLast = now - new Date(p.lastPlayed).getTime();
     const actualDaysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
-    const daysSinceLast = actualDaysSinceLast + simulatedDaysOffset;
 
-    // Skip players who played within the grace period
-    if (daysSinceLast <= GRACE_DAYS) continue;
+    // For timewalk: calculate incremental decay (only for NEW days)
+    // For cron: use actual days since last played
+    let daysSinceLast: number;
+    let daysPastGrace: number;
+
+    if (isTimewalk) {
+      const totalVirtualDays = actualDaysSinceLast + cumulativeTimewalkDays + simulatedDaysOffset;
+      const previousVirtualDays = actualDaysSinceLast + cumulativeTimewalkDays;
+
+      // Only decay for NEW days past grace (not days already decayed)
+      const totalDaysPastGrace = Math.max(0, totalVirtualDays - GRACE_DAYS);
+      const previousDaysPastGrace = Math.max(0, previousVirtualDays - GRACE_DAYS);
+      daysPastGrace = totalDaysPastGrace - previousDaysPastGrace;
+
+      daysSinceLast = totalVirtualDays; // For logging
+    } else {
+      daysSinceLast = actualDaysSinceLast + simulatedDaysOffset;
+      daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);
+    }
+
+    // Skip if no decay needed (either within grace period OR no new days to decay for timewalk)
+    if (daysPastGrace <= 0) continue;
 
     // Calculate current Elo
     const currentElo = calculateElo(p.mu, p.sigma);
@@ -148,10 +206,7 @@ export async function applyRatingDecay(
     // Skip players who are already at or below the cutoff
     if (currentElo <= ELO_CUTOFF) continue;
 
-    // Calculate how many days past the grace period
-    const daysPastGrace = daysSinceLast - GRACE_DAYS;
-
-    // Calculate total decay: -1 Elo per day past grace period
+    // Calculate total decay: -1 Elo per day past grace period (daysPastGrace already calculated above)
     const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
     const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
 

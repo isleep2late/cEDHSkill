@@ -13,6 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
+import { resetTimewalkDays } from '../bot.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -607,7 +608,10 @@ async function handleGameModification(
 
 export async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log('[SET] Starting complete player rating recalculation...');
-  
+
+  // Reset timewalk virtual time since we're recalculating from scratch
+  resetTimewalkDays();
+
   const db = getDatabase();
 
   // Get all players and reset their ratings to defaults
