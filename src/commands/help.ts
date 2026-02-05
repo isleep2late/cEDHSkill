@@ -125,8 +125,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       {
         name: 'Testing & Development (Admin Only)',
         value: '`/timewalk [days]` - Simulate time passing for decay testing\n' +
-               '• `days` (optional): Number of days to simulate (default: minimum for next decay)\n' +
-               '• Smart default: 1 day if past grace, otherwise minimum to reach first decay\n' +
+               '• Tracks cumulative virtual time (first call: grace+1 days, then +1 day each)\n' +
+               '• Virtual time resets on rating recalculation or bot restart\n' +
                '*For testing purposes only - not recommended for production use*'
       }
     );
