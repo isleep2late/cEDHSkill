@@ -101,20 +101,26 @@ export async function applyRatingDecay(
     // Skip players who are already at or below the cutoff
     if (currentElo <= ELO_CUTOFF) continue;
 
-    // Calculate how much to decay (linear: -1 Elo per day)
-    // Only decay 1 point per decay run (cron runs daily)
-    const targetElo = Math.max(currentElo - DECAY_ELO_PER_DAY, ELO_CUTOFF);
+    // Calculate how many days past the grace period
+    const daysPastGrace = daysSinceLast - GRACE_DAYS;
 
-    // Calculate new mu to achieve the target Elo (sigma stays mostly stable with small increase)
-    const newSigma = Math.min(p.sigma + SIGMA_INCREMENT_PER_DECAY, 10); // Cap sigma at 10
+    // Calculate total decay: -1 Elo per day past grace period
+    const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
+    const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
+
+    // Calculate new mu to achieve the target Elo (sigma increases slightly with decay)
+    // Sigma increment scales with days of decay
+    const sigmaIncrement = Math.min(daysPastGrace * SIGMA_INCREMENT_PER_DECAY, 2); // Cap total sigma increase
+    const newSigma = Math.min(p.sigma + sigmaIncrement, 10); // Cap sigma at 10
     const newMu = muFromElo(targetElo, newSigma);
 
     const newElo = calculateElo(newMu, newSigma);
+    const actualDecay = currentElo - newElo;
 
     console.log(
-      `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} ` +
+      `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} (-${actualDecay}) ` +
       `(μ: ${p.mu.toFixed(3)}→${newMu.toFixed(3)}, σ: ${p.sigma.toFixed(3)}→${newSigma.toFixed(3)}) ` +
-      `[${daysSinceLast} days inactive, grace: ${GRACE_DAYS} days]`
+      `[${daysSinceLast} days inactive, ${daysPastGrace} days past grace]`
     );
 
     // Track player state for undo snapshot
@@ -184,7 +190,7 @@ export async function applyRatingDecay(
     console.log(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
   }
 
-  console.log(`[DECAY] Applied linear decay (-${DECAY_ELO_PER_DAY} Elo) to ${decayedPlayers.length} players`);
+  console.log(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
   return decayedPlayers.length;
 }
 
