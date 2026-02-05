@@ -284,21 +284,22 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
     : [];
   
   if (playerBefore.length > 0) {
-    const playerDiffs = getPlayerSnapshotDiffs(playerAfter, playerBefore); // Reversed for undo
-    
+    const playerDiffs = getPlayerSnapshotDiffs(playerBefore, playerAfter); // before, after - we show after → before for undo
+
     let playerSummary = '';
     for (let i = 0; i < Math.min(8, playerDiffs.length); i++) {
       const diff = playerDiffs[i];
       const playerData = playerBefore[i];
-      
+
       try {
         // Try to get Discord username
         const user = await interaction.client.users.fetch(playerData.userId);
         const turnOrder = playerData.turnOrder ? ` [Turn ${playerData.turnOrder}]` : '';
         const commander = playerData.commander ? ` [${playerData.commander}]` : '';
+        // For undo: show afterElo → beforeElo (current state → restored state)
         playerSummary += `@${user.username}${turnOrder}${commander}: ${diff.afterElo} → ${diff.beforeElo} Elo`;
-        
-        // Add W/L/D changes if they exist
+
+        // Add W/L/D changes if they exist (show after → before for undo)
         if (diff.beforeW !== diff.afterW || diff.beforeL !== diff.afterL || diff.beforeD !== diff.afterD) {
           playerSummary += ` (${diff.afterW}/${diff.afterL}/${diff.afterD} → ${diff.beforeW}/${diff.beforeL}/${diff.beforeD})`;
         }
@@ -308,7 +309,7 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
         const turnOrder = playerData.turnOrder ? ` [Turn ${playerData.turnOrder}]` : '';
         const commander = playerData.commander ? ` [${playerData.commander}]` : '';
         playerSummary += `<@${playerData.userId}>${turnOrder}${commander}: ${diff.afterElo} → ${diff.beforeElo} Elo`;
-        
+
         if (diff.beforeW !== diff.afterW || diff.beforeL !== diff.afterL || diff.beforeD !== diff.afterD) {
           playerSummary += ` (${diff.afterW}/${diff.afterL}/${diff.afterD} → ${diff.beforeW}/${diff.beforeL}/${diff.beforeD})`;
         }
@@ -334,17 +335,18 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
     : [];
   
   if (deckBefore.length > 0) {
-    const deckDiffs = getDeckSnapshotDiffs(deckAfter, deckBefore); // Reversed for undo
+    const deckDiffs = getDeckSnapshotDiffs(deckBefore, deckAfter); // before, after - we show after → before for undo
     const deckSummary = deckDiffs.slice(0, 8).map(diff => {
       const deckData = deckBefore.find(d => d.displayName === diff.displayName);
       const turnOrder = deckData?.turnOrder ? ` [Turn ${deckData.turnOrder}]` : '';
+      // For undo: show afterElo → beforeElo (current state → restored state)
       let summary = `${diff.displayName}${turnOrder}: ${diff.afterElo} → ${diff.beforeElo} Elo`;
-      
-      // Add W/L/D changes if they exist
+
+      // Add W/L/D changes if they exist (show after → before for undo)
       if (diff.beforeW !== diff.afterW || diff.beforeL !== diff.afterL || diff.beforeD !== diff.afterD) {
         summary += ` (${diff.afterW}/${diff.afterL}/${diff.afterD} → ${diff.beforeW}/${diff.beforeL}/${diff.beforeD})`;
       }
-      
+
       return summary;
     }).join('\n');
     
