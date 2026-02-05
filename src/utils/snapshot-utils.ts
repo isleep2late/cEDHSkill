@@ -108,6 +108,7 @@ export interface DecaySnapshot {
     decayAmount: number;
     triggeredBy: 'cron' | 'timewalk';
     adminUserId?: string;
+    simulatedDaysOffset?: number; // For timewalk: how many extra days were simulated
   };
   timestamp: string;
   description: string;

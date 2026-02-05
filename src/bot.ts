@@ -66,12 +66,17 @@ const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncer
  *
  * @param triggeredBy - 'cron' for scheduled decay, 'timewalk' for manual trigger
  * @param adminUserId - Admin user ID if triggered by timewalk
+ * @param simulatedDaysOffset - For timewalk: pretend this many extra days have passed
  */
 export async function applyRatingDecay(
   triggeredBy: 'cron' | 'timewalk' = 'cron',
-  adminUserId?: string
+  adminUserId?: string,
+  simulatedDaysOffset: number = 0
 ): Promise<number> {
   console.log('[DECAY] Starting linear rating decay process...');
+  if (simulatedDaysOffset > 0) {
+    console.log(`[DECAY] Timewalk: Simulating ${simulatedDaysOffset} extra day(s) passing`);
+  }
   const now = Date.now();
   const players = await getAllPlayers();
   const decayedPlayers: DecayPlayerState[] = [];
@@ -84,7 +89,8 @@ export async function applyRatingDecay(
     if (!p.lastPlayed) continue;
 
     const msSinceLast = now - new Date(p.lastPlayed).getTime();
-    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+    const actualDaysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+    const daysSinceLast = actualDaysSinceLast + simulatedDaysOffset;
 
     // Skip players who played within the grace period
     if (daysSinceLast <= GRACE_DAYS) continue;
@@ -165,10 +171,13 @@ export async function applyRatingDecay(
         eloCutoff: ELO_CUTOFF,
         decayAmount: DECAY_ELO_PER_DAY,
         triggeredBy: triggeredBy,
-        adminUserId: adminUserId
+        adminUserId: adminUserId,
+        simulatedDaysOffset: simulatedDaysOffset
       },
       timestamp: timestamp,
-      description: `Decay cycle affecting ${decayedPlayers.length} player(s)`
+      description: simulatedDaysOffset > 0
+        ? `Timewalk decay (+${simulatedDaysOffset} day${simulatedDaysOffset > 1 ? 's' : ''}) affecting ${decayedPlayers.length} player(s)`
+        : `Decay cycle affecting ${decayedPlayers.length} player(s)`
     };
 
     saveOperationSnapshot(decaySnapshot);

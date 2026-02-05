@@ -457,8 +457,8 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
   console.log(`[RECALC] Completed recalculation of ${allGames.length} deck games`);
 }
 
-// Function to replay a single player game
-async function replayPlayerGame(gameId: string): Promise<void> {
+// Function to replay a single player game (exported for use by /set command)
+export async function replayPlayerGame(gameId: string): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
   
@@ -555,8 +555,8 @@ async function replayPlayerGame(gameId: string): Promise<void> {
   }
 }
 
-// Function to replay a single deck game
-async function replayDeckGame(gameId: string): Promise<void> {
+// Function to replay a single deck game (exported for use by /set command)
+export async function replayDeckGame(gameId: string): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
   

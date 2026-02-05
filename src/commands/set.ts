@@ -12,7 +12,7 @@ import { getDatabase } from '../db/init.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js'; 
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
-import { processCommanderRatingsEnhanced } from '../commands/rank.js';
+import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -1141,143 +1141,8 @@ async function getDeckStateBeforeSequence(deckName: string, beforeSequence: numb
   };
 }
 
-async function replayPlayerGame(gameId: string): Promise<void> {
-  const db = getDatabase();
-  const matches = await db.all('SELECT * FROM matches WHERE gameId = ? ORDER BY matchDate ASC', gameId);
-  
-  if (matches.length === 0) return;
-
-  // Get current ratings for all players
-  const playerRatings: Record<string, any> = {};
-  const playerStats: Record<string, any> = {};
-  
-  for (const match of matches) {
-    const player = await getOrCreatePlayer(match.userId);
-    const { rating } = await import('openskill');
-    playerRatings[match.userId] = rating({ mu: player.mu, sigma: player.sigma });
-    playerStats[match.userId] = {
-      wins: player.wins,
-      losses: player.losses,
-      draws: player.draws
-    };
-  }
-
-  // Apply OpenSkill rating calculation
-  const { rate } = await import('openskill');
-  const gameRatings = matches.map(match => [playerRatings[match.userId]]);
-  const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
-  const ranks = matches.map(match => statusRank[match.status] || 3);
-  const newRatings = rate(gameRatings, { rank: ranks });
-
-  // Apply penalties and minimum changes
-  const penalty = matches.length === 3 ? 0.9 : 1.0;
-
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const newRating = newRatings[i][0];
-    
-    const finalRating = {
-      mu: 25 + (newRating.mu - 25) * penalty,
-      sigma: newRating.sigma
-    };
-
-    const oldRating = playerRatings[match.userId];
-    const adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
-
-    // Update stats
-    const stats = playerStats[match.userId];
-    if (match.status === 'w') stats.wins++;
-    else if (match.status === 'l') stats.losses++;
-    else if (match.status === 'd') stats.draws++;
-
-    // Save to database
-    await updatePlayerRating(
-      match.userId,
-      adjustedRating.mu,
-      adjustedRating.sigma,
-      stats.wins,
-      stats.losses,
-      stats.draws
-    );
-  }
-}
-
-async function replayDeckGame(gameId: string): Promise<void> {
-  const db = getDatabase();
-  const matches = await db.all('SELECT * FROM deck_matches WHERE gameId = ? ORDER BY matchDate ASC', gameId);
-  
-  if (matches.length === 0) return;
-
-  // Get current ratings for all unique decks
-  const uniqueDecks = new Set(matches.map(m => m.deckNormalizedName));
-  const deckRatings: Record<string, any> = {};
-  const deckStats: Record<string, any> = {};
-  
-  for (const deckName of uniqueDecks) {
-    const match = matches.find(m => m.deckNormalizedName === deckName);
-    const deck = await getOrCreateDeck(deckName, match.deckDisplayName);
-    const { rating } = await import('openskill');
-    deckRatings[deckName] = rating({ mu: deck.mu, sigma: deck.sigma });
-    deckStats[deckName] = {
-      wins: deck.wins,
-      losses: deck.losses,
-      draws: deck.draws,
-      displayName: deck.displayName
-    };
-  }
-
-  // Apply OpenSkill and handle duplicates
-  const { rate } = await import('openskill');
-  const gameRatings = matches.map(match => [deckRatings[match.deckNormalizedName]]);
-  const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
-  const ranks = matches.map(match => statusRank[match.status] || 3);
-  const newRatings = rate(gameRatings, { rank: ranks });
-  const penalty = matches.length === 3 ? 0.9 : 1.0;
-
-  // Aggregate changes for duplicate decks
-  const deckChanges: Record<string, { newRating: any, statusUpdates: string[] }> = {};
-
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const newRating = newRatings[i][0];
-    
-    const finalRating = {
-      mu: 25 + (newRating.mu - 25) * penalty,
-      sigma: newRating.sigma
-    };
-
-    if (!deckChanges[match.deckNormalizedName]) {
-      deckChanges[match.deckNormalizedName] = {
-        newRating: finalRating,
-        statusUpdates: []
-      };
-    }
-
-    deckChanges[match.deckNormalizedName].statusUpdates.push(match.status);
-    deckChanges[match.deckNormalizedName].newRating = finalRating;
-  }
-
-  // Apply changes to unique decks
-  for (const [deckName, changes] of Object.entries(deckChanges)) {
-    const stats = deckStats[deckName];
-    
-    for (const status of changes.statusUpdates) {
-      if (status === 'w') stats.wins++;
-      else if (status === 'l') stats.losses++;
-      else if (status === 'd') stats.draws++;
-    }
-
-    await updateDeckRating(
-      deckName,
-      stats.displayName,
-      changes.newRating.mu,
-      changes.newRating.sigma,
-      stats.wins,
-      stats.losses,
-      stats.draws
-    );
-  }
-}
+// replayPlayerGame and replayDeckGame are now imported from rank.ts
+// to ensure participation bonus is applied consistently
 
 function ensureMinimumRatingChange(oldRating: any, newRating: any, status: string): any {
   const oldElo = calculateElo(oldRating.mu, oldRating.sigma);
