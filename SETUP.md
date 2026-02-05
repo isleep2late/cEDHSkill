@@ -141,7 +141,7 @@ This will install all required packages including Discord.js, SQLite, and TypeSc
    - `GUILD_ID`: From Step 3, your server ID
    - `ADMINS`: Comma-separated list of Discord user IDs who should have admin permissions
    - `MODERATORS`: Comma-separated list of Discord user IDs who should have moderator permissions
-   - `DECAY_START_DAYS`: Number of days before player ratings start to decay (optional, defaults to 8)
+   - `DECAY_START_DAYS`: Number of days before player ratings start to decay (optional, defaults to 6)
 
 4. **Save and exit** (in nano: Ctrl+X, then Y, then Enter)
 
