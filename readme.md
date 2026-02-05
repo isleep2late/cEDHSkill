@@ -433,21 +433,33 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 - Admins can use `/timewalk` to simulate time passing for decay testing
 - **Parameters:**
   - `days` (optional): Number of days to simulate (1-365). Default: minimum needed for next decay
-- **Cumulative Virtual Time:**
-  - Each `/timewalk` adds to a "virtual day" counter
-  - First call simulates enough days to pass the grace period (e.g., 7 days for 6-day grace)
-  - Subsequent calls only need 1 day each to trigger the next decay
-  - Virtual time resets when ratings are recalculated (e.g., `/set`, `/undo`, bot restart)
+- **Virtual Clock Model:**
+  - `/timewalk` advances a "virtual clock" that tracks simulated time
+  - Each player has their own "last play position" on the virtual clock
+  - When a player plays a game, their position resets to the current clock position
+  - Player's virtual inactivity = current clock position - their last play position
+  - **Key benefit**: If a player plays a game mid-timewalk session, they won't decay for time that passed before they played
 - **Example Flow (6-day grace period):**
   ```
-  /timewalk        → +7 days → Virtual Day 7  → -1 Elo (1 day past grace)
-  /timewalk        → +1 day  → Virtual Day 8  → -1 Elo (1 new day)
-  /timewalk        → +1 day  → Virtual Day 9  → -1 Elo (1 new day)
-  /timewalk days:5 → +5 days → Virtual Day 14 → -5 Elo (5 new days)
+  /timewalk        → Clock moves to Day 7  → All players: -1 Elo (1 day past grace)
+  Player A plays a game → Player A's position resets to Day 7
+  /timewalk        → Clock moves to Day 8  → Player A: no decay (only 1 day inactive)
+                                           → Other players: -1 Elo (1 new day)
+  /timewalk days:5 → Clock moves to Day 13 → Player A: no decay (only 6 days, at grace)
+                                           → Other players: -5 Elo (5 new days)
+  /timewalk        → Clock moves to Day 14 → Player A: -1 Elo (now 7 days, 1 past grace)
+                                           → Other players: -1 Elo (1 new day)
   ```
+- Virtual time resets when ratings are recalculated (e.g., `/set`, `/undo`, bot restart)
 - The command does NOT modify `lastPlayed` timestamps - it tracks virtual time separately
 - This is intended for testing purposes only and should not be used in production
 - Both automatic and manual decay operations are fully undoable via `/undo`
+
+**Database Cleanup:**
+- After `/undo`, `/redo`, and `/set` operations that modify game activation status, the system automatically cleans up players and decks with 0/0/0 records
+- Cleanup only considers matches from **ACTIVE** games - players who only have matches in deactivated games are removed
+- When `/redo` is used, `getOrCreatePlayer()` automatically recreates any removed players
+- This ensures the database stays clean and only contains players/decks with active game history
 
 **Configuration:**
 - Set `DECAY_START_DAYS` in your `.env` file or `decayStartDays` in `config.ts`
