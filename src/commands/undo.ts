@@ -75,10 +75,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const embed = await createUndoEmbed([undoneSnapshot], interaction);
     await interaction.editReply({ embeds: [embed] });
 
-    // Cleanup players/decks with 0/0/0 records
+    // Cleanup players/decks with 0/0/0 records in active games
+    // This ensures players who no longer have any active games are removed
+    // If /redo is used, getOrCreatePlayer() will recreate them
     const playerCleanup = await cleanupZeroPlayers();
     const deckCleanup = await cleanupZeroDecks();
-    
+
     if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
       await interaction.followUp({
         content: `Cleanup: Removed ${playerCleanup.cleanedPlayers} players and ${deckCleanup.cleanedDecks} decks with 0/0/0 records.`,
