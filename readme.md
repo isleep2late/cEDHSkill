@@ -434,13 +434,19 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 - Admins can use `/timewalk` to simulate time passing for decay testing
 - **Parameters:**
   - `days` (optional): Number of days to simulate (1-365). Default: minimum needed for next decay
-- **Smart Default Behavior:**
-  - If any player is already past grace period (actual days) → simulates 1 day
-  - If all players are within grace period → simulates minimum days to reach first decay
-- **Examples:**
-  - `/timewalk` → Simulates minimum days needed for next decay
-  - `/timewalk days:10` → Simulates exactly 10 days passing
-- The command does NOT modify `lastPlayed` timestamps - it only simulates time for the decay check
+- **Cumulative Virtual Time:**
+  - Each `/timewalk` adds to a "virtual day" counter
+  - First call simulates enough days to pass the grace period (e.g., 7 days for 6-day grace)
+  - Subsequent calls only need 1 day each to trigger the next decay
+  - Virtual time resets when ratings are recalculated (e.g., `/set`, `/undo`, bot restart)
+- **Example Flow (6-day grace period):**
+  ```
+  /timewalk        → +7 days → Virtual Day 7  → -1 Elo (1 day past grace)
+  /timewalk        → +1 day  → Virtual Day 8  → -1 Elo (1 new day)
+  /timewalk        → +1 day  → Virtual Day 9  → -1 Elo (1 new day)
+  /timewalk days:5 → +5 days → Virtual Day 14 → -5 Elo (5 new days)
+  ```
+- The command does NOT modify `lastPlayed` timestamps - it tracks virtual time separately
 - This is intended for testing purposes only and should not be used in production
 - Both automatic and manual decay operations are fully undoable via `/undo`
 

@@ -13,6 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
+import { resetTimewalkDays } from '../bot.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -603,12 +604,14 @@ async function handleGameModification(
   await interaction.editReply({ embeds: [embed] });
 }
 
-// ENHANCED: Add the missing recalculation functions from rank.ts to set.ts
-// (Copy these functions from rank.ts if they're not already in set.ts)
+// ENHANCED: Recalculation functions (exported for use by undo/redo)
 
-async function recalculateAllPlayersFromScratch(): Promise<void> {
+export async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log('[SET] Starting complete player rating recalculation...');
-  
+
+  // Reset timewalk virtual time since we're recalculating from scratch
+  resetTimewalkDays();
+
   const db = getDatabase();
 
   // Get all players and reset their ratings to defaults
@@ -633,7 +636,7 @@ async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
 }
 
-async function recalculateAllDecksFromScratch(): Promise<void> {
+export async function recalculateAllDecksFromScratch(): Promise<void> {
   console.log('[SET] Starting complete deck rating recalculation...');
   
   const db = getDatabase();

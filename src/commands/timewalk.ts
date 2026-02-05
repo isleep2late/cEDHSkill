@@ -4,7 +4,7 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { config } from '../config.js';
-import { applyRatingDecay, getMinDaysForNextDecay } from '../bot.js';
+import { applyRatingDecay, getMinDaysForNextDecay, addTimewalkDays, getTimewalkDays } from '../bot.js';
 
 /**
  * /timewalk - Admin-only command for testing the decay system
@@ -12,6 +12,9 @@ import { applyRatingDecay, getMinDaysForNextDecay } from '../bot.js';
  * This command simulates time passing for decay purposes.
  * - Without parameters: simulates minimum days needed for next decay
  * - With 'days' parameter: simulates that exact number of days
+ *
+ * Cumulative tracking: Each timewalk adds to a virtual "days passed" counter,
+ * so subsequent timewalks only need to simulate 1 day to trigger the next decay.
  *
  * IMPORTANT: This is for admin testing only, NOT for regular users or moderators.
  */
@@ -48,28 +51,34 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   try {
     const gracePeriod = config.decayStartDays || 6;
+    const cumulativeBefore = getTimewalkDays();
 
     // Get explicit days parameter, or calculate minimum needed for next decay
     const explicitDays = interaction.options.getInteger('days');
     const simulatedDays = explicitDays ?? await getMinDaysForNextDecay();
 
-    console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days)`);
+    console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days, cumulative before: ${cumulativeBefore})`);
 
     // Execute the decay process with timewalk trigger, admin ID, and simulated days
     const decayedCount = await applyRatingDecay('timewalk', userId, simulatedDays);
+
+    // Add to cumulative counter AFTER successful decay
+    addTimewalkDays(simulatedDays);
+    const cumulativeAfter = getTimewalkDays();
 
     const embed = new EmbedBuilder()
       .setTitle('Time Walk')
       .setDescription(
         `Simulating **+${simulatedDays} day${simulatedDays > 1 ? 's' : ''}** passing...\n\n` +
-        `**Players affected:** ${decayedCount}\n\n` +
+        `**Players affected:** ${decayedCount}\n` +
+        `**Virtual time:** Day ${cumulativeAfter} (was ${cumulativeBefore})\n\n` +
         (decayedCount > 0
           ? `Use \`/undo\` to reverse this decay if needed.`
           : `No players met the decay criteria.\n` +
-            `(Grace period: ${gracePeriod} day${gracePeriod > 1 ? 's' : ''}, simulated: ${simulatedDays} day${simulatedDays > 1 ? 's' : ''})`)
+            `(Grace period: ${gracePeriod} day${gracePeriod > 1 ? 's' : ''})`)
       )
       .setColor(0x9B59B6) // Purple for the "time magic" theme
-      .setFooter({ text: 'Note: This simulates time for decay checks only - lastPlayed timestamps are unchanged' })
+      .setFooter({ text: 'Virtual time resets when ratings are recalculated' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
