@@ -6,94 +6,100 @@ export interface CleanupResult {
 }
 
 /**
- * Remove players who have never participated in any games from the database
+ * Remove players who have no games in ACTIVE games from the database
  */
 export async function cleanupZeroPlayers(): Promise<{ cleanedPlayers: number }> {
   const db = getDatabase();
-  
+
   try {
-    // Find players who have no match records (never participated in games)
-    const playersWithoutGames = await db.all(`
-      SELECT userId FROM players 
+    // Find players who have no match records in ACTIVE games
+    // Players who only played in deactivated games should be cleaned up
+    const playersWithoutActiveGames = await db.all(`
+      SELECT userId FROM players
       WHERE userId NOT IN (
-        SELECT DISTINCT userId FROM matches
+        SELECT DISTINCT m.userId FROM matches m
+        JOIN games_master g ON m.gameId = g.gameId
+        WHERE g.active = 1
       )
     `);
-    
-    if (playersWithoutGames.length === 0) {
+
+    if (playersWithoutActiveGames.length === 0) {
       return { cleanedPlayers: 0 };
     }
-    
-    console.log(`[CLEANUP] Found ${playersWithoutGames.length} players who never participated in games`);
-    
+
+    console.log(`[CLEANUP] Found ${playersWithoutActiveGames.length} players with no active games`);
+
     // Remove from all related tables
-    for (const player of playersWithoutGames) {
+    for (const player of playersWithoutActiveGames) {
       // Remove player deck assignments
       await db.run('DELETE FROM player_deck_assignments WHERE userId = ?', player.userId);
-      
+
       // Remove from restricted list if present
       await db.run('DELETE FROM restricted WHERE userId = ?', player.userId);
-      
+
       // Remove from suspicion exempt list if present
       await db.run('DELETE FROM suspicionExempt WHERE userId = ?', player.userId);
-      
+
       // Remove from admin opt-in list if present
       await db.run('DELETE FROM adminOptIn WHERE userId = ?', player.userId);
-      
+
       // Finally remove the player record
       await db.run('DELETE FROM players WHERE userId = ?', player.userId);
     }
-    
-    console.log(`[CLEANUP] Successfully removed ${playersWithoutGames.length} players who never participated in games`);
-    return { cleanedPlayers: playersWithoutGames.length };
-    
+
+    console.log(`[CLEANUP] Successfully removed ${playersWithoutActiveGames.length} players with no active games`);
+    return { cleanedPlayers: playersWithoutActiveGames.length };
+
   } catch (error) {
-    console.error('[CLEANUP] Error removing players without games:', error);
+    console.error('[CLEANUP] Error removing players without active games:', error);
     throw error;
   }
 }
 
 /**
- * Remove decks that have never been played in any games from the database
+ * Remove decks that have no games in ACTIVE games from the database
  */
 export async function cleanupZeroDecks(): Promise<{ cleanedDecks: number }> {
   const db = getDatabase();
-  
+
   try {
-    // Find decks that have no match records (never been played)
-    const decksWithoutGames = await db.all(`
-      SELECT normalizedName FROM decks 
+    // Find decks that have no match records in ACTIVE games
+    // Decks that only played in deactivated games should be cleaned up
+    const decksWithoutActiveGames = await db.all(`
+      SELECT normalizedName FROM decks
       WHERE normalizedName NOT IN (
-        SELECT DISTINCT deckNormalizedName FROM deck_matches
+        SELECT DISTINCT dm.deckNormalizedName FROM deck_matches dm
+        JOIN games_master g ON dm.gameId = g.gameId
+        WHERE g.active = 1
       )
     `);
-    
-    if (decksWithoutGames.length === 0) {
+
+    if (decksWithoutActiveGames.length === 0) {
       return { cleanedDecks: 0 };
     }
-    
-    console.log(`[CLEANUP] Found ${decksWithoutGames.length} decks that were never played`);
-    
+
+    console.log(`[CLEANUP] Found ${decksWithoutActiveGames.length} decks with no active games`);
+
     // Remove from all related tables
-    for (const deck of decksWithoutGames) {
+    for (const deck of decksWithoutActiveGames) {
       // Remove player deck assignments for this deck
       await db.run('DELETE FROM player_deck_assignments WHERE deckNormalizedName = ?', deck.normalizedName);
-      
+
       // Remove from player default decks
       await db.run('UPDATE players SET defaultDeck = NULL WHERE defaultDeck = ?', deck.normalizedName);
-      
+
       // Remove from match assigned decks
       await db.run('UPDATE matches SET assignedDeck = NULL WHERE assignedDeck = ?', deck.normalizedName);
-      
+
       // Finally remove the deck record
       await db.run('DELETE FROM decks WHERE normalizedName = ?', deck.normalizedName);
     }
-    
-    console.log(`[CLEANUP] Successfully removed ${decksWithoutGames.length} decks that were never played`);
-    return { cleanedDecks: decksWithoutGames.length };
-    
+
+    console.log(`[CLEANUP] Successfully removed ${decksWithoutActiveGames.length} decks with no active games`);
+    return { cleanedDecks: decksWithoutActiveGames.length };
+
   } catch (error) {
-    console.error('[CLEANUP] Error removing decks without games:', error);
+    console.error('[CLEANUP] Error removing decks without active games:', error);
     throw error;
   }
 }
