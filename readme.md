@@ -432,10 +432,13 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 **Testing Decay with `/timewalk`:**
 - Admins can use `/timewalk` to simulate time passing for decay testing
 - **Parameters:**
-  - `days` (optional): Number of days to simulate (1-365). Default: grace period + 1
+  - `days` (optional): Number of days to simulate (1-365). Default: minimum needed for next decay
+- **Smart Default Behavior:**
+  - If any player is already past grace period (actual days) → simulates 1 day
+  - If all players are within grace period → simulates minimum days to reach first decay
 - **Examples:**
-  - `/timewalk` → Simulates enough days to trigger decay (grace period + 1)
-  - `/timewalk days:10` → Simulates 10 days passing
+  - `/timewalk` → Simulates minimum days needed for next decay
+  - `/timewalk days:10` → Simulates exactly 10 days passing
 - The command does NOT modify `lastPlayed` timestamps - it only simulates time for the decay check
 - This is intended for testing purposes only and should not be used in production
 - Both automatic and manual decay operations are fully undoable via `/undo`

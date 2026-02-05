@@ -4,13 +4,14 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { config } from '../config.js';
-import { applyRatingDecay } from '../bot.js';
+import { applyRatingDecay, getMinDaysForNextDecay } from '../bot.js';
 
 /**
  * /timewalk - Admin-only command for testing the decay system
  *
  * This command simulates time passing for decay purposes.
- * Use the 'days' parameter to specify how many days to simulate.
+ * - Without parameters: simulates minimum days needed for next decay
+ * - With 'days' parameter: simulates that exact number of days
  *
  * IMPORTANT: This is for admin testing only, NOT for regular users or moderators.
  */
@@ -25,7 +26,7 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption(option =>
     option
       .setName('days')
-      .setDescription('Number of days to simulate passing (default: grace period + 1)')
+      .setDescription('Number of days to simulate (default: minimum needed for next decay)')
       .setRequired(false)
       .setMinValue(1)
       .setMaxValue(365)
@@ -46,9 +47,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   try {
-    // Get the days parameter, defaulting to grace period + 1 (to trigger decay)
     const gracePeriod = config.decayStartDays || 6;
-    const simulatedDays = interaction.options.getInteger('days') ?? (gracePeriod + 1);
+
+    // Get explicit days parameter, or calculate minimum needed for next decay
+    const explicitDays = interaction.options.getInteger('days');
+    const simulatedDays = explicitDays ?? await getMinDaysForNextDecay();
 
     console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days)`);
 
