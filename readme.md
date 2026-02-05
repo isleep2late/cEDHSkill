@@ -8,7 +8,7 @@
 - **Participation Bonus**: All players receive +1 Elo for every ranked game played (applied after all other calculations)
 - **Linear Rating Decay**: After 6 days of inactivity, players lose -1 Elo per day (stops at 1050 Elo minimum)
 - **Undoable Decay**: Both automatic (cron) and manual decay can be undone/redone via `/undo` and `/redo`
-- **`/timewalk` Command**: Admin-only command to manually trigger the decay cycle (for testing purposes)
+- **`/timewalk` Command**: Admin-only command to simulate time passing for decay testing (optional `days` parameter)
 - **Smart `/view` Command**: Now auto-infers type from provided options (e.g., `/view player:@user` works without specifying `type:player`)
 
 ### Command Consolidation & Commander Assignment Fixes
@@ -229,8 +229,9 @@ npm start
 # Restore the most recently undone operation
 /redo
 
-# Manually trigger rating decay cycle (Admin only - for testing)
-/timewalk
+# Simulate time passing for decay testing (Admin only)
+/timewalk              # Default: simulates grace period + 1 days
+/timewalk days:5       # Simulate 5 days passing
 ```
 
 ### 📋 History & Data Export
@@ -428,8 +429,14 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 - Decay stops at **1050 Elo** minimum (players cannot decay below this)
 - Decay runs automatically at midnight via cron job
 
-**Testing Decay:**
-- Admins can use `/timewalk` to manually trigger the decay cycle
+**Testing Decay with `/timewalk`:**
+- Admins can use `/timewalk` to simulate time passing for decay testing
+- **Parameters:**
+  - `days` (optional): Number of days to simulate (1-365). Default: grace period + 1
+- **Examples:**
+  - `/timewalk` → Simulates enough days to trigger decay (grace period + 1)
+  - `/timewalk days:10` → Simulates 10 days passing
+- The command does NOT modify `lastPlayed` timestamps - it only simulates time for the decay check
 - This is intended for testing purposes only and should not be used in production
 - Both automatic and manual decay operations are fully undoable via `/undo`
 
@@ -550,7 +557,7 @@ export const config = {
 - `/printhistory` → Use `/print`
 
 **New Commands:**
-- `/timewalk` - Admin-only command to manually trigger decay cycle (for testing)
+- `/timewalk [days]` - Admin-only command to simulate time passing for decay testing
 - `/help` - Updated with new rating system information
 
 **New Features:**

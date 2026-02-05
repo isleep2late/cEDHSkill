@@ -124,7 +124,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       },
       {
         name: 'Testing & Development (Admin Only)',
-        value: '`/timewalk` - Manually trigger the daily rating decay cycle\n' +
+        value: '`/timewalk [days]` - Simulate time passing for decay testing\n' +
+               '• `days` (optional): Number of days to simulate (default: grace period + 1)\n' +
+               '• Does not modify lastPlayed timestamps\n' +
                '*For testing purposes only - not recommended for production use*'
       }
     );
