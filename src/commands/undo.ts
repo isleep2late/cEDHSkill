@@ -75,9 +75,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const embed = await createUndoEmbed([undoneSnapshot], interaction);
     await interaction.editReply({ embeds: [embed] });
 
-    // Note: Cleanup for set commands is handled in snapshot-utils.ts (undoSetCommand)
-    // We don't run blanket cleanup here because undoing a game submission shouldn't
-    // remove players who only played that game (they might want to redo)
+    // Cleanup players/decks with 0/0/0 records in active games
+    // This ensures players who no longer have any active games are removed
+    // If /redo is used, getOrCreatePlayer() will recreate them
+    const playerCleanup = await cleanupZeroPlayers();
+    const deckCleanup = await cleanupZeroDecks();
+
+    if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+      await interaction.followUp({
+        content: `Cleanup: Removed ${playerCleanup.cleanedPlayers} players and ${deckCleanup.cleanedDecks} decks with 0/0/0 records.`,
+        ephemeral: true
+      });
+    }
 
   } catch (error) {
     console.error('Error undoing operation:', error);

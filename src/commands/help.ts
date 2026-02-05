@@ -125,9 +125,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       {
         name: 'Testing & Development (Admin Only)',
         value: '`/timewalk [days]` - Simulate time passing for decay testing\n' +
-               '• Tracks cumulative virtual time (first call: grace+1 days, then +1 day each)\n' +
+               '• Uses per-player virtual clock tracking\n' +
+               '• Players who play mid-timewalk won\'t decay for pre-play time\n' +
                '• Virtual time resets on rating recalculation or bot restart\n' +
                '*For testing purposes only - not recommended for production use*'
+      },
+      {
+        name: 'Database Cleanup',
+        value: 'Automatic cleanup runs after `/undo`, `/redo`, and `/set` game changes:\n' +
+               '• Removes players/decks with 0/0/0 records in active games\n' +
+               '• `/redo` auto-recreates any removed players'
       }
     );
   break;
