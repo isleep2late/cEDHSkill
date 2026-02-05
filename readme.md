@@ -437,6 +437,13 @@ This ensures assigned decks receive fair rating changes regardless of how many o
 - Set `DECAY_START_DAYS` in your `.env` file or `decayStartDays` in `config.ts`
 - Default grace period: 6 days
 
+**Edge Case - Game Deactivation and Decay:**
+- When a game is deactivated via `/set gameid:ABC active:false`, all ratings are recalculated from scratch
+- **Decay is NOT re-applied during recalculation** - this is intentional
+- The recalculation provides a "clean slate" based purely on game history, which is useful for correcting mistakes
+- After recalculation, the decay timer resets for all affected players
+- If you need to preserve decay, avoid deactivating games that would trigger a full recalculation
+
 ### Participation Bonus (v0.03)
 
 **How It Works:**
