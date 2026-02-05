@@ -594,12 +594,26 @@ async function handleGameModification(
       modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards...`);
       await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
       modifications.push('✅ Recalculation finished - all ratings now include the reactivated game');
-      
+
+      // Run cleanup for consistency - ensures any stale 0/0/0 records are removed
+      const playerCleanup = await cleanupZeroPlayers();
+      const deckCleanup = await cleanupZeroDecks();
+      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+      }
+
     } else {
       // Results were modified - recalculate from this game forward
       modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards due to result changes...`);
       await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
       modifications.push('✅ Recalculation finished');
+
+      // Run cleanup for consistency
+      const playerCleanup = await cleanupZeroPlayers();
+      const deckCleanup = await cleanupZeroDecks();
+      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+      }
     }
   }
 
