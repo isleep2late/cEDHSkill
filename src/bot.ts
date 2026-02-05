@@ -53,13 +53,20 @@ const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day
 const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncertainty grows)
 
 // Cumulative timewalk tracking - tracks virtual time advancement
+// Only applies to players who haven't played since the timewalk session started
 let cumulativeTimewalkDays = 0;
+let timewalkSessionStart: number | null = null; // Timestamp when first timewalk was called
 
 /**
  * Add days to the cumulative timewalk counter.
  * Called after each successful timewalk.
  */
 export function addTimewalkDays(days: number): void {
+  // Start a new session if this is the first timewalk
+  if (timewalkSessionStart === null) {
+    timewalkSessionStart = Date.now();
+    console.log(`[TIMEWALK] Starting new timewalk session`);
+  }
   cumulativeTimewalkDays += days;
   console.log(`[TIMEWALK] Cumulative simulated days: ${cumulativeTimewalkDays}`);
 }
@@ -69,10 +76,11 @@ export function addTimewalkDays(days: number): void {
  * Called when ratings are recalculated from scratch (e.g., after /set, undo/redo).
  */
 export function resetTimewalkDays(): void {
-  if (cumulativeTimewalkDays > 0) {
-    console.log(`[TIMEWALK] Resetting cumulative days from ${cumulativeTimewalkDays} to 0`);
+  if (cumulativeTimewalkDays > 0 || timewalkSessionStart !== null) {
+    console.log(`[TIMEWALK] Resetting timewalk session (was ${cumulativeTimewalkDays} days)`);
   }
   cumulativeTimewalkDays = 0;
+  timewalkSessionStart = null;
 }
 
 /**
@@ -80,6 +88,13 @@ export function resetTimewalkDays(): void {
  */
 export function getTimewalkDays(): number {
   return cumulativeTimewalkDays;
+}
+
+/**
+ * Get the timewalk session start timestamp.
+ */
+export function getTimewalkSessionStart(): number | null {
+  return timewalkSessionStart;
 }
 
 /**
@@ -107,11 +122,15 @@ export async function getMinDaysForNextDecay(): Promise<number> {
     const currentElo = calculateElo(p.mu, p.sigma);
     if (currentElo <= ELO_CUTOFF) continue;
 
-    const msSinceLast = now - new Date(p.lastPlayed).getTime();
+    const lastPlayedTime = new Date(p.lastPlayed).getTime();
+    const msSinceLast = now - lastPlayedTime;
     const actualDaysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
 
-    // Include cumulative timewalk days in the calculation
-    const effectiveDaysSinceLast = actualDaysSinceLast + cumulativeTimewalkDays;
+    // Only apply cumulative timewalk days to players who haven't played since the session started
+    // If they played AFTER the timewalk session started, don't count virtual days for them
+    const playerPlayedAfterSession = timewalkSessionStart !== null && lastPlayedTime > timewalkSessionStart;
+    const applicableCumulativeDays = playerPlayedAfterSession ? 0 : cumulativeTimewalkDays;
+    const effectiveDaysSinceLast = actualDaysSinceLast + applicableCumulativeDays;
 
     if (effectiveDaysSinceLast > GRACE_DAYS) {
       // Player is already past grace period (including virtual time) - just need 1 day
@@ -174,7 +193,8 @@ export async function applyRatingDecay(
     // Skip players who have no lastPlayed timestamp
     if (!p.lastPlayed) continue;
 
-    const msSinceLast = now - new Date(p.lastPlayed).getTime();
+    const lastPlayedTime = new Date(p.lastPlayed).getTime();
+    const msSinceLast = now - lastPlayedTime;
     const actualDaysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
 
     // For timewalk: calculate incremental decay (only for NEW days)
@@ -183,8 +203,12 @@ export async function applyRatingDecay(
     let daysPastGrace: number;
 
     if (isTimewalk) {
-      const totalVirtualDays = actualDaysSinceLast + cumulativeTimewalkDays + simulatedDaysOffset;
-      const previousVirtualDays = actualDaysSinceLast + cumulativeTimewalkDays;
+      // Only apply cumulative timewalk days to players who haven't played since the session started
+      const playerPlayedAfterSession = timewalkSessionStart !== null && lastPlayedTime > timewalkSessionStart;
+      const applicableCumulativeDays = playerPlayedAfterSession ? 0 : cumulativeTimewalkDays;
+
+      const totalVirtualDays = actualDaysSinceLast + applicableCumulativeDays + simulatedDaysOffset;
+      const previousVirtualDays = actualDaysSinceLast + applicableCumulativeDays;
 
       // Only decay for NEW days past grace (not days already decayed)
       const totalDaysPastGrace = Math.max(0, totalVirtualDays - GRACE_DAYS);
@@ -192,6 +216,10 @@ export async function applyRatingDecay(
       daysPastGrace = totalDaysPastGrace - previousDaysPastGrace;
 
       daysSinceLast = totalVirtualDays; // For logging
+
+      if (playerPlayedAfterSession) {
+        console.log(`[DECAY] Skipping ${p.userId}: played after timewalk session started`);
+      }
     } else {
       daysSinceLast = actualDaysSinceLast + simulatedDaysOffset;
       daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);

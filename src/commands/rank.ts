@@ -2375,6 +2375,9 @@ async function processGameResults(
   client: any,
   isCEDHMode: boolean
 ): Promise<string[]> {
+  // Note: We don't reset timewalk here - the per-player check handles this
+  // Players who just played won't have cumulative timewalk days applied to them
+
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const prs = players.map(p => ({
     ...p,
@@ -2787,6 +2790,9 @@ async function processDeckResults(
   gameSequence: number,
   replyMsg: any
 ) {
+  // Note: Timewalk tracking is per-player based on lastPlayed timestamp
+  // Deck games don't affect player decay timers directly
+
   // Calculate new ratings using OpenSkill (handles duplicates automatically)
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = decks.map(deck => statusRank[deck.status]);
