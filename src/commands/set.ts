@@ -14,6 +14,7 @@ import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
 import { resetTimewalkDays } from '../bot.js';
+import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -580,7 +581,14 @@ async function handleGameModification(
       }
       
       modifications.push('✅ Complete recalculation finished - all ratings now exclude the deactivated game');
-      
+
+      // Clean up players and decks with 0/0/0 records
+      const playerCleanup = await cleanupZeroPlayers();
+      const deckCleanup = await cleanupZeroDecks();
+      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+      }
+
     } else if (active === true) {
       // Game was reactivated - recalculate from this game's sequence forward
       modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards...`);

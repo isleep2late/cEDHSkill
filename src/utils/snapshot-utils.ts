@@ -360,6 +360,14 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       console.log(`[SNAPSHOT] Recalculating all ratings after undoing game activation change...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
+
+      // If undoing results in game being inactive, cleanup zero-record players/decks
+      if (snapshot.before.active === false) {
+        const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
+        const playerCleanup = await cleanupZeroPlayers();
+        const deckCleanup = await cleanupZeroDecks();
+        console.log(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
+      }
     }
   }
 
@@ -432,6 +440,14 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       console.log(`[SNAPSHOT] Recalculating all ratings after redoing game activation change...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
+
+      // If redoing results in game being inactive, cleanup zero-record players/decks
+      if (snapshot.after.active === false) {
+        const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
+        const playerCleanup = await cleanupZeroPlayers();
+        const deckCleanup = await cleanupZeroDecks();
+        console.log(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
+      }
     }
   }
 
