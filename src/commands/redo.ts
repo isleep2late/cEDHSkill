@@ -15,8 +15,8 @@ import {
   SetCommandSnapshot,
   DecaySnapshot
 } from '../utils/snapshot-utils.js';
-import { updatePlayerRating } from '../db/player-utils.js';
-import { updateDeckRating } from '../db/deck-utils.js';
+import { updatePlayerRating, getOrCreatePlayer } from '../db/player-utils.js';
+import { updateDeckRating, getOrCreateDeck } from '../db/deck-utils.js';
 import { calculateElo } from '../utils/elo-utils.js';
 import { getDatabase } from '../db/init.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js';
@@ -127,6 +127,9 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
   // Restore player ratings to after-game state
   const playerAfter = snapshot.after.filter(s => 'userId' in s) as PlayerSnapshot[];
   for (const playerSnapshot of playerAfter) {
+    // Ensure player exists first (may have been cleaned up after undo)
+    await getOrCreatePlayer(playerSnapshot.userId);
+
     await updatePlayerRating(
       playerSnapshot.userId,
       playerSnapshot.mu,
@@ -165,6 +168,9 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
   // Restore deck ratings to after-game state
   const deckAfter = snapshot.after.filter(s => 'normalizedName' in s) as DeckSnapshot[];
   for (const deckSnapshot of deckAfter) {
+    // Ensure deck exists first (may have been cleaned up after undo)
+    await getOrCreateDeck(deckSnapshot.normalizedName, deckSnapshot.displayName);
+
     await updateDeckRating(
       deckSnapshot.normalizedName,
       deckSnapshot.displayName,
