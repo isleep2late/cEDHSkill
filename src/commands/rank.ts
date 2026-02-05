@@ -7,6 +7,7 @@
 } from 'discord.js';
 import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
+import { recordPlayerActivity } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
 import { recordMatch, getRecentMatches, updateMatchTurnOrder } from '../db/match-utils.js';
 import { 
@@ -2500,7 +2501,10 @@ for (const player of players) {
       else if (p.status === 'd') rec.draws++;
 
       await updatePlayerRating(p.userId, newR.mu, newR.sigma, rec.wins, rec.losses, rec.draws);
-      
+
+      // Record player activity for virtual clock (timewalk) tracking
+      recordPlayerActivity(p.userId);
+
       await recordMatch(
         matchId, 
         gameId,
