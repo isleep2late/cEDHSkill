@@ -2,6 +2,15 @@
 
 ## 🚀 What's New in v0.03
 
+### Rating System Enhancements
+
+**New Features:**
+- **Participation Bonus**: All players receive +1 Elo for every ranked game played (applied after all other calculations)
+- **Linear Rating Decay**: After 6 days of inactivity, players lose -1 Elo per day (stops at 1050 Elo minimum)
+- **Undoable Decay**: Both automatic (cron) and manual decay can be undone/redone via `/undo` and `/redo`
+- **`/timewalk` Command**: Admin-only command to manually trigger the decay cycle (for testing purposes)
+- **Smart `/view` Command**: Now auto-infers type from provided options (e.g., `/view player:@user` works without specifying `type:player`)
+
 ### Command Consolidation & Commander Assignment Fixes
 
 **Major Changes:**
@@ -17,6 +26,7 @@
 - ✅ Fixed: `/set` with game ID now only affects that specific game (not all games)
 - ✅ Fixed: `/set` default deck assignment no longer retroactively changes past games
 - ✅ Fixed: `/view` game details now show commander assignments for each player
+- ✅ Fixed: `/view` now infers type from provided options automatically
 - ✅ Fixed: `/print` exports now include commander assignments in player and league history
 - ✅ Fixed: W/L/D records display correctly in all history exports
 - ✅ Fixed: Full league history export now retrieves ALL entries (removed artificial limits)
@@ -59,7 +69,7 @@ export const config = {
   guildId: 'YOUR_DISCORD_SERVER_ID',
   admins: ['YOUR_DISCORD_USER_ID_1', 'YOUR_DISCORD_USER_ID_2'],
   moderators: ['YOUR_DISCORD_USER_ID'], // Add moderator user IDs here
-  decayStartDays: 8
+  decayStartDays: 6  // Days of inactivity before decay starts
 };
 ```
 
@@ -76,7 +86,7 @@ npm start
 
 ---
 
-## Complete Command Reference (15 Commands)
+## Complete Command Reference (16 Commands)
 
 ### 🎮 Unified Game Submission
 
@@ -213,11 +223,14 @@ npm start
 # Delete all unconfirmed game messages (both player and deck games)
 /snap
 
-# Undo the latest operation (game or /set command)
+# Undo the latest operation (game, /set command, or decay)
 /undo
 
 # Restore the most recently undone operation
 /redo
+
+# Manually trigger rating decay cycle (Admin only - for testing)
+/timewalk
 ```
 
 ### 📋 History & Data Export
@@ -406,11 +419,38 @@ When using player mode with deck assignments:
 
 This ensures assigned decks receive fair rating changes regardless of how many other players have assignments.
 
+### Rating Decay System (v0.03)
+
+**How It Works:**
+- Players who have played at least 1 ranked game are subject to rating decay
+- After a configurable grace period (default: 6 days) of inactivity, decay begins
+- Decay is **linear**: -1 Elo per day of inactivity beyond the grace period
+- Decay stops at **1050 Elo** minimum (players cannot decay below this)
+- Decay runs automatically at midnight via cron job
+
+**Testing Decay:**
+- Admins can use `/timewalk` to manually trigger the decay cycle
+- This is intended for testing purposes only and should not be used in production
+- Both automatic and manual decay operations are fully undoable via `/undo`
+
+**Configuration:**
+- Set `DECAY_START_DAYS` in your `.env` file or `decayStartDays` in `config.ts`
+- Default grace period: 6 days
+
+### Participation Bonus (v0.03)
+
+**How It Works:**
+- All players receive +1 Elo for every ranked game they participate in
+- The bonus is applied AFTER all OpenSkill calculations and minimum rating changes
+- Works with both player games and hybrid games (where decks are assigned)
+- Fully integrated with `/undo` and `/redo` operations
+
 ### Enhanced Undo/Redo System
 
 The unified undo system now handles:
 - **Player games with deck assignments**: Reverts both player and deck ratings
 - **Deck-only games with player assignments**: Reverts both deck and player ratings
+- **Rating decay operations**: Both automatic (cron) and manual (`/timewalk`) decay can be undone
 - **Mixed scenarios**: Properly handles any combination of assignments
 - **Complete audit trail**: Every change is logged and reversible
 - **Moderator/Admin Access**: Both moderators and admins can undo/redo operations
@@ -466,13 +506,14 @@ export const config = {
   guildId: 'YOUR_DISCORD_SERVER_ID',
   admins: ['ADMIN_USER_ID1', 'ADMIN_USER_ID2'],
   moderators: ['MOD_USER_ID'],
-  decayStartDays: 8 // Days before decay starts
+  decayStartDays: 6 // Days of inactivity before decay starts
 };
 ```
 
 ### Advanced Customization
 - **Phantom Deck Rating**: Default 1000 Elo (μ=25.0, σ=8.333)
-- **Decay Parameters**: Configurable in `bot.ts`
+- **Rating Decay**: Linear -1 Elo/day after grace period, stops at 1050 Elo
+- **Participation Bonus**: +1 Elo per ranked game played
 - **Minimum Rating Changes**: Adjustable in unified `rank.ts`
 - **Qualification Requirements**: 5 games minimum (customizable)
 
@@ -501,11 +542,19 @@ export const config = {
 - `/leaguestats` → Use `/view` or `/view type:league`
 - `/printhistory` → Use `/print`
 
+**New Commands:**
+- `/timewalk` - Admin-only command to manually trigger decay cycle (for testing)
+- `/help` - Updated with new rating system information
+
 **New Features:**
 - `/view type:game gameid:ABC123` - View detailed game information
+- `/view` now auto-infers type from provided options (e.g., `/view player:@user` works)
 - Enhanced `/print` with complete audit trails
 - Commander assignment validation in `/rank`
 - Fixed `/set` behavior for game-specific assignments
+- Participation bonus: +1 Elo for every ranked game played
+- Linear rating decay: -1 Elo/day after 6-day grace period (stops at 1050)
+- `/undo` and `/redo` now support decay operations
 
 **All functionality preserved** with improved usability!
 

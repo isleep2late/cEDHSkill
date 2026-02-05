@@ -42,7 +42,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           { name: 'Turn Order Tracking', value: 'Optional feature to track performance by turn position.' },
           { name: 'Dual Systems', value: 'Separate ranking systems for players and commanders/decks.' },
           { name: 'Qualification', value: 'Minimum 5 games required to appear in official rankings.' },
-          { name: 'Game Modes', value: 'Supports 4 player games with win/loss/draw results only. (3-player games disabled by default)' }
+          { name: 'Game Modes', value: 'Supports 4 player games with win/loss/draw results only. (3-player games disabled by default)' },
+          { name: 'Participation Bonus', value: 'All players receive +1 Elo for every ranked game played.' },
+          { name: 'Rating Decay', value: `After ${config.decayStartDays} days of inactivity, players lose -1 Elo per day (stops at 1050 Elo). Decay only applies to players who have played at least 1 ranked game.` }
         );
       break;
 
@@ -81,10 +83,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
   embed.setDescription('**Admin Commands:**')
     .addFields(
-      { 
-        name: 'Unified Match Management', 
-        value: '`/undo [gameid]` - Revert match/set (latest or specific game ID, works for both player and deck games)\n' +
-               '`/redo` - Reapply most recent undone\n'
+      {
+        name: 'Unified Match Management',
+        value: '`/undo [gameid]` - Revert match/set/decay (latest or specific game ID)\n' +
+               '`/redo` - Reapply most recent undone operation\n'
       },
       { 
         name: 'Game Injection (NEW)', 
@@ -116,9 +118,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                '  • `player:@user`: Specific player history\n' +
                '  • `commander:deck-name`: Specific deck history'
       },
-      { 
-        name: 'Season Management', 
+      {
+        name: 'Season Management',
         value: '`/thanossnap` - End season, show rankings, reset data\n'
+      },
+      {
+        name: 'Testing & Development (Admin Only)',
+        value: '`/timewalk` - Manually trigger the daily rating decay cycle\n' +
+               '*For testing purposes only - not recommended for production use*'
       }
     );
   break;
