@@ -95,8 +95,9 @@ npm start
 
 **Player Mode** (affects both player and assigned deck ratings):
 ```
-/rank @user1 w @user2 l @user3 l @user4 d
-/rank @user1 nekusar w @user2 meren 2 l @user3 najeela 1 l @user4 tymna 4 d
+/rank @user1 w @user2 l @user3 l @user4 l
+/rank @user1 d @user2 d @user3 d @user4 d
+/rank @user1 nekusar w @user2 meren 2 l @user3 najeela 1 l @user4 tymna 4 l
 ```
 - Format: `@user [commander] [turn-order] w/l/d`
 - Commander and turn order are optional
