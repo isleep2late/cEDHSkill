@@ -233,6 +233,14 @@ npm start
 # Simulate time passing for decay testing (Admin only)
 /timewalk              # Default: simulates grace period + 1 days
 /timewalk days:5       # Simulate 5 days passing
+
+# Get help on bot commands and features
+/help section:info     # Rating system info
+/help section:player   # Player commands
+/help section:deck     # Deck commands
+/help section:stats    # Statistics commands
+/help section:admin    # Admin commands (admin only)
+/help section:credits  # Credits and acknowledgments
 ```
 
 ### 📋 History & Data Export
