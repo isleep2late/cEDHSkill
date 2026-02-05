@@ -53,6 +53,53 @@ const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day
 const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncertainty grows)
 
 /**
+ * Calculate the minimum number of days to simulate to trigger decay.
+ * - If any eligible player is already past grace period: returns 1
+ * - Otherwise: returns the minimum days needed to pass the grace period
+ *
+ * @returns The optimal number of days to simulate for the next decay
+ */
+export async function getMinDaysForNextDecay(): Promise<number> {
+  const now = Date.now();
+  const players = await getAllPlayers();
+
+  let minDaysNeeded = Infinity;
+  let anyPastGrace = false;
+
+  for (const p of players) {
+    // Skip players who haven't played any games
+    if (p.gamesPlayed === 0) continue;
+
+    // Skip players who have no lastPlayed timestamp
+    if (!p.lastPlayed) continue;
+
+    // Calculate current Elo - skip if already at or below cutoff
+    const currentElo = calculateElo(p.mu, p.sigma);
+    if (currentElo <= ELO_CUTOFF) continue;
+
+    const msSinceLast = now - new Date(p.lastPlayed).getTime();
+    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+
+    if (daysSinceLast > GRACE_DAYS) {
+      // Player is already past grace period - just need 1 day
+      anyPastGrace = true;
+      break;
+    } else {
+      // Calculate days needed to pass grace period
+      const daysNeeded = GRACE_DAYS + 1 - daysSinceLast;
+      minDaysNeeded = Math.min(minDaysNeeded, daysNeeded);
+    }
+  }
+
+  if (anyPastGrace) {
+    return 1;
+  }
+
+  // If no eligible players found, default to grace + 1
+  return minDaysNeeded === Infinity ? GRACE_DAYS + 1 : minDaysNeeded;
+}
+
+/**
  * Linear Rating Decay System
  *
  * After GRACE_DAYS days of not playing:
@@ -101,20 +148,26 @@ export async function applyRatingDecay(
     // Skip players who are already at or below the cutoff
     if (currentElo <= ELO_CUTOFF) continue;
 
-    // Calculate how much to decay (linear: -1 Elo per day)
-    // Only decay 1 point per decay run (cron runs daily)
-    const targetElo = Math.max(currentElo - DECAY_ELO_PER_DAY, ELO_CUTOFF);
+    // Calculate how many days past the grace period
+    const daysPastGrace = daysSinceLast - GRACE_DAYS;
 
-    // Calculate new mu to achieve the target Elo (sigma stays mostly stable with small increase)
-    const newSigma = Math.min(p.sigma + SIGMA_INCREMENT_PER_DECAY, 10); // Cap sigma at 10
+    // Calculate total decay: -1 Elo per day past grace period
+    const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
+    const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
+
+    // Calculate new mu to achieve the target Elo (sigma increases slightly with decay)
+    // Sigma increment scales with days of decay
+    const sigmaIncrement = Math.min(daysPastGrace * SIGMA_INCREMENT_PER_DECAY, 2); // Cap total sigma increase
+    const newSigma = Math.min(p.sigma + sigmaIncrement, 10); // Cap sigma at 10
     const newMu = muFromElo(targetElo, newSigma);
 
     const newElo = calculateElo(newMu, newSigma);
+    const actualDecay = currentElo - newElo;
 
     console.log(
-      `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} ` +
+      `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} (-${actualDecay}) ` +
       `(μ: ${p.mu.toFixed(3)}→${newMu.toFixed(3)}, σ: ${p.sigma.toFixed(3)}→${newSigma.toFixed(3)}) ` +
-      `[${daysSinceLast} days inactive, grace: ${GRACE_DAYS} days]`
+      `[${daysSinceLast} days inactive, ${daysPastGrace} days past grace]`
     );
 
     // Track player state for undo snapshot
@@ -184,7 +237,7 @@ export async function applyRatingDecay(
     console.log(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
   }
 
-  console.log(`[DECAY] Applied linear decay (-${DECAY_ELO_PER_DAY} Elo) to ${decayedPlayers.length} players`);
+  console.log(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
   return decayedPlayers.length;
 }
 
