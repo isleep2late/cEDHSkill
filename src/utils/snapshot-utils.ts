@@ -347,13 +347,22 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
     }
   } else if (snapshot.targetType === 'game') {
     if (snapshot.operationType === 'game_modification') {
-      await db.run('UPDATE games_master SET active = ? WHERE gameId = ?', 
+      // Restore the active flag
+      await db.run('UPDATE games_master SET active = ? WHERE gameId = ?',
         [snapshot.before.active ? 1 : 0, snapshot.targetId]);
-      await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?', 
+      await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?',
         [snapshot.before.active ? 1 : 0, snapshot.targetId]);
+
+      // CRITICAL: Recalculate all ratings after changing game active status
+      // This mirrors what /set does when modifying game active status
+      const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
+
+      console.log(`[SNAPSHOT] Recalculating all ratings after undoing game activation change...`);
+      await recalculateAllPlayersFromScratch();
+      await recalculateAllDecksFromScratch();
     }
   }
-  
+
   console.log(`[SNAPSHOT] Undid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
 }
 
@@ -410,13 +419,22 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
     }
   } else if (snapshot.targetType === 'game') {
     if (snapshot.operationType === 'game_modification') {
-      await db.run('UPDATE games_master SET active = ? WHERE gameId = ?', 
+      // Restore the active flag to "after" state
+      await db.run('UPDATE games_master SET active = ? WHERE gameId = ?',
         [snapshot.after.active ? 1 : 0, snapshot.targetId]);
-      await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?', 
+      await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?',
         [snapshot.after.active ? 1 : 0, snapshot.targetId]);
+
+      // CRITICAL: Recalculate all ratings after changing game active status
+      // This mirrors what /set does when modifying game active status
+      const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
+
+      console.log(`[SNAPSHOT] Recalculating all ratings after redoing game activation change...`);
+      await recalculateAllPlayersFromScratch();
+      await recalculateAllDecksFromScratch();
     }
   }
-  
+
   console.log(`[SNAPSHOT] Redid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
 }
 

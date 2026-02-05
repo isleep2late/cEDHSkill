@@ -603,10 +603,9 @@ async function handleGameModification(
   await interaction.editReply({ embeds: [embed] });
 }
 
-// ENHANCED: Add the missing recalculation functions from rank.ts to set.ts
-// (Copy these functions from rank.ts if they're not already in set.ts)
+// ENHANCED: Recalculation functions (exported for use by undo/redo)
 
-async function recalculateAllPlayersFromScratch(): Promise<void> {
+export async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log('[SET] Starting complete player rating recalculation...');
   
   const db = getDatabase();
@@ -633,7 +632,7 @@ async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
 }
 
-async function recalculateAllDecksFromScratch(): Promise<void> {
+export async function recalculateAllDecksFromScratch(): Promise<void> {
   console.log('[SET] Starting complete deck rating recalculation...');
   
   const db = getDatabase();
