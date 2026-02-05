@@ -254,9 +254,12 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
       });
     }
 
+    const triggeredByText = decaySnapshot.metadata.triggeredBy === 'timewalk'
+      ? `/timewalk${decaySnapshot.metadata.simulatedDaysOffset ? ` (+${decaySnapshot.metadata.simulatedDaysOffset} days)` : ''}`
+      : 'Scheduled (midnight)';
     embed.addFields({
       name: 'Decay Details',
-      value: `Triggered by: ${decaySnapshot.metadata.triggeredBy === 'timewalk' ? '/timewalk' : 'Scheduled (midnight)'}\nGrace period: ${decaySnapshot.metadata.graceDays} days\nDecay amount: -${decaySnapshot.metadata.decayAmount} Elo/day`,
+      value: `Triggered by: ${triggeredByText}\nGrace period: ${decaySnapshot.metadata.graceDays} days\nDecay amount: -${decaySnapshot.metadata.decayAmount} Elo/day`,
       inline: false
     });
   } else {
