@@ -2466,15 +2466,30 @@ for (const player of players) {
     const oldR = preRatings[p.userId];
     let newR = newMatrix[i][0];
 
+    // Declare variables for display outside try block
+    const oldElo = calculateElo(oldR.mu, oldR.sigma);
+    let preBonusElo = oldElo;
+    let finalElo = oldElo;
+    let ratingChange = 0;
+    let changeSign = '+';
+
     try {
       // Step 1: Apply minimum rating change guarantee
       newR = ensureMinimumRatingChange(oldR, newR, p.status!);
+
+      // Capture pre-bonus Elo for display
+      preBonusElo = calculateElo(newR.mu, newR.sigma);
+      ratingChange = preBonusElo - oldElo;
+      changeSign = ratingChange >= 0 ? '+' : '';
 
       // Step 2: Apply participation bonus (+1 Elo for playing ranked)
       newR = applyParticipationBonus(newR);
 
       // Track final rating for snapshot
       finalRatings[p.userId] = newR;
+
+      // Calculate final Elo for display
+      finalElo = calculateElo(newR.mu, newR.sigma);
 
       const rec = records[p.userId];
       if (p.status === 'w') rec.wins++;
@@ -2531,9 +2546,8 @@ for (const player of players) {
     const commanderInfo = p.commander ? ` [${p.commander}]` : '';
     results.push(
       `${userNames[p.userId]}${p.team ? ` (${p.team})` : ''}${p.turnOrder ? ` [Turn ${p.turnOrder}]` : ''}${commanderInfo}\n` +
-        `Old Elo: ${calculateElo(oldR.mu, oldR.sigma)} → New Elo: ${calculateElo(newR.mu, newR.sigma)}\n` +
-        `Old Mu: ${oldR.mu.toFixed(2)} → New Mu: ${newR.mu.toFixed(2)}\n` +
-        `Old Sigma: ${oldR.sigma.toFixed(2)} → New Sigma: ${newR.sigma.toFixed(2)}\n` +
+        `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange}) + 1 (participation) = **${finalElo}**\n` +
+        `Mu: ${oldR.mu.toFixed(2)} → ${newR.mu.toFixed(2)} | Sigma: ${oldR.sigma.toFixed(2)} → ${newR.sigma.toFixed(2)}\n` +
         `W/L/D: ${records[p.userId].wins}/${records[p.userId].losses}/${records[p.userId].draws}`
     );
   }
@@ -2838,8 +2852,17 @@ async function processDeckResults(
     const rec = deckRecords[normalizedName];
     const displayName = update.instances[0].commander;
 
+    // Calculate Elos for display
+    const oldElo = calculateElo(oldR.mu, oldR.sigma);
+    const preBonusElo = calculateElo(newR.mu, newR.sigma);
+    const ratingChange = preBonusElo - oldElo;
+    const changeSign = ratingChange >= 0 ? '+' : '';
+
     // Apply participation bonus (+1 Elo for playing ranked)
     newR = applyParticipationBonus(newR);
+
+    // Calculate final Elo for display
+    const finalElo = calculateElo(newR.mu, newR.sigma);
 
     // Track final rating for snapshot
     finalDeckRatings[normalizedName] = newR;
@@ -2904,13 +2927,12 @@ async function processDeckResults(
 
     const duplicateNote = update.instances.length > 1 ? ` (${update.instances.length} copies)` : '';
     const instanceResults = update.instances.map(i => `Turn ${i.turnOrder}: ${i.status.toUpperCase()}`).join(', ');
-    
+
     results.push(
       `**${displayName}${duplicateNote}**\n` +
       `Instances: ${instanceResults}\n` +
-      `Old Elo: ${calculateElo(oldR.mu, oldR.sigma)} → New Elo: ${calculateElo(newR.mu, newR.sigma)}\n` +
-      `Old Mu: ${oldR.mu.toFixed(2)} → New Mu: ${newR.mu.toFixed(2)}\n` +
-      `Old Sigma: ${oldR.sigma.toFixed(2)} → New Sigma: ${newR.sigma.toFixed(2)}\n` +
+      `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange}) + 1 (participation) = **${finalElo}**\n` +
+      `Mu: ${oldR.mu.toFixed(2)} → ${newR.mu.toFixed(2)} | Sigma: ${oldR.sigma.toFixed(2)} → ${newR.sigma.toFixed(2)}\n` +
       `W/L/D: ${rec.wins}/${rec.losses}/${rec.draws}`
     );
   }
