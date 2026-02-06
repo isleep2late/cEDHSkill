@@ -721,7 +721,7 @@ export async function createSnapshotFromCurrentState(gameId: string, gameType: '
 
       const beforeSnapshot: PlayerSnapshot = {
         userId: match.userId,
-        mu: match.mu, // Pre-game mu/sigma stored in match
+        mu: match.mu, // Post-game mu/sigma stored in match (for restoration)
         sigma: match.sigma,
         wins: beforeWins,
         losses: beforeLosses,

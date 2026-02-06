@@ -1460,7 +1460,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   const matchId = crypto.randomUUID();
 
   // Process immediately
-  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, replyMsg, client, isCEDHMode);
+  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, interaction.user.id, replyMsg, client, isCEDHMode);
   
   // Handle recalculation if needed
   if (afterGameId) {
@@ -1930,7 +1930,7 @@ collector.on('collect', async (reaction, user) => {
           }
         }
 
-        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, replyMsg, client, isCEDHMode);
+        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode);
         
         if (afterGameId) {
           await recalculateAllPlayersFromScratch();
@@ -2220,7 +2220,7 @@ if (decks.length === 4) {
 
   if (isAdmin) {
     // Admin path - process immediately
-    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, replyMsg);
+    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg);
     
     // If this was a deck game injection, recalculate all deck ratings
     if (afterGameId) {
@@ -2298,9 +2298,9 @@ if (decks.length === 4) {
           try {
             collector.stop('confirmed');
             client.limboGames.delete(replyMsg.id);
-            
-            // Process deck results
-            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, replyMsg);
+
+            // Process deck results (submittedByAdmin is false for non-admin path)
+            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg);
             
             // If this was a deck game injection, recalculate all deck ratings
             if (afterGameId) {
@@ -2350,6 +2350,7 @@ async function processGameResults(
   gameSequence: number,
   numPlayers: number,
   submittedByAdmin: boolean,
+  submitterId: string,
   replyMsg: any,
   client: any,
   isCEDHMode: boolean
@@ -2540,12 +2541,30 @@ for (const player of players) {
   // Update matches with sequence number
   await updateMatchesWithSequence(gameId, gameSequence, 'player');
 
+  // Build complete match data for snapshot (needed for proper undo/redo)
+  const matchDataForSnapshot = players.map(p => ({
+    id: matchId,
+    gameId: gameId,
+    userId: p.userId,
+    status: p.status ?? 'd',
+    matchDate: new Date().toISOString(),
+    mu: finalRatings[p.userId].mu,
+    sigma: finalRatings[p.userId].sigma,
+    teams: JSON.stringify([]),
+    scores: JSON.stringify([]),
+    score: p.score ?? 0,
+    submittedByAdmin: submittedByAdmin,
+    turnOrder: p.turnOrder ?? null,
+    assignedDeck: p.normalizedCommanderName || null,
+    submittedBy: submitterId
+  }));
+
   await saveMatchSnapshot({
     matchId,
     gameId,
     gameSequence,
     gameType: 'player',
-    matchData: players,
+    matchData: matchDataForSnapshot,
     before: players.map(p => ({
       userId: p.userId,
       mu: preRatings[p.userId].mu,
@@ -2770,6 +2789,8 @@ async function processDeckResults(
   matchId: string,
   gameId: string,
   gameSequence: number,
+  submittedByAdmin: boolean,
+  submitterId: string,
   replyMsg: any
 ) {
   // Note: Timewalk tracking is per-player based on lastPlayed timestamp
@@ -2928,13 +2949,36 @@ async function processDeckResults(
   // Update deck matches with sequence number
   await updateMatchesWithSequence(gameId, gameSequence, 'deck');
 
+  // Build complete deck match data for snapshot (needed for proper undo/redo)
+  const deckMatchDataForSnapshot: any[] = [];
+  for (const normalizedName of Object.keys(deckUpdates)) {
+    const update = deckUpdates[normalizedName];
+    const displayName = update.instances[0].commander;
+    for (const instance of update.instances) {
+      deckMatchDataForSnapshot.push({
+        id: `${matchId}-${instance.turnOrder}`,
+        gameId: gameId,
+        deckNormalizedName: normalizedName,
+        deckDisplayName: displayName,
+        status: instance.status,
+        matchDate: new Date().toISOString(),
+        mu: finalDeckRatings[normalizedName].mu,
+        sigma: finalDeckRatings[normalizedName].sigma,
+        turnOrder: instance.turnOrder,
+        submittedByAdmin: submittedByAdmin,
+        submittedBy: submitterId,
+        assignedPlayer: null  // Deck games don't track assigned players
+      });
+    }
+  }
+
   // Save deck match snapshot for undo/redo functionality
   await saveMatchSnapshot({
     matchId,
     gameId,
     gameSequence,
     gameType: 'deck',
-    matchData: decks,
+    matchData: deckMatchDataForSnapshot,
     before: Object.keys(deckUpdates).map(normalizedName => {
       const rec = deckRecords[normalizedName];
       const update = deckUpdates[normalizedName];
