@@ -213,17 +213,38 @@ async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction
         changesSummary += `\nW/L/D: ${setSnapshot.after.wins}/${setSnapshot.after.losses}/${setSnapshot.after.draws} → ${setSnapshot.before.wins}/${setSnapshot.before.losses}/${setSnapshot.before.draws}`;
       }
     } else if (setSnapshot.operationType === 'deck_assignment') {
-      const oldDeck = setSnapshot.after.defaultDeck || setSnapshot.after.gameSpecificDeck || 'None';
-      const newDeck = setSnapshot.before.defaultDeck || setSnapshot.before.gameSpecificDeck || 'None';
-      changesSummary = `Deck Assignment: ${oldDeck} → ${newDeck}`;
+      const oldDeck = setSnapshot.after.defaultDeck || 'None';
+      const newDeck = setSnapshot.before.defaultDeck || 'None';
+      changesSummary = `Default Deck: ${oldDeck} → ${newDeck}`;
+      if (setSnapshot.before.matchAssignments && setSnapshot.before.matchAssignments.length > 0) {
+        const gamesAffected = setSnapshot.before.matchAssignments.filter(
+          (ma, i) => ma.assignedDeck !== setSnapshot.after.matchAssignments?.[i]?.assignedDeck
+        ).length;
+        if (gamesAffected > 0) {
+          changesSummary += `\nCommander assignments restored in ${gamesAffected} game(s)`;
+        }
+      }
+      if (setSnapshot.before.needsRecalculation) {
+        changesSummary += '\nFull rating recalculation applied';
+      }
     } else if (setSnapshot.operationType === 'game_modification') {
       const oldActive = setSnapshot.after.active ? 'Active' : 'Inactive';
       const newActive = setSnapshot.before.active ? 'Active' : 'Inactive';
       changesSummary = `Game Status: ${oldActive} → ${newActive}`;
-    } else if (setSnapshot.operationType === 'turn_order') {
-      const oldOrder = setSnapshot.after.turnOrder || 'None';
-      const newOrder = setSnapshot.before.turnOrder || 'None';
+      if (setSnapshot.before.matchRecords) {
+        changesSummary += `\nMatch records restored (${setSnapshot.before.matchRecords.length} player(s))`;
+      }
+      if (setSnapshot.before.deckMatchRecords && setSnapshot.before.deckMatchRecords.length > 0) {
+        changesSummary += `\nDeck match records restored (${setSnapshot.before.deckMatchRecords.length} deck(s))`;
+      }
+      changesSummary += '\nFull rating recalculation applied';
+    } else if (setSnapshot.operationType === 'turn_order' || setSnapshot.operationType === 'turn_order_removal') {
+      const oldOrder = setSnapshot.after.turnOrder ?? 'None';
+      const newOrder = setSnapshot.before.turnOrder ?? 'None';
       changesSummary = `Turn Order: ${oldOrder} → ${newOrder}`;
+    } else if (setSnapshot.operationType === 'bulk_turn_order_removal') {
+      const gameCount = setSnapshot.before.gamesWithTurnOrder?.length || 0;
+      changesSummary = `Restored turn order assignments in ${gameCount} game(s)`;
     }
 
     if (changesSummary) {
