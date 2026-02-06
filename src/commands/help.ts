@@ -53,9 +53,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .addFields(
           { name: '/rank', value: 'Submit player game results (4 players, w/l/d only). Can include commanders assigned to players. Optional turn order tracking with reactions OR inline specification (e.g., @user w 1 for Turn 1). Also supports deck-only mode when no players are mentioned.' },
           { name: '/list [count]', value: 'Show top N players (1-64, includes ties). Shows qualification status.' },
-          { name: '/viewstats @user', value: 'View detailed player stats: rating, rank, W/L/D record, and turn order performance.' },
+          { name: '/view player:@user', value: 'View detailed player stats: rating, rank, W/L/D record, top 5 decks, and turn order performance.' },
           { name: '/predict [@users...]', value: 'Predict win chances for players/decks using Elo, turn order, and hybrid predictions. Shows overall turn order win% if no input.' },
-          { name: '/set [commander] [gameid] [1-4]', value: 'Retroactively assign your turn order and/or commander for a specific game using the game ID.' }
+          { name: '/set deck:commander', value: 'Set your default deck for future games. Use `gameid:ABC123` for specific game, `gameid:allgames` for all games.' }
         );
       break;
 
@@ -63,15 +63,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       embed.setDescription('**Commander/Deck Ranking Commands:**')
         .addFields(
           { name: '/rank (deck mode)', value: 'When no @users are mentioned, /rank works as deck-only mode - ORDER MATTERS! First mentioned = Turn 1, second = Turn 2, etc. Format: "commander-name w/l/d commander-name w/l/d"' },
-          { name: '/list deck [count]', value: 'Show top N commanders (1-64, includes ties). Displays Elo and qualification status.' },
-          { name: '/viewstats [commander]', value: 'View commander stats: rating, rank, W/L/D record, win rate, and turn order performance.' }
+          { name: '/list type:decks [count]', value: 'Show top N commanders (1-64, includes ties). Displays Elo and qualification status.' },
+          { name: '/view commander:name', value: 'View commander stats: rating, rank, W/L/D record, win rate, and turn order performance.' }
         );
       break;
 
     case 'stats':
       embed.setDescription('**Statistics & Information Commands:**')
         .addFields(
-          { name: '/leaguestats', value: 'Comprehensive league overview: total players, games played, qualification rates, and activity metrics.' },
+          { name: '/view', value: 'Comprehensive league overview: total players, games played, qualification rates, and activity metrics. (Same as `/view type:league`)' },
+          { name: '/view gameid:ABC123', value: 'View detailed game information: all players, rating changes, W/L/D changes, commanders, and turn order.' },
           { name: '/predict', value: 'General turn order statistics across all players when used without arguments.' }
         );
       break;
@@ -106,17 +107,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                '`/set @user|deck-name parameters` - Directly modify player or deck ratings\n' +
                'Parameters: `mu:25.0 sigma:8.3 elo:1200 wld:3/4/5` (any combination, any order)'
       },
-      { 
-        name: 'History & Data Export (Admin Only)', 
-        value: '`/printhistory [target]` - Export detailed history to text file:\n' +
+      {
+        name: 'History & Data Export (Admin Only)',
+        value: '`/print [target]` - Export detailed history to text file:\n' +
                '  • No target: Complete league history\n' +
-               '  • `admin`: Admin activity report\n' +
-               '  • `players`: All players report\n' +
-               '  • `decay`: All rating decay logs\n' +
-               '  • `setrank`: All manual rating adjustments\n' +
-               '  • `undo`: All undo/redo operations\n' +
-               '  • `player:@user`: Specific player history\n' +
-               '  • `commander:deck-name`: Specific deck history'
+               '  • `target:admin`: Admin activity report\n' +
+               '  • `target:decay`: All rating decay logs\n' +
+               '  • `target:setrank`: All manual rating adjustments\n' +
+               '  • `target:undo`: All undo/redo operations\n' +
+               '  • `target:@user`: Specific player history\n' +
+               '  • `target:commander-name`: Specific deck history'
       },
       {
         name: 'Season Management',
