@@ -25,7 +25,7 @@ export interface ExtendedClient extends Client {
     data: SlashCommandBuilder;
     execute: (interaction: ChatInputCommandInteraction, client: ExtendedClient) => Promise<void>;
   }>;
-  limboGames: Map<string, Set<string>>;
+  limboGames: Map<string, { gameId: string; gameType: 'player' | 'deck'; players: Set<string> }>;
 }
 
 const client = new Client({
