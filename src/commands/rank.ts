@@ -619,9 +619,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
     };
   }
 
-  // Create ratings array in the same order as matches (handling duplicates)
-  const gameRatings = matches.map(match => [deckRatings[match.deckNormalizedName]]);
-  
+  // Create per-instance rating copies to avoid shared references for duplicate decks
+  const gameRatings = matches.map(match => {
+    const r = deckRatings[match.deckNormalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
+
   // Create ranks array based on match status
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = matches.map(match => statusRank[match.status] || 3);
@@ -633,12 +636,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
   const penalty = matches.length === 3 ? 0.9 : 1.0;
 
   // Process results and aggregate changes for duplicate decks
-  const deckChanges: Record<string, { newRating: any, statusUpdates: string[] }> = {};
+  const deckChanges: Record<string, { instanceRatings: any[], statusUpdates: string[] }> = {};
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
     const newRating = newRatings[i][0];
-    
+
     // Apply penalty
     const finalRating = {
       mu: 25 + (newRating.mu - 25) * penalty,
@@ -647,23 +650,32 @@ export async function replayDeckGame(gameId: string): Promise<void> {
 
     if (!deckChanges[match.deckNormalizedName]) {
       deckChanges[match.deckNormalizedName] = {
-        newRating: finalRating,
+        instanceRatings: [],
         statusUpdates: []
       };
     }
 
     // Track status updates for this deck
     deckChanges[match.deckNormalizedName].statusUpdates.push(match.status);
-    // Use the most recent rating update for duplicates
-    deckChanges[match.deckNormalizedName].newRating = finalRating;
+    deckChanges[match.deckNormalizedName].instanceRatings.push(finalRating);
   }
 
   // Apply aggregated changes to each unique deck
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
 
+    // For duplicates, average mu and take min sigma
+    let aggregatedRating: any;
+    if (changes.instanceRatings.length === 1) {
+      aggregatedRating = changes.instanceRatings[0];
+    } else {
+      const avgMu = changes.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / changes.instanceRatings.length;
+      const minSigma = Math.min(...changes.instanceRatings.map((r: any) => r.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusedRating = applyParticipationBonus(changes.newRating);
+    const bonusedRating = applyParticipationBonus(aggregatedRating);
 
     // Count total wins/losses/draws for this deck in this game
     for (const status of changes.statusUpdates) {
@@ -2659,6 +2671,7 @@ for (const recipientId of alertRecipients) {
 
 // Process commander ratings with phantom opponents
 // ENHANCED: New function that processes commander ratings with phantoms, allowing unassigned turn orders
+// Handles duplicate commanders properly and maps phantom status from unassigned players
 export async function processCommanderRatingsEnhanced(
   playersWithCommanders: PlayerEntry[],
   allPlayers: PlayerEntry[],
@@ -2667,11 +2680,14 @@ export async function processCommanderRatingsEnhanced(
 ): Promise<void> {
   // Create commander entries with flexible turn order assignment
   const commanderEntries: any[] = [];
-  
+
+  // Track which players have commanders assigned
+  const assignedPlayerIds = new Set(playersWithCommanders.map(p => p.userId));
+
   // Add real commanders - use their assigned turn order OR fallback to position
   for (const player of playersWithCommanders) {
     const playerIndex = allPlayers.findIndex(p => p.userId === player.userId);
-    
+
     commanderEntries.push({
       commander: player.commander!,
       normalizedName: player.normalizedCommanderName!,
@@ -2681,84 +2697,145 @@ export async function processCommanderRatingsEnhanced(
       originalPlayer: player.userId
     });
   }
-  
-  // Add phantom commanders to fill to 4
+
+  // Find unassigned players (those without commanders) to map phantom statuses
+  const unassignedPlayers = allPlayers.filter(p => !assignedPlayerIds.has(p.userId));
+
+  // Add phantom commanders to fill to 4, inheriting status from unassigned players
   const phantomCount = 4 - commanderEntries.length;
   const phantomMu = 25.0;
   const phantomSigma = 8.333;
-  
+
   for (let i = 0; i < phantomCount; i++) {
     const phantomTurnOrder = findAvailableTurnOrderForPhantoms(commanderEntries);
+
+    // Inherit status from unassigned player if available, otherwise default to 'l'
+    const phantomStatus = i < unassignedPlayers.length
+      ? (unassignedPlayers[i].status || 'l')
+      : 'l';
+
     commanderEntries.push({
       commander: `phantom-${i + 1}`,
       normalizedName: `phantom-${i + 1}`,
-      status: 'l', // Phantoms always lose
+      status: phantomStatus,
       turnOrder: phantomTurnOrder,
       isPhantom: true,
       mu: phantomMu,
-      sigma: phantomSigma
+      sigma: phantomSigma,
+      originalPlayer: i < unassignedPlayers.length ? unassignedPlayers[i].userId : null
     });
   }
-  
+
   // Sort by turn order for proper rating calculation
   commanderEntries.sort((a, b) => a.turnOrder - b.turnOrder);
-  
-  // Get ratings for real commanders, use default for phantoms
-  const commanderRatings: Record<string, Rating> = {};
+
+  // Get ratings for real commanders using per-instance approach (handles duplicates)
+  // Each entry gets its OWN rating object copy to avoid shared references
+  const entryRatings: Rating[] = [];
+
+  // We still need deck records keyed by normalizedName for DB updates
   const commanderRecords: Record<string, any> = {};
-  
+
   for (const entry of commanderEntries) {
     if (entry.isPhantom) {
-      commanderRatings[entry.normalizedName] = rating({ mu: entry.mu, sigma: entry.sigma });
-      commanderRecords[entry.normalizedName] = { wins: 0, losses: 0, draws: 0, displayName: entry.commander };
+      entryRatings.push(rating({ mu: entry.mu, sigma: entry.sigma }));
     } else {
       const deckData = await getOrCreateDeck(entry.normalizedName, entry.commander);
-      commanderRatings[entry.normalizedName] = rating({ mu: deckData.mu, sigma: deckData.sigma });
-      commanderRecords[entry.normalizedName] = {
-        wins: deckData.wins || 0,
-        losses: deckData.losses || 0,
-        draws: deckData.draws || 0,
-        displayName: deckData.displayName
-      };
+      // Each instance gets its own rating object (avoids shared references for duplicates)
+      entryRatings.push(rating({ mu: deckData.mu, sigma: deckData.sigma }));
+
+      // Only set the record once per unique commander
+      if (!commanderRecords[entry.normalizedName]) {
+        commanderRecords[entry.normalizedName] = {
+          wins: deckData.wins || 0,
+          losses: deckData.losses || 0,
+          draws: deckData.draws || 0,
+          displayName: deckData.displayName
+        };
+      }
     }
   }
-  
-  // Calculate new ratings using OpenSkill
+
+  // Calculate new ratings using OpenSkill with per-instance ratings
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = commanderEntries.map(entry => statusRank[entry.status]);
-  
-  const ordered = commanderEntries.map(entry => [commanderRatings[entry.normalizedName]]);
+
+  const ordered = entryRatings.map(r => [r]);
   const newMatrix = rate(ordered, { rank: ranks });
-  
+
   // Apply 3-deck penalty if needed (based on real commanders only)
   const realCommanderCount = commanderEntries.filter(c => !c.isPhantom).length;
   const penalty = realCommanderCount === 3 ? 0.9 : 1.0;
-  
-  // Update only real commanders
+
+  // Aggregate updates for duplicate commanders (like processDeckResults does)
+  const deckUpdates: Record<string, {
+    oldRating: Rating,
+    instances: { index: number, entry: any, newRating: Rating }[],
+    winCount: number,
+    lossCount: number,
+    drawCount: number
+  }> = {};
+
   for (let i = 0; i < commanderEntries.length; i++) {
     const entry = commanderEntries[i];
-    if (entry.isPhantom) continue; // Skip phantoms
+    if (entry.isPhantom) continue;
 
-    const oldR = commanderRatings[entry.normalizedName];
     const newR = newMatrix[i][0];
 
     // Apply penalty
-    let finalRating: Rating = {
+    const penalizedRating: Rating = {
       mu: 25 + (newR.mu - 25) * penalty,
       sigma: newR.sigma
     };
 
+    if (!deckUpdates[entry.normalizedName]) {
+      deckUpdates[entry.normalizedName] = {
+        oldRating: entryRatings[i], // All instances start from the same rating
+        instances: [],
+        winCount: 0,
+        lossCount: 0,
+        drawCount: 0
+      };
+    }
+
+    deckUpdates[entry.normalizedName].instances.push({
+      index: i,
+      entry,
+      newRating: penalizedRating
+    });
+
+    if (entry.status === 'w') deckUpdates[entry.normalizedName].winCount++;
+    else if (entry.status === 'l') deckUpdates[entry.normalizedName].lossCount++;
+    else if (entry.status === 'd') deckUpdates[entry.normalizedName].drawCount++;
+  }
+
+  // Update each unique commander once with aggregated results
+  for (const [normalizedName, update] of Object.entries(deckUpdates)) {
+    const oldR = update.oldRating;
+    const rec = commanderRecords[normalizedName];
+
+    // For duplicates, average the mu values and take the minimum sigma
+    // This properly aggregates multiple instances' rating changes
+    let aggregatedRating: Rating;
+    if (update.instances.length === 1) {
+      aggregatedRating = update.instances[0].newRating;
+    } else {
+      const avgMu = update.instances.reduce((sum, inst) => sum + inst.newRating.mu, 0) / update.instances.length;
+      const minSigma = Math.min(...update.instances.map(inst => inst.newRating.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    finalRating = applyParticipationBonus(finalRating);
+    const finalRating = applyParticipationBonus(aggregatedRating);
 
-    const rec = commanderRecords[entry.normalizedName];
-    if (entry.status === 'w') rec.wins++;
-    else if (entry.status === 'l') rec.losses++;
-    else if (entry.status === 'd') rec.draws++;
+    // Update win/loss/draw counts
+    rec.wins += update.winCount;
+    rec.losses += update.lossCount;
+    rec.draws += update.drawCount;
 
-    // Update database
+    // Update database once per unique commander
     await updateDeckRating(
-      entry.normalizedName,
+      normalizedName,
       rec.displayName,
       finalRating.mu,
       finalRating.sigma,
@@ -2771,7 +2848,7 @@ export async function processCommanderRatingsEnhanced(
     try {
       await logRatingChange({
         targetType: 'deck',
-        targetId: entry.normalizedName,
+        targetId: normalizedName,
         targetDisplayName: rec.displayName,
         changeType: 'game',
         oldMu: oldR.mu,
@@ -2782,30 +2859,33 @@ export async function processCommanderRatingsEnhanced(
         newElo: calculateElo(finalRating.mu, finalRating.sigma),
         parameters: JSON.stringify({
           gameId: gameId,
-          result: entry.status,
-          turnOrder: entry.turnOrder,
+          duplicateCount: update.instances.length,
+          results: update.instances.map(i => i.entry.status),
+          turnOrders: update.instances.map(i => i.entry.turnOrder),
           phantomOpponents: phantomCount,
           realOpponents: realCommanderCount - 1,
           hybridPlayerDeckGame: true,
-          originalPlayer: entry.originalPlayer
+          originalPlayers: update.instances.map(i => i.entry.originalPlayer)
         })
       });
     } catch (auditError) {
       console.error('Error logging commander rating change to audit trail:', auditError);
     }
-    
-    // Record deck match
-    await recordDeckMatch(
-      `${matchId}-deck-${entry.turnOrder}`,
-      gameId,
-      entry.normalizedName,
-      rec.displayName,
-      entry.status,
-      new Date(),
-      finalRating.mu,
-      finalRating.sigma,
-      entry.turnOrder
-    );
+
+    // Record individual deck matches for each instance
+    for (const inst of update.instances) {
+      await recordDeckMatch(
+        `${matchId}-deck-${inst.entry.turnOrder}`,
+        gameId,
+        normalizedName,
+        rec.displayName,
+        inst.entry.status,
+        new Date(),
+        finalRating.mu,
+        finalRating.sigma,
+        inst.entry.turnOrder
+      );
+    }
   }
 }
 
@@ -2838,13 +2918,17 @@ async function processDeckResults(
   // Note: Timewalk tracking is per-player based on lastPlayed timestamp
   // Deck games don't affect player decay timers directly
 
-  // Calculate new ratings using OpenSkill (handles duplicates automatically)
+  // Calculate new ratings using OpenSkill
+  // Create per-instance rating copies to avoid shared references for duplicate decks
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = decks.map(deck => statusRank[deck.status]);
-  
-  const ordered = decks.map(deck => [deckRatings[deck.normalizedName]]);
+
+  const ordered = decks.map(deck => {
+    const r = deckRatings[deck.normalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
   const newMatrix = rate(ordered, { rank: ranks });
-  
+
   // Apply 3-deck penalty if needed
   const is3DeckGame = decks.length === 3;
   if (is3DeckGame) {
@@ -2856,41 +2940,40 @@ async function processDeckResults(
       };
     }
   }
-  
+
   // Aggregate updates for duplicate decks
-  const deckUpdates: Record<string, { 
-    newRating: any, 
-    winCount: number, 
-    lossCount: number, 
+  const deckUpdates: Record<string, {
+    instanceRatings: any[],
+    winCount: number,
+    lossCount: number,
     drawCount: number,
     instances: DeckEntry[]
   }> = {};
-  
+
   // Process each deck instance
   for (let i = 0; i < decks.length; i++) {
     const deck = decks[i];
     const newRating = newMatrix[i][0];
-    
+
     if (!deckUpdates[deck.normalizedName]) {
       deckUpdates[deck.normalizedName] = {
-        newRating: newRating,
+        instanceRatings: [],
         winCount: 0,
         lossCount: 0,
         drawCount: 0,
         instances: []
       };
     }
-    
-    // Use the latest rating calculation for this deck
-    deckUpdates[deck.normalizedName].newRating = newRating;
+
+    deckUpdates[deck.normalizedName].instanceRatings.push(newRating);
     deckUpdates[deck.normalizedName].instances.push(deck);
-    
+
     // Count results for this deck
     if (deck.status === 'w') deckUpdates[deck.normalizedName].winCount++;
     else if (deck.status === 'l') deckUpdates[deck.normalizedName].lossCount++;
     else if (deck.status === 'd') deckUpdates[deck.normalizedName].drawCount++;
   }
-  
+
   // Update deck records and ratings
   const results: string[] = [];
 
@@ -2899,7 +2982,15 @@ async function processDeckResults(
 
   for (const [normalizedName, update] of Object.entries(deckUpdates)) {
     const oldR = deckRatings[normalizedName];
-    let newR = update.newRating;
+    // For duplicates, average mu and take min sigma to properly aggregate
+    let newR: Rating;
+    if (update.instanceRatings.length === 1) {
+      newR = update.instanceRatings[0];
+    } else {
+      const avgMu = update.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / update.instanceRatings.length;
+      const minSigma = Math.min(...update.instanceRatings.map((r: any) => r.sigma));
+      newR = { mu: avgMu, sigma: minSigma };
+    }
     const rec = deckRecords[normalizedName];
     const displayName = update.instances[0].commander;
 

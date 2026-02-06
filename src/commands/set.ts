@@ -1116,20 +1116,24 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
   }
 
   // Apply OpenSkill using the ORIGINAL outcomes
-  const { rate } = await import('openskill');
-  const gameRatings = originalMatches.map(match => [deckRatings[match.deckNormalizedName]]);
+  const { rate, rating } = await import('openskill');
+  // Create per-instance rating copies to avoid shared references for duplicate decks
+  const gameRatings = originalMatches.map(match => {
+    const r = deckRatings[match.deckNormalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = originalMatches.map(match => statusRank[match.status] || 3);
   const newRatings = rate(gameRatings, { rank: ranks });
   const penalty = originalMatches.length === 3 ? 0.9 : 1.0;
 
   // Aggregate changes for duplicate decks using ORIGINAL outcomes
-  const deckChanges: Record<string, { newRating: any, statusUpdates: string[] }> = {};
+  const deckChanges: Record<string, { instanceRatings: any[], statusUpdates: string[] }> = {};
 
   for (let i = 0; i < originalMatches.length; i++) {
     const match = originalMatches[i];
     const newRating = newRatings[i][0];
-    
+
     const finalRating = {
       mu: 25 + (newRating.mu - 25) * penalty,
       sigma: newRating.sigma
@@ -1137,22 +1141,32 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
 
     if (!deckChanges[match.deckNormalizedName]) {
       deckChanges[match.deckNormalizedName] = {
-        newRating: finalRating,
+        instanceRatings: [],
         statusUpdates: []
       };
     }
 
     // Keep ORIGINAL outcome
     deckChanges[match.deckNormalizedName].statusUpdates.push(match.status);
-    deckChanges[match.deckNormalizedName].newRating = finalRating;
+    deckChanges[match.deckNormalizedName].instanceRatings.push(finalRating);
   }
 
   // Apply changes to unique decks
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
 
+    // For duplicates, average mu and take min sigma
+    let aggregatedRating: any;
+    if (changes.instanceRatings.length === 1) {
+      aggregatedRating = changes.instanceRatings[0];
+    } else {
+      const avgMu = changes.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / changes.instanceRatings.length;
+      const minSigma = Math.min(...changes.instanceRatings.map((r: any) => r.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusRating = applyParticipationBonus(changes.newRating);
+    const bonusRating = applyParticipationBonus(aggregatedRating);
 
     // Update stats based on ORIGINAL outcomes
     for (const status of changes.statusUpdates) {
