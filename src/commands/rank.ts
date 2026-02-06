@@ -7,7 +7,7 @@
 } from 'discord.js';
 import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
-import { recordPlayerActivity } from '../bot.js';
+import { recordPlayerActivity, applyRatingDecay } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
 import { recordMatch, getRecentMatches, updateMatchTurnOrder } from '../db/match-utils.js';
 import { 
@@ -426,6 +426,19 @@ async function recalculateAllPlayersFromScratch(): Promise<void> {
     await replayPlayerGame(game.gameId);
   }
 
+  // Fix lastPlayed timestamps: updatePlayerRating sets lastPlayed to "now" during replay,
+  // but we need each player's actual last game date so decay calculates correctly
+  const playerLastGameDates = await db.all(`
+    SELECT m.userId, MAX(gm.createdAt) as lastGameDate
+    FROM matches m
+    JOIN games_master gm ON m.gameId = gm.gameId
+    WHERE gm.active = 1 AND gm.status = 'confirmed'
+    GROUP BY m.userId
+  `);
+  for (const row of playerLastGameDates) {
+    await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [row.lastGameDate, row.userId]);
+  }
+
   console.log(`[RECALC] Completed recalculation of ${allGames.length} player games`);
 }
 
@@ -456,6 +469,13 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
   }
 
   console.log(`[RECALC] Completed recalculation of ${allGames.length} deck games`);
+
+  // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
+  // the parent operation handles undo for the entire recalculation)
+  const decayCount = await applyRatingDecay('cron', undefined, 0, true);
+  if (decayCount > 0) {
+    console.log(`[RECALC] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
+  }
 
   // Always clean up players and decks with 0/0/0 records after recalculation
   const playerCleanup = await cleanupZeroPlayers();

@@ -154,11 +154,13 @@ export async function getMinDaysForNextDecay(): Promise<number> {
  * @param triggeredBy - 'cron' for scheduled decay, 'timewalk' for manual trigger
  * @param adminUserId - Admin user ID if triggered by timewalk
  * @param simulatedDaysOffset - For timewalk: pretend this many extra days have passed
+ * @param skipSnapshot - If true, skip creating undo snapshot (used during recalculation)
  */
 export async function applyRatingDecay(
   triggeredBy: 'cron' | 'timewalk' = 'cron',
   adminUserId?: string,
-  simulatedDaysOffset: number = 0
+  simulatedDaysOffset: number = 0,
+  skipSnapshot: boolean = false
 ): Promise<number> {
   console.log('[DECAY] Starting linear rating decay process...');
 
@@ -267,7 +269,8 @@ export async function applyRatingDecay(
   }
 
   // Save decay snapshot for undo/redo if any players were affected
-  if (decayedPlayers.length > 0) {
+  // Skip snapshot during recalculation (parent operation handles undo)
+  if (decayedPlayers.length > 0 && !skipSnapshot) {
     const timestamp = new Date().toISOString();
     const decaySnapshot: DecaySnapshot = {
       matchId: `decay-${Date.now()}`,

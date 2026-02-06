@@ -13,7 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
-import { resetTimewalkDays } from '../bot.js';
+import { resetTimewalkDays, applyRatingDecay } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 
 export const data = new SlashCommandBuilder()
@@ -612,6 +612,19 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
     await replayPlayerGame(game.gameId);
   }
 
+  // Fix lastPlayed timestamps: updatePlayerRating sets lastPlayed to "now" during replay,
+  // but we need each player's actual last game date so decay calculates correctly
+  const playerLastGameDates = await db.all(`
+    SELECT m.userId, MAX(gm.createdAt) as lastGameDate
+    FROM matches m
+    JOIN games_master gm ON m.gameId = gm.gameId
+    WHERE gm.active = 1 AND gm.status = 'confirmed'
+    GROUP BY m.userId
+  `);
+  for (const row of playerLastGameDates) {
+    await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [row.lastGameDate, row.userId]);
+  }
+
   console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
 }
 
@@ -640,6 +653,13 @@ export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup:
   }
 
   console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
+
+  // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
+  // the parent operation handles undo for the entire recalculation)
+  const decayCount = await applyRatingDecay('cron', undefined, 0, true);
+  if (decayCount > 0) {
+    console.log(`[SET] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
+  }
 
   // Always clean up players and decks with 0/0/0 records after recalculation
   const playerCleanup = await cleanupZeroPlayers();
