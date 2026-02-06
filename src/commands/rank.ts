@@ -333,43 +333,72 @@ async function fetchUsernames(
   return { userNames, failures };
 }
 
-async function getNextGameSequence(afterGameId?: string): Promise<number> {
+async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: number; injectedTimestamp: Date | null }> {
   try {
     const { getDatabase } = await import('../db/init.js');
     const db = getDatabase();
 
     if (!afterGameId) {
       const result = await db.get('SELECT MAX(gameSequence) as maxSeq FROM games_master WHERE status = "confirmed" AND active = 1');
-      return (result?.maxSeq || 0) + 1.0;
+      return { sequence: (result?.maxSeq || 0) + 1.0, injectedTimestamp: null };
     }
 
     // ENHANCED: Handle special case "0" for pre-injection (before all games)
     if (afterGameId === '0') {
       // Find the minimum sequence number and place the new game before it
-      const result = await db.get('SELECT MIN(gameSequence) as minSeq FROM games_master WHERE status = "confirmed" AND active = 1');
-      const minSequence = result?.minSeq || 1.0;
-      
-      // Place the new game at half the minimum sequence (ensuring it comes first)
-      return minSequence / 2;
+      const firstGame = await db.get('SELECT MIN(gameSequence) as minSeq, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
+      const result = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
+      const minSequence = firstGame?.minSeq || 1.0;
+
+      // Timestamp: 1 hour before the first game
+      let injectedTimestamp: Date;
+      if (result?.createdAt) {
+        injectedTimestamp = new Date(new Date(result.createdAt).getTime() - 60 * 60 * 1000);
+      } else {
+        injectedTimestamp = new Date();
+      }
+      // Round down to nearest minute
+      injectedTimestamp.setSeconds(0, 0);
+
+      return { sequence: minSequence / 2, injectedTimestamp };
     }
 
     if (!InputValidator.validateGameId(afterGameId)) {
       throw new Error(`Invalid game ID format: ${afterGameId}`);
     }
 
-    const targetGame = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ? AND status = "confirmed" AND active = 1', afterGameId);
+    const targetGame = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE gameId = ? AND status = "confirmed" AND active = 1', afterGameId);
     if (!targetGame) {
       throw new Error(`Game ID "${afterGameId}" not found or is not confirmed`);
     }
 
     const nextGame = await db.get(
-      'SELECT MIN(gameSequence) as nextSeq FROM games_master WHERE gameSequence > ? AND status = "confirmed"',
+      'SELECT MIN(gameSequence) as nextSeq, createdAt FROM games_master WHERE gameSequence > ? AND status = "confirmed"',
       targetGame.gameSequence
     );
 
-    return nextGame?.nextSeq 
+    const sequence = nextGame?.nextSeq
       ? (targetGame.gameSequence + nextGame.nextSeq) / 2
       : targetGame.gameSequence + 1.0;
+
+    // Compute injected timestamp
+    let injectedTimestamp: Date;
+    const targetTime = new Date(targetGame.createdAt).getTime();
+
+    if (nextGame?.nextSeq && nextGame.createdAt) {
+      // There IS a game after the reference game: halfway point between the two
+      const nextTime = new Date(nextGame.createdAt).getTime();
+      const midpoint = Math.floor((targetTime + nextTime) / 2);
+      injectedTimestamp = new Date(midpoint);
+    } else {
+      // No game after: 1 hour after the reference game
+      injectedTimestamp = new Date(targetTime + 60 * 60 * 1000);
+    }
+
+    // Round down to nearest minute
+    injectedTimestamp.setSeconds(0, 0);
+
+    return { sequence, injectedTimestamp };
   } catch (error) {
     console.error('Error in getNextGameSequence:', error);
     throw error;
@@ -377,14 +406,21 @@ async function getNextGameSequence(afterGameId?: string): Promise<number> {
 }
 
 // Function to store game in games_master table with sequence
-async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck', submittedByAdmin: boolean): Promise<void> {
+async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck', submittedByAdmin: boolean, createdAt?: Date): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
 
-  await db.run(`
-  INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
-  VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
-`, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
+  if (createdAt) {
+    await db.run(`
+      INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active, createdAt)
+      VALUES (?, ?, ?, ?, ?, 'confirmed', 1, ?)
+    `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0, createdAt.toISOString()]);
+  } else {
+    await db.run(`
+      INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
+      VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
+    `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
+  }
 }
 
 // Function to update all match records with game sequence
@@ -1434,8 +1470,11 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
   // Get game sequence number (for injection or regular)
   let gameSequence: number;
+  let injectedTimestamp: Date | null = null;
   try {
-    gameSequence = await getNextGameSequence(afterGameId || undefined);
+    const seqResult = await getNextGameSequence(afterGameId || undefined);
+    gameSequence = seqResult.sequence;
+    injectedTimestamp = seqResult.injectedTimestamp;
   } catch (error) {
     await interaction.editReply({
       content: `⚠️ Error: ${(error as Error).message}`
@@ -1443,8 +1482,11 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     return;
   }
 
-  // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player', submittedByAdmin);
+  // Use the injected timestamp for backdated games, or current time for regular games
+  const gameDate = injectedTimestamp || new Date();
+
+  // Store game in master table (with backdated timestamp if injecting)
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player', submittedByAdmin, injectedTimestamp || undefined);
 
   // Pre-fetch usernames, ratings, and records
   const userNames: Record<string, string> = {};
@@ -1573,8 +1615,8 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   const matchId = crypto.randomUUID();
 
   // Process immediately
-  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, interaction.user.id, replyMsg, client, isCEDHMode);
-  
+  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
+
   // Handle recalculation if needed
   if (afterGameId) {
     await recalculateAllPlayersFromScratch();
@@ -2042,7 +2084,7 @@ collector.on('collect', async (reaction, user) => {
           }
         }
 
-        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode);
+        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
         
         if (afterGameId) {
           await recalculateAllPlayersFromScratch();
@@ -2223,8 +2265,11 @@ if (decks.length === 4) {
 
   // Get game sequence number (for injection or regular)
   let gameSequence: number;
+  let deckInjectedTimestamp: Date | null = null;
   try {
-    gameSequence = await getNextGameSequence(afterGameId || undefined);
+    const seqResult = await getNextGameSequence(afterGameId || undefined);
+    gameSequence = seqResult.sequence;
+    deckInjectedTimestamp = seqResult.injectedTimestamp;
   } catch (error) {
     await interaction.editReply({
       content: `⚠️ Error: ${(error as Error).message}`
@@ -2232,12 +2277,15 @@ if (decks.length === 4) {
     return;
   }
 
+  // Use the injected timestamp for backdated games, or current time for regular games
+  const deckGameDate = deckInjectedTimestamp || new Date();
+
   // Admin check for deck-only mode
   const isAdmin = hasModAccess(interaction.user.id);
   const submittedByAdmin = isAdmin;
 
-  // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin);
+  // Store game in master table (with backdated timestamp if injecting)
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin, deckInjectedTimestamp || undefined);
 
   // Get unique commanders for validation (avoid validating duplicates multiple times)
   const uniqueCommanders = [...new Set(decks.map(d => d.normalizedName))];
@@ -2331,8 +2379,8 @@ if (decks.length === 4) {
 
   if (isAdmin) {
     // Admin path - process immediately
-    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg);
-    
+    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg, deckGameDate);
+
     // If this was a deck game injection, recalculate all ratings
     if (afterGameId) {
       await recalculateAllPlayersFromScratch();
@@ -2412,7 +2460,7 @@ if (decks.length === 4) {
             client.limboGames.delete(replyMsg.id);
 
             // Process deck results (submittedByAdmin is false for non-admin path)
-            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg);
+            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg, deckGameDate);
             
             // If this was a deck game injection, recalculate all ratings
             if (afterGameId) {
@@ -2466,7 +2514,8 @@ async function processGameResults(
   submitterId: string,
   replyMsg: any,
   client: any,
-  isCEDHMode: boolean
+  isCEDHMode: boolean,
+  gameDate: Date
 ): Promise<string[]> {
   // Note: We don't reset timewalk here - the per-player check handles this
   // Players who just played won't have cumulative timewalk days applied to them
@@ -2550,7 +2599,7 @@ for (const player of players) {
   // ENHANCED: Process commanders if any are assigned
   const playersWithCommanders = players.filter(p => p.commander);
   if (playersWithCommanders.length > 0) {
-    await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId);
+    await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId, gameDate);
   }
 
   // Track final ratings (including participation bonus) for snapshot
@@ -2598,16 +2647,16 @@ for (const player of players) {
       recordPlayerActivity(p.userId);
 
       await recordMatch(
-        matchId, 
+        matchId,
         gameId,
-        p.userId, 
-        p.status ?? 'd', 
-        new Date(), 
-        newR.mu, 
-        newR.sigma, 
-        [], 
-        [], 
-        p.score, 
+        p.userId,
+        p.status ?? 'd',
+        gameDate,
+        newR.mu,
+        newR.sigma,
+        [],
+        [],
+        p.score,
         submittedByAdmin,
         p.turnOrder,
         p.normalizedCommanderName || null  // CRITICAL: Pass the normalized commander name
@@ -2660,7 +2709,7 @@ for (const player of players) {
     gameId: gameId,
     userId: p.userId,
     status: p.status ?? 'd',
-    matchDate: new Date().toISOString(),
+    matchDate: gameDate.toISOString(),
     mu: finalRatings[p.userId].mu,
     sigma: finalRatings[p.userId].sigma,
     teams: JSON.stringify([]),
@@ -2672,7 +2721,7 @@ for (const player of players) {
     submittedBy: submitterId
   }));
 
-  const gameTimestamp = new Date().toISOString();
+  const gameTimestamp = gameDate.toISOString();
   await saveMatchSnapshot({
     matchId,
     gameId,
@@ -2738,7 +2787,8 @@ export async function processCommanderRatingsEnhanced(
   playersWithCommanders: PlayerEntry[],
   allPlayers: PlayerEntry[],
   gameId: string,
-  matchId: string
+  matchId: string,
+  matchDate?: Date
 ): Promise<void> {
   // Create commander entries with flexible turn order assignment
   const commanderEntries: any[] = [];
@@ -2942,7 +2992,7 @@ export async function processCommanderRatingsEnhanced(
         normalizedName,
         rec.displayName,
         inst.entry.status,
-        new Date(),
+        matchDate || new Date(),
         finalRating.mu,
         finalRating.sigma,
         inst.entry.turnOrder
@@ -2975,8 +3025,10 @@ async function processDeckResults(
   gameSequence: number,
   submittedByAdmin: boolean,
   submitterId: string,
-  replyMsg: any
+  replyMsg: any,
+  matchDate?: Date
 ) {
+  const effectiveDate = matchDate || new Date();
   // Note: Timewalk tracking is per-player based on lastPlayed timestamp
   // Deck games don't affect player decay timers directly
 
@@ -3122,7 +3174,7 @@ async function processDeckResults(
         normalizedName,
         displayName,
         instance.status,
-        new Date(),
+        effectiveDate,
         newR.mu,
         newR.sigma,
         instance.turnOrder
@@ -3156,7 +3208,7 @@ async function processDeckResults(
         deckNormalizedName: normalizedName,
         deckDisplayName: displayName,
         status: instance.status,
-        matchDate: new Date().toISOString(),
+        matchDate: effectiveDate.toISOString(),
         mu: finalDeckRatings[normalizedName].mu,
         sigma: finalDeckRatings[normalizedName].sigma,
         turnOrder: instance.turnOrder,
