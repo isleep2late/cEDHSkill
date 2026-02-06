@@ -329,6 +329,10 @@ npm start
 /thanossnap
 # (NOTE: /endgame NO LONGER exists! Functionality is in /thanossnap)
 ```
+- **Improved**: Now properly handles long-running operations without timeout errors
+- Creates automatic backup before reset
+- Sends backup to all admins/moderators via DM
+- Shows top 64 qualified players and commanders (with tie handling)
 
 ### 📧 Admin Notifications
 **DM Commands for Admins:**

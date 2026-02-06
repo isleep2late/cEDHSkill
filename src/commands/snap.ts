@@ -27,12 +27,15 @@ export async function execute(
 
   const channel = interaction.channel;
   if (!channel?.isTextBased()) {
-    await interaction.reply({ 
-      content: '⚠️ /snap can only be used in text channels.', 
-      ephemeral: true 
+    await interaction.reply({
+      content: '⚠️ /snap can only be used in text channels.',
+      ephemeral: true
     });
     return;
   }
+
+  // Defer reply since deleting many messages could take time
+  await interaction.deferReply();
 
   const limboIds = Array.from(client.limboGames.keys());
   let deleted = 0;
@@ -63,7 +66,7 @@ export async function execute(
     responseMessage = '📭 No limbo games found to clear.';
   }
 
-  await interaction.reply({
+  await interaction.editReply({
     content: responseMessage,
   });
 }
