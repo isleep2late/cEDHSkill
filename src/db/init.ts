@@ -172,7 +172,7 @@ export async function initDatabase() {
       targetType TEXT NOT NULL CHECK (targetType IN ('player', 'deck')),
       targetId TEXT NOT NULL,
       targetDisplayName TEXT NOT NULL,
-      changeType TEXT NOT NULL CHECK (changeType IN ('manual', 'game', 'decay', 'wld_adjustment', 'undo')),
+      changeType TEXT NOT NULL CHECK (changeType IN ('manual', 'game', 'decay', 'wld_adjustment', 'undo', 'redo')),
       adminUserId TEXT,
       oldMu REAL NOT NULL,
       oldSigma REAL NOT NULL,
@@ -398,6 +398,65 @@ export async function initDatabase() {
     console.log('[DB] Added active index to game_ids table');
   } catch (error) {
     // Index already exists, ignore
+  }
+
+  // Migration: Update rating_changes CHECK constraint to include 'redo'
+  // SQLite doesn't support ALTER TABLE for CHECK constraints, so we need to recreate the table
+  try {
+    // Check if we need to migrate (try inserting a 'redo' type - if it fails, we need to migrate)
+    const testResult = await db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name='rating_changes'`);
+    if (testResult?.sql && !testResult.sql.includes("'redo'")) {
+      console.log('[DB] Migrating rating_changes table to support redo changeType...');
+
+      await db.exec(`BEGIN TRANSACTION`);
+
+      // Create new table with updated constraint
+      await db.exec(`
+        CREATE TABLE rating_changes_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          targetType TEXT NOT NULL CHECK (targetType IN ('player', 'deck')),
+          targetId TEXT NOT NULL,
+          targetDisplayName TEXT NOT NULL,
+          changeType TEXT NOT NULL CHECK (changeType IN ('manual', 'game', 'decay', 'wld_adjustment', 'undo', 'redo')),
+          adminUserId TEXT,
+          oldMu REAL NOT NULL,
+          oldSigma REAL NOT NULL,
+          oldElo INTEGER NOT NULL,
+          newMu REAL NOT NULL,
+          newSigma REAL NOT NULL,
+          newElo INTEGER NOT NULL,
+          parameters TEXT,
+          reason TEXT,
+          timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+          oldWins INTEGER,
+          oldLosses INTEGER,
+          oldDraws INTEGER,
+          newWins INTEGER,
+          newLosses INTEGER,
+          newDraws INTEGER
+        )
+      `);
+
+      // Copy data from old table
+      await db.exec(`
+        INSERT INTO rating_changes_new
+        SELECT * FROM rating_changes
+      `);
+
+      // Drop old table and rename new one
+      await db.exec(`DROP TABLE rating_changes`);
+      await db.exec(`ALTER TABLE rating_changes_new RENAME TO rating_changes`);
+
+      await db.exec(`COMMIT`);
+      console.log('[DB] Successfully migrated rating_changes table');
+    }
+  } catch (error) {
+    console.log('[DB] rating_changes migration not needed or already complete');
+    try {
+      await db.exec(`ROLLBACK`);
+    } catch {
+      // No transaction to rollback
+    }
   }
 
   console.log('[DB] All tables and indexes initialized successfully');
