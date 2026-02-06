@@ -12,7 +12,7 @@ import { getDatabase } from '../db/init.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js'; 
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
-import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
+import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
 import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 
@@ -642,20 +642,37 @@ export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup:
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all ACTIVE games in chronological order (by sequence)
-  const allGames = await db.all(`
+  // Get all ACTIVE pure deck games in chronological order (by sequence)
+  const allDeckGames = await db.all(`
     SELECT gameId, gameSequence
     FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order
-  for (const game of allGames) {
+  // Replay each pure deck game in order
+  for (const game of allDeckGames) {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
+  console.log(`[SET] Completed recalculation of ${allDeckGames.length} active pure deck games`);
+
+  // Also replay commander ratings for hybrid player games (player games with assigned decks)
+  const hybridGames = await db.all(`
+    SELECT DISTINCT gm.gameId, gm.gameSequence
+    FROM games_master gm
+    JOIN matches m ON m.gameId = gm.gameId
+    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND gm.active = 1 AND m.assignedDeck IS NOT NULL
+    ORDER BY gm.gameSequence ASC
+  `);
+
+  for (const game of hybridGames) {
+    await replayCommanderRatingsForGame(game.gameId);
+  }
+
+  if (hybridGames.length > 0) {
+    console.log(`[SET] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+  }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
@@ -1065,31 +1082,8 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
     );
   }
 
- // CRITICAL: Process commander ratings if any players have assigned decks
-  const playersWithCommanders = originalMatches.filter(match => match.assignedDeck);
-  if (playersWithCommanders.length > 0) {
-    // First, clean up any existing deck_matches for this game
-    await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
-    
-    // Convert matches to the format expected by processCommanderRatingsEnhanced
-    const playerEntries = playersWithCommanders.map(match => ({
-      userId: match.userId,
-      status: match.status,
-      turnOrder: match.turnOrder,
-      commander: match.assignedDeck, // This is the normalized name
-      normalizedCommanderName: match.assignedDeck
-    }));
-    
-    const allPlayerEntries = originalMatches.map(match => ({
-      userId: match.userId,
-      status: match.status,
-      turnOrder: match.turnOrder,
-      commander: match.assignedDeck || undefined,
-      normalizedCommanderName: match.assignedDeck || undefined
-    }));
-    
-    await processCommanderRatingsEnhanced(playerEntries, allPlayerEntries, gameId, `${gameId}-recalc`);
-  }
+  // Process commander ratings for hybrid games (player games with assigned decks)
+  await replayCommanderRatingsForGame(gameId, originalMatches);
 }
 
 async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatches: any[]): Promise<void> {
@@ -1116,20 +1110,24 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
   }
 
   // Apply OpenSkill using the ORIGINAL outcomes
-  const { rate } = await import('openskill');
-  const gameRatings = originalMatches.map(match => [deckRatings[match.deckNormalizedName]]);
+  const { rate, rating } = await import('openskill');
+  // Create per-instance rating copies to avoid shared references for duplicate decks
+  const gameRatings = originalMatches.map(match => {
+    const r = deckRatings[match.deckNormalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = originalMatches.map(match => statusRank[match.status] || 3);
   const newRatings = rate(gameRatings, { rank: ranks });
   const penalty = originalMatches.length === 3 ? 0.9 : 1.0;
 
   // Aggregate changes for duplicate decks using ORIGINAL outcomes
-  const deckChanges: Record<string, { newRating: any, statusUpdates: string[] }> = {};
+  const deckChanges: Record<string, { instanceRatings: any[], statusUpdates: string[] }> = {};
 
   for (let i = 0; i < originalMatches.length; i++) {
     const match = originalMatches[i];
     const newRating = newRatings[i][0];
-    
+
     const finalRating = {
       mu: 25 + (newRating.mu - 25) * penalty,
       sigma: newRating.sigma
@@ -1137,22 +1135,32 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
 
     if (!deckChanges[match.deckNormalizedName]) {
       deckChanges[match.deckNormalizedName] = {
-        newRating: finalRating,
+        instanceRatings: [],
         statusUpdates: []
       };
     }
 
     // Keep ORIGINAL outcome
     deckChanges[match.deckNormalizedName].statusUpdates.push(match.status);
-    deckChanges[match.deckNormalizedName].newRating = finalRating;
+    deckChanges[match.deckNormalizedName].instanceRatings.push(finalRating);
   }
 
   // Apply changes to unique decks
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
 
+    // For duplicates, average mu and take min sigma
+    let aggregatedRating: any;
+    if (changes.instanceRatings.length === 1) {
+      aggregatedRating = changes.instanceRatings[0];
+    } else {
+      const avgMu = changes.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / changes.instanceRatings.length;
+      const minSigma = Math.min(...changes.instanceRatings.map((r: any) => r.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusRating = applyParticipationBonus(changes.newRating);
+    const bonusRating = applyParticipationBonus(aggregatedRating);
 
     // Update stats based on ORIGINAL outcomes
     for (const status of changes.statusUpdates) {

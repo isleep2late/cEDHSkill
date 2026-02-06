@@ -333,43 +333,69 @@ async function fetchUsernames(
   return { userNames, failures };
 }
 
-async function getNextGameSequence(afterGameId?: string): Promise<number> {
+async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: number; injectedTimestamp: Date | null }> {
   try {
     const { getDatabase } = await import('../db/init.js');
     const db = getDatabase();
 
     if (!afterGameId) {
       const result = await db.get('SELECT MAX(gameSequence) as maxSeq FROM games_master WHERE status = "confirmed" AND active = 1');
-      return (result?.maxSeq || 0) + 1.0;
+      return { sequence: (result?.maxSeq || 0) + 1.0, injectedTimestamp: null };
     }
 
-    // ENHANCED: Handle special case "0" for pre-injection (before all games)
-    if (afterGameId === '0') {
-      // Find the minimum sequence number and place the new game before it
-      const result = await db.get('SELECT MIN(gameSequence) as minSeq FROM games_master WHERE status = "confirmed" AND active = 1');
-      const minSequence = result?.minSeq || 1.0;
-      
-      // Place the new game at half the minimum sequence (ensuring it comes first)
-      return minSequence / 2;
+    // Handle special cases "0" and "start" for pre-injection (before all games)
+    if (afterGameId === '0' || afterGameId.toLowerCase() === 'start') {
+      const firstGame = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
+      const minSequence = firstGame?.gameSequence || 1.0;
+
+      // Timestamp: 1 hour before the first game
+      let injectedTimestamp: Date;
+      if (firstGame?.createdAt) {
+        injectedTimestamp = new Date(new Date(firstGame.createdAt).getTime() - 60 * 60 * 1000);
+      } else {
+        injectedTimestamp = new Date();
+      }
+      // Round down to nearest minute
+      injectedTimestamp.setSeconds(0, 0);
+
+      return { sequence: minSequence / 2, injectedTimestamp };
     }
 
     if (!InputValidator.validateGameId(afterGameId)) {
       throw new Error(`Invalid game ID format: ${afterGameId}`);
     }
 
-    const targetGame = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ? AND status = "confirmed" AND active = 1', afterGameId);
+    const targetGame = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE gameId = ? AND status = "confirmed" AND active = 1', afterGameId);
     if (!targetGame) {
       throw new Error(`Game ID "${afterGameId}" not found or is not confirmed`);
     }
 
     const nextGame = await db.get(
-      'SELECT MIN(gameSequence) as nextSeq FROM games_master WHERE gameSequence > ? AND status = "confirmed"',
+      'SELECT MIN(gameSequence) as nextSeq, createdAt FROM games_master WHERE gameSequence > ? AND status = "confirmed"',
       targetGame.gameSequence
     );
 
-    return nextGame?.nextSeq 
+    const sequence = nextGame?.nextSeq
       ? (targetGame.gameSequence + nextGame.nextSeq) / 2
       : targetGame.gameSequence + 1.0;
+
+    // Compute injected timestamp
+    let injectedTimestamp: Date | null;
+    const targetTime = new Date(targetGame.createdAt).getTime();
+
+    if (nextGame?.nextSeq && nextGame.createdAt) {
+      // There IS a game after the reference game: midway point between the two
+      const nextTime = new Date(nextGame.createdAt).getTime();
+      const midpoint = Math.floor((targetTime + nextTime) / 2);
+      injectedTimestamp = new Date(midpoint);
+      // Round down to nearest minute
+      injectedTimestamp.setSeconds(0, 0);
+    } else {
+      // No game after the reference game: this is effectively appending to the end, use "now"
+      injectedTimestamp = null;
+    }
+
+    return { sequence, injectedTimestamp };
   } catch (error) {
     console.error('Error in getNextGameSequence:', error);
     throw error;
@@ -377,14 +403,21 @@ async function getNextGameSequence(afterGameId?: string): Promise<number> {
 }
 
 // Function to store game in games_master table with sequence
-async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck', submittedByAdmin: boolean): Promise<void> {
+async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck', submittedByAdmin: boolean, createdAt?: Date): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
 
-  await db.run(`
-  INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
-  VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
-`, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
+  if (createdAt) {
+    await db.run(`
+      INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active, createdAt)
+      VALUES (?, ?, ?, ?, ?, 'confirmed', 1, ?)
+    `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0, createdAt.toISOString()]);
+  } else {
+    await db.run(`
+      INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
+      VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
+    `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
+  }
 }
 
 // Function to update all match records with game sequence
@@ -458,20 +491,37 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all games in chronological order (by sequence)
-  const allGames = await db.all(`
+  // Get all ACTIVE pure deck games in chronological order (by sequence)
+  const allDeckGames = await db.all(`
     SELECT gameId, gameSequence
     FROM games_master
-    WHERE gameType = 'deck' AND status = 'confirmed'
+    WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order
-  for (const game of allGames) {
+  // Replay each pure deck game in order
+  for (const game of allDeckGames) {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allGames.length} deck games`);
+  console.log(`[RECALC] Completed recalculation of ${allDeckGames.length} active pure deck games`);
+
+  // Also replay commander ratings for ACTIVE hybrid player games (player games with assigned decks)
+  const hybridGames = await db.all(`
+    SELECT DISTINCT gm.gameId, gm.gameSequence
+    FROM games_master gm
+    JOIN matches m ON m.gameId = gm.gameId
+    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND gm.active = 1 AND m.assignedDeck IS NOT NULL
+    ORDER BY gm.gameSequence ASC
+  `);
+
+  for (const game of hybridGames) {
+    await replayCommanderRatingsForGame(game.gameId);
+  }
+
+  if (hybridGames.length > 0) {
+    console.log(`[RECALC] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+  }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
@@ -590,6 +640,47 @@ export async function replayPlayerGame(gameId: string): Promise<void> {
       console.error('Error logging player recalculation to audit trail:', auditError);
     }
   }
+
+  // Process commander ratings for hybrid games (player games with assigned decks)
+  await replayCommanderRatingsForGame(gameId, matches);
+}
+
+// Replay ONLY the commander/deck ratings for a player game that has assigned decks.
+// This is separated so it can be called independently during deck recalculation.
+export async function replayCommanderRatingsForGame(gameId: string, matches?: any[]): Promise<void> {
+  const { getDatabase } = await import('../db/init.js');
+  const db = getDatabase();
+
+  // If matches weren't passed in, fetch them
+  if (!matches) {
+    matches = await db.all('SELECT * FROM matches WHERE gameId = ? ORDER BY matchDate ASC', gameId);
+  }
+
+  if (!matches || matches.length === 0) return;
+
+  const matchesWithCommanders = matches.filter((m: any) => m.assignedDeck);
+  if (matchesWithCommanders.length === 0) return;
+
+  // Clean up any existing deck_matches for this game before re-creating
+  await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
+
+  const playerEntries: PlayerEntry[] = matchesWithCommanders.map((m: any) => ({
+    userId: m.userId,
+    status: m.status,
+    turnOrder: m.turnOrder,
+    commander: m.assignedDeck,
+    normalizedCommanderName: m.assignedDeck
+  }));
+
+  const allPlayerEntries: PlayerEntry[] = matches.map((m: any) => ({
+    userId: m.userId,
+    status: m.status,
+    turnOrder: m.turnOrder,
+    commander: m.assignedDeck || undefined,
+    normalizedCommanderName: m.assignedDeck || undefined
+  }));
+
+  await processCommanderRatingsEnhanced(playerEntries, allPlayerEntries, gameId, `${gameId}-replay`);
 }
 
 // Function to replay a single deck game (exported for use by /set command)
@@ -603,12 +694,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
   if (matches.length === 0) return;
 
   // Get current ratings for all UNIQUE decks in this game
-  const uniqueDecks = new Set(matches.map(m => m.deckNormalizedName));
+  const uniqueDecks = new Set<string>(matches.map((m: any) => m.deckNormalizedName));
   const deckRatings: Record<string, any> = {};
   const deckStats: Record<string, any> = {};
-  
+
   for (const deckName of uniqueDecks) {
-    const match = matches.find(m => m.deckNormalizedName === deckName);
+    const match = matches.find((m: any) => m.deckNormalizedName === deckName);
     const deck = await getOrCreateDeck(deckName, match.deckDisplayName);
     deckRatings[deckName] = rating({ mu: deck.mu, sigma: deck.sigma });
     deckStats[deckName] = {
@@ -619,9 +710,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
     };
   }
 
-  // Create ratings array in the same order as matches (handling duplicates)
-  const gameRatings = matches.map(match => [deckRatings[match.deckNormalizedName]]);
-  
+  // Create per-instance rating copies to avoid shared references for duplicate decks
+  const gameRatings = matches.map(match => {
+    const r = deckRatings[match.deckNormalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
+
   // Create ranks array based on match status
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = matches.map(match => statusRank[match.status] || 3);
@@ -633,12 +727,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
   const penalty = matches.length === 3 ? 0.9 : 1.0;
 
   // Process results and aggregate changes for duplicate decks
-  const deckChanges: Record<string, { newRating: any, statusUpdates: string[] }> = {};
+  const deckChanges: Record<string, { instanceRatings: any[], statusUpdates: string[] }> = {};
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
     const newRating = newRatings[i][0];
-    
+
     // Apply penalty
     const finalRating = {
       mu: 25 + (newRating.mu - 25) * penalty,
@@ -647,23 +741,32 @@ export async function replayDeckGame(gameId: string): Promise<void> {
 
     if (!deckChanges[match.deckNormalizedName]) {
       deckChanges[match.deckNormalizedName] = {
-        newRating: finalRating,
+        instanceRatings: [],
         statusUpdates: []
       };
     }
 
     // Track status updates for this deck
     deckChanges[match.deckNormalizedName].statusUpdates.push(match.status);
-    // Use the most recent rating update for duplicates
-    deckChanges[match.deckNormalizedName].newRating = finalRating;
+    deckChanges[match.deckNormalizedName].instanceRatings.push(finalRating);
   }
 
   // Apply aggregated changes to each unique deck
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
 
+    // For duplicates, average mu and take min sigma
+    let aggregatedRating: any;
+    if (changes.instanceRatings.length === 1) {
+      aggregatedRating = changes.instanceRatings[0];
+    } else {
+      const avgMu = changes.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / changes.instanceRatings.length;
+      const minSigma = Math.min(...changes.instanceRatings.map((r: any) => r.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusedRating = applyParticipationBonus(changes.newRating);
+    const bonusedRating = applyParticipationBonus(aggregatedRating);
 
     // Count total wins/losses/draws for this deck in this game
     for (const status of changes.statusUpdates) {
@@ -986,7 +1089,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('aftergame')
-      .setDescription('Admin only: Inject this game after specified game ID or 0 to place before all games')
+      .setDescription('Admin only: Inject this game after specified game ID. Use "start" or "0" to place before all games')
       .setRequired(false)
   );
 
@@ -1364,8 +1467,11 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
   // Get game sequence number (for injection or regular)
   let gameSequence: number;
+  let injectedTimestamp: Date | null = null;
   try {
-    gameSequence = await getNextGameSequence(afterGameId || undefined);
+    const seqResult = await getNextGameSequence(afterGameId || undefined);
+    gameSequence = seqResult.sequence;
+    injectedTimestamp = seqResult.injectedTimestamp;
   } catch (error) {
     await interaction.editReply({
       content: `⚠️ Error: ${(error as Error).message}`
@@ -1373,13 +1479,16 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     return;
   }
 
-  // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player', submittedByAdmin);
+  // Use the injected timestamp for backdated games, or current time for regular games
+  const gameDate = injectedTimestamp || new Date();
+
+  // Store game in master table (with backdated timestamp if injecting)
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player', submittedByAdmin, injectedTimestamp || undefined);
 
   // Pre-fetch usernames, ratings, and records
   const userNames: Record<string, string> = {};
   const preRatings: Record<string, Rating> = {};
-  const records: Record<string, { wins: number; losses: number; draws: number }> = {};
+  const records: Record<string, { wins: number; losses: number; draws: number; lastPlayed: string | null }> = {};
   for (const p of players) {
   try {
     const u = await client.users.fetch(p.userId);
@@ -1395,13 +1504,14 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     records[p.userId] = {
       wins: pd.wins || 0,
       losses: pd.losses || 0,
-      draws: pd.draws || 0
+      draws: pd.draws || 0,
+      lastPlayed: pd.lastPlayed || null
     };
   } catch (error) {
     console.error(`Failed to get player data for ${p.userId}:`, error);
     // Use defaults if database fails
     preRatings[p.userId] = rating({ mu: 25.0, sigma: 8.333 });
-    records[p.userId] = { wins: 0, losses: 0, draws: 0 };
+    records[p.userId] = { wins: 0, losses: 0, draws: 0, lastPlayed: null };
   }
 }
 
@@ -1502,8 +1612,8 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   const matchId = crypto.randomUUID();
 
   // Process immediately
-  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, interaction.user.id, replyMsg, client, isCEDHMode);
-  
+  await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, true, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
+
   // Handle recalculation if needed
   if (afterGameId) {
     await recalculateAllPlayersFromScratch();
@@ -1971,7 +2081,7 @@ collector.on('collect', async (reaction, user) => {
           }
         }
 
-        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode);
+        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
         
         if (afterGameId) {
           await recalculateAllPlayersFromScratch();
@@ -2152,8 +2262,11 @@ if (decks.length === 4) {
 
   // Get game sequence number (for injection or regular)
   let gameSequence: number;
+  let deckInjectedTimestamp: Date | null = null;
   try {
-    gameSequence = await getNextGameSequence(afterGameId || undefined);
+    const seqResult = await getNextGameSequence(afterGameId || undefined);
+    gameSequence = seqResult.sequence;
+    deckInjectedTimestamp = seqResult.injectedTimestamp;
   } catch (error) {
     await interaction.editReply({
       content: `⚠️ Error: ${(error as Error).message}`
@@ -2161,12 +2274,15 @@ if (decks.length === 4) {
     return;
   }
 
+  // Use the injected timestamp for backdated games, or current time for regular games
+  const deckGameDate = deckInjectedTimestamp || new Date();
+
   // Admin check for deck-only mode
   const isAdmin = hasModAccess(interaction.user.id);
   const submittedByAdmin = isAdmin;
 
-  // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin);
+  // Store game in master table (with backdated timestamp if injecting)
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin, deckInjectedTimestamp || undefined);
 
   // Get unique commanders for validation (avoid validating duplicates multiple times)
   const uniqueCommanders = [...new Set(decks.map(d => d.normalizedName))];
@@ -2260,8 +2376,8 @@ if (decks.length === 4) {
 
   if (isAdmin) {
     // Admin path - process immediately
-    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg);
-    
+    await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg, deckGameDate);
+
     // If this was a deck game injection, recalculate all ratings
     if (afterGameId) {
       await recalculateAllPlayersFromScratch();
@@ -2341,7 +2457,7 @@ if (decks.length === 4) {
             client.limboGames.delete(replyMsg.id);
 
             // Process deck results (submittedByAdmin is false for non-admin path)
-            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg);
+            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg, deckGameDate);
             
             // If this was a deck game injection, recalculate all ratings
             if (afterGameId) {
@@ -2395,7 +2511,8 @@ async function processGameResults(
   submitterId: string,
   replyMsg: any,
   client: any,
-  isCEDHMode: boolean
+  isCEDHMode: boolean,
+  gameDate: Date
 ): Promise<string[]> {
   // Note: We don't reset timewalk here - the per-player check handles this
   // Players who just played won't have cumulative timewalk days applied to them
@@ -2479,7 +2596,7 @@ for (const player of players) {
   // ENHANCED: Process commanders if any are assigned
   const playersWithCommanders = players.filter(p => p.commander);
   if (playersWithCommanders.length > 0) {
-    await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId);
+    await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId, gameDate);
   }
 
   // Track final ratings (including participation bonus) for snapshot
@@ -2527,16 +2644,16 @@ for (const player of players) {
       recordPlayerActivity(p.userId);
 
       await recordMatch(
-        matchId, 
+        matchId,
         gameId,
-        p.userId, 
-        p.status ?? 'd', 
-        new Date(), 
-        newR.mu, 
-        newR.sigma, 
-        [], 
-        [], 
-        p.score, 
+        p.userId,
+        p.status ?? 'd',
+        gameDate,
+        newR.mu,
+        newR.sigma,
+        [],
+        [],
+        p.score,
         submittedByAdmin,
         p.turnOrder,
         p.normalizedCommanderName || null  // CRITICAL: Pass the normalized commander name
@@ -2589,7 +2706,7 @@ for (const player of players) {
     gameId: gameId,
     userId: p.userId,
     status: p.status ?? 'd',
-    matchDate: new Date().toISOString(),
+    matchDate: gameDate.toISOString(),
     mu: finalRatings[p.userId].mu,
     sigma: finalRatings[p.userId].sigma,
     teams: JSON.stringify([]),
@@ -2601,6 +2718,7 @@ for (const player of players) {
     submittedBy: submitterId
   }));
 
+  const gameTimestamp = gameDate.toISOString();
   await saveMatchSnapshot({
     matchId,
     gameId,
@@ -2616,7 +2734,8 @@ for (const player of players) {
       draws: records[p.userId].draws - (players.find(x => x.userId === p.userId)?.status === 'd' ? 1 : 0),
       tag: userNames[p.userId],
       turnOrder: p.turnOrder,
-      commander: p.commander || undefined
+      commander: p.commander || undefined,
+      lastPlayed: records[p.userId].lastPlayed // Pre-game lastPlayed
     })),
     after: players.map((p) => ({
       userId: p.userId,
@@ -2627,7 +2746,8 @@ for (const player of players) {
       draws: records[p.userId].draws,
       tag: userNames[p.userId],
       turnOrder: p.turnOrder,
-      commander: p.commander || undefined
+      commander: p.commander || undefined,
+      lastPlayed: gameTimestamp // Post-game lastPlayed (game happened now)
     }))
   });
 
@@ -2659,19 +2779,24 @@ for (const recipientId of alertRecipients) {
 
 // Process commander ratings with phantom opponents
 // ENHANCED: New function that processes commander ratings with phantoms, allowing unassigned turn orders
+// Handles duplicate commanders properly and maps phantom status from unassigned players
 export async function processCommanderRatingsEnhanced(
   playersWithCommanders: PlayerEntry[],
   allPlayers: PlayerEntry[],
   gameId: string,
-  matchId: string
+  matchId: string,
+  matchDate?: Date
 ): Promise<void> {
   // Create commander entries with flexible turn order assignment
   const commanderEntries: any[] = [];
-  
+
+  // Track which players have commanders assigned
+  const assignedPlayerIds = new Set(playersWithCommanders.map(p => p.userId));
+
   // Add real commanders - use their assigned turn order OR fallback to position
   for (const player of playersWithCommanders) {
     const playerIndex = allPlayers.findIndex(p => p.userId === player.userId);
-    
+
     commanderEntries.push({
       commander: player.commander!,
       normalizedName: player.normalizedCommanderName!,
@@ -2681,84 +2806,145 @@ export async function processCommanderRatingsEnhanced(
       originalPlayer: player.userId
     });
   }
-  
-  // Add phantom commanders to fill to 4
+
+  // Find unassigned players (those without commanders) to map phantom statuses
+  const unassignedPlayers = allPlayers.filter(p => !assignedPlayerIds.has(p.userId));
+
+  // Add phantom commanders to fill to 4, inheriting status from unassigned players
   const phantomCount = 4 - commanderEntries.length;
   const phantomMu = 25.0;
   const phantomSigma = 8.333;
-  
+
   for (let i = 0; i < phantomCount; i++) {
     const phantomTurnOrder = findAvailableTurnOrderForPhantoms(commanderEntries);
+
+    // Inherit status from unassigned player if available, otherwise default to 'l'
+    const phantomStatus = i < unassignedPlayers.length
+      ? (unassignedPlayers[i].status || 'l')
+      : 'l';
+
     commanderEntries.push({
       commander: `phantom-${i + 1}`,
       normalizedName: `phantom-${i + 1}`,
-      status: 'l', // Phantoms always lose
+      status: phantomStatus,
       turnOrder: phantomTurnOrder,
       isPhantom: true,
       mu: phantomMu,
-      sigma: phantomSigma
+      sigma: phantomSigma,
+      originalPlayer: i < unassignedPlayers.length ? unassignedPlayers[i].userId : null
     });
   }
-  
+
   // Sort by turn order for proper rating calculation
   commanderEntries.sort((a, b) => a.turnOrder - b.turnOrder);
-  
-  // Get ratings for real commanders, use default for phantoms
-  const commanderRatings: Record<string, Rating> = {};
+
+  // Get ratings for real commanders using per-instance approach (handles duplicates)
+  // Each entry gets its OWN rating object copy to avoid shared references
+  const entryRatings: Rating[] = [];
+
+  // We still need deck records keyed by normalizedName for DB updates
   const commanderRecords: Record<string, any> = {};
-  
+
   for (const entry of commanderEntries) {
     if (entry.isPhantom) {
-      commanderRatings[entry.normalizedName] = rating({ mu: entry.mu, sigma: entry.sigma });
-      commanderRecords[entry.normalizedName] = { wins: 0, losses: 0, draws: 0, displayName: entry.commander };
+      entryRatings.push(rating({ mu: entry.mu, sigma: entry.sigma }));
     } else {
       const deckData = await getOrCreateDeck(entry.normalizedName, entry.commander);
-      commanderRatings[entry.normalizedName] = rating({ mu: deckData.mu, sigma: deckData.sigma });
-      commanderRecords[entry.normalizedName] = {
-        wins: deckData.wins || 0,
-        losses: deckData.losses || 0,
-        draws: deckData.draws || 0,
-        displayName: deckData.displayName
-      };
+      // Each instance gets its own rating object (avoids shared references for duplicates)
+      entryRatings.push(rating({ mu: deckData.mu, sigma: deckData.sigma }));
+
+      // Only set the record once per unique commander
+      if (!commanderRecords[entry.normalizedName]) {
+        commanderRecords[entry.normalizedName] = {
+          wins: deckData.wins || 0,
+          losses: deckData.losses || 0,
+          draws: deckData.draws || 0,
+          displayName: deckData.displayName
+        };
+      }
     }
   }
-  
-  // Calculate new ratings using OpenSkill
+
+  // Calculate new ratings using OpenSkill with per-instance ratings
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = commanderEntries.map(entry => statusRank[entry.status]);
-  
-  const ordered = commanderEntries.map(entry => [commanderRatings[entry.normalizedName]]);
+
+  const ordered = entryRatings.map(r => [r]);
   const newMatrix = rate(ordered, { rank: ranks });
-  
+
   // Apply 3-deck penalty if needed (based on real commanders only)
   const realCommanderCount = commanderEntries.filter(c => !c.isPhantom).length;
   const penalty = realCommanderCount === 3 ? 0.9 : 1.0;
-  
-  // Update only real commanders
+
+  // Aggregate updates for duplicate commanders (like processDeckResults does)
+  const deckUpdates: Record<string, {
+    oldRating: Rating,
+    instances: { index: number, entry: any, newRating: Rating }[],
+    winCount: number,
+    lossCount: number,
+    drawCount: number
+  }> = {};
+
   for (let i = 0; i < commanderEntries.length; i++) {
     const entry = commanderEntries[i];
-    if (entry.isPhantom) continue; // Skip phantoms
+    if (entry.isPhantom) continue;
 
-    const oldR = commanderRatings[entry.normalizedName];
     const newR = newMatrix[i][0];
 
     // Apply penalty
-    let finalRating: Rating = {
+    const penalizedRating: Rating = {
       mu: 25 + (newR.mu - 25) * penalty,
       sigma: newR.sigma
     };
 
+    if (!deckUpdates[entry.normalizedName]) {
+      deckUpdates[entry.normalizedName] = {
+        oldRating: entryRatings[i], // All instances start from the same rating
+        instances: [],
+        winCount: 0,
+        lossCount: 0,
+        drawCount: 0
+      };
+    }
+
+    deckUpdates[entry.normalizedName].instances.push({
+      index: i,
+      entry,
+      newRating: penalizedRating
+    });
+
+    if (entry.status === 'w') deckUpdates[entry.normalizedName].winCount++;
+    else if (entry.status === 'l') deckUpdates[entry.normalizedName].lossCount++;
+    else if (entry.status === 'd') deckUpdates[entry.normalizedName].drawCount++;
+  }
+
+  // Update each unique commander once with aggregated results
+  for (const [normalizedName, update] of Object.entries(deckUpdates)) {
+    const oldR = update.oldRating;
+    const rec = commanderRecords[normalizedName];
+
+    // For duplicates, average the mu values and take the minimum sigma
+    // This properly aggregates multiple instances' rating changes
+    let aggregatedRating: Rating;
+    if (update.instances.length === 1) {
+      aggregatedRating = update.instances[0].newRating;
+    } else {
+      const avgMu = update.instances.reduce((sum, inst) => sum + inst.newRating.mu, 0) / update.instances.length;
+      const minSigma = Math.min(...update.instances.map(inst => inst.newRating.sigma));
+      aggregatedRating = { mu: avgMu, sigma: minSigma };
+    }
+
     // Apply participation bonus (+1 Elo for playing ranked)
-    finalRating = applyParticipationBonus(finalRating);
+    const finalRating = applyParticipationBonus(aggregatedRating);
 
-    const rec = commanderRecords[entry.normalizedName];
-    if (entry.status === 'w') rec.wins++;
-    else if (entry.status === 'l') rec.losses++;
-    else if (entry.status === 'd') rec.draws++;
+    // Update win/loss/draw counts
+    rec.wins += update.winCount;
+    rec.losses += update.lossCount;
+    rec.draws += update.drawCount;
 
-    // Update database
+    // Update database once per unique commander
     await updateDeckRating(
-      entry.normalizedName,
+      normalizedName,
       rec.displayName,
       finalRating.mu,
       finalRating.sigma,
@@ -2771,7 +2957,7 @@ export async function processCommanderRatingsEnhanced(
     try {
       await logRatingChange({
         targetType: 'deck',
-        targetId: entry.normalizedName,
+        targetId: normalizedName,
         targetDisplayName: rec.displayName,
         changeType: 'game',
         oldMu: oldR.mu,
@@ -2782,30 +2968,33 @@ export async function processCommanderRatingsEnhanced(
         newElo: calculateElo(finalRating.mu, finalRating.sigma),
         parameters: JSON.stringify({
           gameId: gameId,
-          result: entry.status,
-          turnOrder: entry.turnOrder,
+          duplicateCount: update.instances.length,
+          results: update.instances.map(i => i.entry.status),
+          turnOrders: update.instances.map(i => i.entry.turnOrder),
           phantomOpponents: phantomCount,
           realOpponents: realCommanderCount - 1,
           hybridPlayerDeckGame: true,
-          originalPlayer: entry.originalPlayer
+          originalPlayers: update.instances.map(i => i.entry.originalPlayer)
         })
       });
     } catch (auditError) {
       console.error('Error logging commander rating change to audit trail:', auditError);
     }
-    
-    // Record deck match
-    await recordDeckMatch(
-      `${matchId}-deck-${entry.turnOrder}`,
-      gameId,
-      entry.normalizedName,
-      rec.displayName,
-      entry.status,
-      new Date(),
-      finalRating.mu,
-      finalRating.sigma,
-      entry.turnOrder
-    );
+
+    // Record individual deck matches for each instance
+    for (const inst of update.instances) {
+      await recordDeckMatch(
+        `${matchId}-deck-${inst.entry.turnOrder}`,
+        gameId,
+        normalizedName,
+        rec.displayName,
+        inst.entry.status,
+        matchDate || new Date(),
+        finalRating.mu,
+        finalRating.sigma,
+        inst.entry.turnOrder
+      );
+    }
   }
 }
 
@@ -2833,18 +3022,24 @@ async function processDeckResults(
   gameSequence: number,
   submittedByAdmin: boolean,
   submitterId: string,
-  replyMsg: any
+  replyMsg: any,
+  matchDate?: Date
 ) {
+  const effectiveDate = matchDate || new Date();
   // Note: Timewalk tracking is per-player based on lastPlayed timestamp
   // Deck games don't affect player decay timers directly
 
-  // Calculate new ratings using OpenSkill (handles duplicates automatically)
+  // Calculate new ratings using OpenSkill
+  // Create per-instance rating copies to avoid shared references for duplicate decks
   const statusRank: Record<string, number> = { w: 1, d: 2, l: 3 };
   const ranks = decks.map(deck => statusRank[deck.status]);
-  
-  const ordered = decks.map(deck => [deckRatings[deck.normalizedName]]);
+
+  const ordered = decks.map(deck => {
+    const r = deckRatings[deck.normalizedName];
+    return [rating({ mu: r.mu, sigma: r.sigma })]; // Fresh copy per instance
+  });
   const newMatrix = rate(ordered, { rank: ranks });
-  
+
   // Apply 3-deck penalty if needed
   const is3DeckGame = decks.length === 3;
   if (is3DeckGame) {
@@ -2856,41 +3051,40 @@ async function processDeckResults(
       };
     }
   }
-  
+
   // Aggregate updates for duplicate decks
-  const deckUpdates: Record<string, { 
-    newRating: any, 
-    winCount: number, 
-    lossCount: number, 
+  const deckUpdates: Record<string, {
+    instanceRatings: any[],
+    winCount: number,
+    lossCount: number,
     drawCount: number,
     instances: DeckEntry[]
   }> = {};
-  
+
   // Process each deck instance
   for (let i = 0; i < decks.length; i++) {
     const deck = decks[i];
     const newRating = newMatrix[i][0];
-    
+
     if (!deckUpdates[deck.normalizedName]) {
       deckUpdates[deck.normalizedName] = {
-        newRating: newRating,
+        instanceRatings: [],
         winCount: 0,
         lossCount: 0,
         drawCount: 0,
         instances: []
       };
     }
-    
-    // Use the latest rating calculation for this deck
-    deckUpdates[deck.normalizedName].newRating = newRating;
+
+    deckUpdates[deck.normalizedName].instanceRatings.push(newRating);
     deckUpdates[deck.normalizedName].instances.push(deck);
-    
+
     // Count results for this deck
     if (deck.status === 'w') deckUpdates[deck.normalizedName].winCount++;
     else if (deck.status === 'l') deckUpdates[deck.normalizedName].lossCount++;
     else if (deck.status === 'd') deckUpdates[deck.normalizedName].drawCount++;
   }
-  
+
   // Update deck records and ratings
   const results: string[] = [];
 
@@ -2899,7 +3093,15 @@ async function processDeckResults(
 
   for (const [normalizedName, update] of Object.entries(deckUpdates)) {
     const oldR = deckRatings[normalizedName];
-    let newR = update.newRating;
+    // For duplicates, average mu and take min sigma to properly aggregate
+    let newR: Rating;
+    if (update.instanceRatings.length === 1) {
+      newR = update.instanceRatings[0];
+    } else {
+      const avgMu = update.instanceRatings.reduce((sum: number, r: any) => sum + r.mu, 0) / update.instanceRatings.length;
+      const minSigma = Math.min(...update.instanceRatings.map((r: any) => r.sigma));
+      newR = { mu: avgMu, sigma: minSigma };
+    }
     const rec = deckRecords[normalizedName];
     const displayName = update.instances[0].commander;
 
@@ -2969,7 +3171,7 @@ async function processDeckResults(
         normalizedName,
         displayName,
         instance.status,
-        new Date(),
+        effectiveDate,
         newR.mu,
         newR.sigma,
         instance.turnOrder
@@ -3003,7 +3205,7 @@ async function processDeckResults(
         deckNormalizedName: normalizedName,
         deckDisplayName: displayName,
         status: instance.status,
-        matchDate: new Date().toISOString(),
+        matchDate: effectiveDate.toISOString(),
         mu: finalDeckRatings[normalizedName].mu,
         sigma: finalDeckRatings[normalizedName].sigma,
         turnOrder: instance.turnOrder,

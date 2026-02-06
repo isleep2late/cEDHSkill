@@ -19,6 +19,7 @@ export const data = new SlashCommandBuilder()
         { name: 'Deck Commands', value: 'deck' },
         { name: 'Stats Commands', value: 'stats' },
         { name: 'Admin Commands', value: 'admin' },
+        { name: 'Tips & Tricks', value: 'tips' },
         { name: 'Credits', value: 'credits' }
       )
   );
@@ -138,6 +139,48 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     );
   break;
+
+    case 'tips':
+      embed.setDescription('**Tips & Tricks:**')
+        .addFields(
+          {
+            name: 'Game Injection (Admin)',
+            value: '`/rank aftergame:start` or `aftergame:0` - Inject a game **before** all other games (very first game of the league)\n' +
+                   '`/rank aftergame:GAMEID` - Inject a game after a specific game. The timestamp is automatically set to the midway point between that game and the next one.\n' +
+                   '*All injected games trigger a full rating recalculation.*'
+          },
+          {
+            name: 'Commander Assignment',
+            value: '`/set deck:nocommander gameid:ABC123` - Remove a commander assignment from a specific game\n' +
+                   '`/set deck:nocommander gameid:allgames` - Remove commander from all games for a player\n' +
+                   '`/set deck:commander-name` - Set your default commander for future games\n' +
+                   '`/set deck:nocommander` - Remove your default commander'
+          },
+          {
+            name: 'Phantom Decks',
+            value: 'In a player game, if some players have commanders assigned and others don\'t, the system creates "phantom" decks for unassigned players. ' +
+                   'Phantoms inherit the game result (win/loss/draw) of the player they represent, so commander ratings stay accurate even in mixed games.\n' +
+                   'You can also use `phantom` as a participant in `/predict` to fill a seat with a default 1000 Elo player.'
+          },
+          {
+            name: 'Duplicate Commanders',
+            value: 'Multiple players can use the same commander in one game. The system properly handles duplicate commanders by giving each instance its own rating calculation, then aggregating the results for the final database update.'
+          },
+          {
+            name: 'Game Modification (Admin)',
+            value: '`/set gameid:ABC123 active:false` - Deactivate a game (removes it from ratings)\n' +
+                   '`/set gameid:ABC123 active:true` - Reactivate a game\n' +
+                   '`/set gameid:ABC123 results:@user1 w @user2 l ...` - Overwrite game results\n' +
+                   '*All modifications trigger a full recalculation of the entire season.*'
+          },
+          {
+            name: 'Undo/Redo',
+            value: '`/undo` - Revert the most recent operation (game, /set change, or decay cycle)\n' +
+                   '`/redo` - Reapply the most recently undone operation\n' +
+                   '*Preserves decay timers - undoing yesterday\'s game won\'t reset the decay clock.*'
+          }
+        );
+      break;
 
     case 'credits':
       embed.setDescription([

@@ -125,6 +125,8 @@ async function logSetCommandRedo(snapshot: SetCommandSnapshot, adminUserId: stri
 }
 
 async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: string): Promise<void> {
+  const db = getDatabase();
+
   // Restore player ratings to after-game state
   const playerAfter = snapshot.after.filter(s => 'userId' in s) as PlayerSnapshot[];
   for (const playerSnapshot of playerAfter) {
@@ -139,6 +141,11 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
       playerSnapshot.losses,
       playerSnapshot.draws
     );
+
+    // Restore lastPlayed to the game's timestamp (updatePlayerRating resets it to "now")
+    if (playerSnapshot.lastPlayed !== undefined) {
+      await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [playerSnapshot.lastPlayed, playerSnapshot.userId]);
+    }
 
     // Log the restoration
     const beforeSnapshot = snapshot.before.find(s => 'userId' in s && s.userId === playerSnapshot.userId) as PlayerSnapshot;

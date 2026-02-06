@@ -10,6 +10,7 @@ export interface PlayerSnapshot {
   tag: string;
   turnOrder?: number;
   commander?: string;
+  lastPlayed?: string | null;
 }
 
 export interface DeckSnapshot {
@@ -728,7 +729,8 @@ export async function createSnapshotFromCurrentState(gameId: string, gameType: '
         draws: beforeDraws,
         tag: playerTag,
         turnOrder: match.turnOrder,
-        commander: match.assignedDeck
+        commander: match.assignedDeck,
+        lastPlayed: currentPlayer.lastPlayed // Capture current lastPlayed for undo restoration
       };
 
       const afterSnapshot: PlayerSnapshot = {
@@ -740,7 +742,8 @@ export async function createSnapshotFromCurrentState(gameId: string, gameType: '
         draws: currentPlayer.draws,
         tag: playerTag,
         turnOrder: match.turnOrder,
-        commander: match.assignedDeck
+        commander: match.assignedDeck,
+        lastPlayed: currentPlayer.lastPlayed
       };
 
       snapshot.before.push(beforeSnapshot);
