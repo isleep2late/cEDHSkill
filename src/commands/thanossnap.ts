@@ -85,6 +85,9 @@ export async function execute(
     return;
   }
 
+  // Defer reply immediately since this command takes a while
+  await interaction.deferReply();
+
   // 1) Create backup first using SQLite VACUUM
   const dbFile = path.resolve('data', 'cEDHSkill.db');
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T');
@@ -105,9 +108,8 @@ export async function execute(
     
   } catch (err) {
     console.error('[THANOSSNAP] Backup failed:', err);
-    await interaction.reply({
-      content: 'Failed to create backup. Season end aborted.',
-      ephemeral: true
+    await interaction.editReply({
+      content: 'Failed to create backup. Season end aborted.'
     });
     return;
   }
@@ -201,9 +203,9 @@ export async function execute(
     });
 
   // 3) Show public rankings
-  await interaction.reply({ 
+  await interaction.editReply({
     content: 'The universe has been perfectly balanced... as all things should be.',
-    embeds: [playerEmbed, deckEmbed] 
+    embeds: [playerEmbed, deckEmbed]
   });
 
   // 4) Send backup to all admins and moderators
