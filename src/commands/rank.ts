@@ -432,7 +432,7 @@ async function recalculateAllPlayersFromScratch(): Promise<void> {
 // Function to recalculate ALL deck ratings from scratch in chronological order
 async function recalculateAllDecksFromScratch(): Promise<void> {
   console.log('[RECALC] Starting complete deck rating recalculation...');
-  
+
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
 
@@ -444,8 +444,8 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
 
   // Get all games in chronological order (by sequence)
   const allGames = await db.all(`
-    SELECT gameId, gameSequence 
-    FROM games_master 
+    SELECT gameId, gameSequence
+    FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed'
     ORDER BY gameSequence ASC
   `);
@@ -456,6 +456,13 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
   }
 
   console.log(`[RECALC] Completed recalculation of ${allGames.length} deck games`);
+
+  // Always clean up players and decks with 0/0/0 records after recalculation
+  const playerCleanup = await cleanupZeroPlayers();
+  const deckCleanup = await cleanupZeroDecks();
+  if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+    console.log(`[RECALC] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+  }
 }
 
 // Function to replay a single player game (exported for use by /set command)
@@ -1477,12 +1484,11 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   // Handle recalculation if needed
   if (afterGameId) {
     await recalculateAllPlayersFromScratch();
-    if (playersWithCommanders.length > 0) {
-      await recalculateAllDecksFromScratch();
-    }
+    await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
+
     await showTop50PlayersAndDecks(interaction);
   }
-  
+
   // Handle turn order collection
   const providedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
   const missingTurnOrders = [1, 2, 3, 4].filter(t => !providedTurnOrders.has(t));
@@ -1946,9 +1952,8 @@ collector.on('collect', async (reaction, user) => {
         
         if (afterGameId) {
           await recalculateAllPlayersFromScratch();
-          if (playersWithCommanders.length > 0) {
-            await recalculateAllDecksFromScratch();
-          }
+          await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
+
           await showTop50PlayersAndDecks(interaction);
         }
       } catch (error) {
@@ -2234,9 +2239,10 @@ if (decks.length === 4) {
     // Admin path - process immediately
     await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg);
     
-    // If this was a deck game injection, recalculate all deck ratings
+    // If this was a deck game injection, recalculate all ratings
     if (afterGameId) {
-      await recalculateAllDecksFromScratch();
+      await recalculateAllPlayersFromScratch();
+      await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
     }
   } else {
     // Add reactions for confirmation and cancellation
@@ -2314,9 +2320,10 @@ if (decks.length === 4) {
             // Process deck results (submittedByAdmin is false for non-admin path)
             await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg);
             
-            // If this was a deck game injection, recalculate all deck ratings
+            // If this was a deck game injection, recalculate all ratings
             if (afterGameId) {
-              await recalculateAllDecksFromScratch();
+              await recalculateAllPlayersFromScratch();
+              await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
             }
           } catch (error) {
             console.error('Error processing deck results:', error);

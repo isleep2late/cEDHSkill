@@ -6,7 +6,7 @@
 } from 'discord.js';
 import { getOrCreatePlayer, updatePlayerRating, getAllPlayers } from '../db/player-utils.js';
 import { getOrCreateDeck, updateDeckRating, getAllDecks } from '../db/deck-utils.js';
-import { calculateElo } from '../utils/elo-utils.js';
+import { calculateElo, muFromElo } from '../utils/elo-utils.js';
 import { config } from '../config.js';
 import { getDatabase } from '../db/init.js'; 
 import { logRatingChange } from '../utils/rating-audit-utils.js'; 
@@ -557,63 +557,20 @@ async function handleGameModification(
     saveOperationSnapshot(snapshot);
   }
 
-  // ENHANCED: Proper recalculation logic instead of resetting to defaults
+  // Always do full from-scratch recalculation for any game modification
+  // This ensures all ratings are accurate regardless of the type of change
   if (needsRecalculation) {
-    if (active === false) {
-      // Game was deactivated - recalculate everything from scratch excluding this game
-      modifications.push('🔄 Recalculating all player ratings from scratch...');
-      await recalculateAllPlayersFromScratch();
-      
-      // Also recalculate deck ratings if this was a game with commanders
-      const hasCommanders = await db.get(`
-        SELECT COUNT(*) as count FROM matches 
-        WHERE gameId = ? AND assignedDeck IS NOT NULL
-      `, gameId);
-      
-      const hasDeckMatches = await db.get(`
-        SELECT COUNT(*) as count FROM deck_matches 
-        WHERE gameId = ?
-      `, gameId);
-      
-      if (hasCommanders?.count > 0 || hasDeckMatches?.count > 0) {
-        modifications.push('🔄 Recalculating all deck ratings from scratch...');
-        await recalculateAllDecksFromScratch();
-      }
-      
-      modifications.push('✅ Complete recalculation finished - all ratings now exclude the deactivated game');
+    modifications.push('🔄 Recalculating all player ratings from scratch...');
+    await recalculateAllPlayersFromScratch();
 
-      // Clean up players and decks with 0/0/0 records
-      const playerCleanup = await cleanupZeroPlayers();
-      const deckCleanup = await cleanupZeroDecks();
-      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
-        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
-      }
+    // Also recalculate all deck ratings from scratch (includes 0/0/0 cleanup)
+    modifications.push('🔄 Recalculating all deck ratings from scratch...');
+    const { playerCleanup, deckCleanup } = await recalculateAllDecksFromScratch();
 
-    } else if (active === true) {
-      // Game was reactivated - recalculate from this game's sequence forward
-      modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards...`);
-      await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
-      modifications.push('✅ Recalculation finished - all ratings now include the reactivated game');
+    modifications.push('✅ Complete from-scratch recalculation finished');
 
-      // Run cleanup for consistency - ensures any stale 0/0/0 records are removed
-      const playerCleanup = await cleanupZeroPlayers();
-      const deckCleanup = await cleanupZeroDecks();
-      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
-        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
-      }
-
-    } else {
-      // Results were modified - recalculate from this game forward
-      modifications.push(`🔄 Recalculating all ratings from sequence ${gameInfo.gameSequence} onwards due to result changes...`);
-      await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
-      modifications.push('✅ Recalculation finished');
-
-      // Run cleanup for consistency
-      const playerCleanup = await cleanupZeroPlayers();
-      const deckCleanup = await cleanupZeroDecks();
-      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
-        modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
-      }
+    if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+      modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
     }
   }
 
@@ -658,9 +615,9 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
 }
 
-export async function recalculateAllDecksFromScratch(): Promise<void> {
+export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup: { cleanedPlayers: number }, deckCleanup: { cleanedDecks: number } }> {
   console.log('[SET] Starting complete deck rating recalculation...');
-  
+
   const db = getDatabase();
 
   // Get all decks and reset their ratings to defaults
@@ -671,8 +628,8 @@ export async function recalculateAllDecksFromScratch(): Promise<void> {
 
   // Get all ACTIVE games in chronological order (by sequence)
   const allGames = await db.all(`
-    SELECT gameId, gameSequence 
-    FROM games_master 
+    SELECT gameId, gameSequence
+    FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
@@ -683,6 +640,15 @@ export async function recalculateAllDecksFromScratch(): Promise<void> {
   }
 
   console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
+
+  // Always clean up players and decks with 0/0/0 records after recalculation
+  const playerCleanup = await cleanupZeroPlayers();
+  const deckCleanup = await cleanupZeroDecks();
+  if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+    console.log(`[SET] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+  }
+
+  return { playerCleanup, deckCleanup };
 }
 
 async function modifyGameResults(gameId: string, results: string, gameType: string, modifications: string[]) {
@@ -710,23 +676,23 @@ async function modifyGameResults(gameId: string, results: string, gameType: stri
 async function modifyPlayerGameResults(gameId: string, tokens: string[], modifications: string[]) {
   const db = getDatabase();
 
-  // Parse player entries
-  const players: Array<{
-  userId: string;
-  turnOrder?: number;
-  status?: string;
-  commander?: string;
-}> = [];
-let current: {
-  userId: string;
-  turnOrder?: number;
-  status?: string;
-  commander?: string;
-} | null = null;
-  
+  // Parse player entries from the new results string
+  const newPlayers: Array<{
+    userId: string;
+    turnOrder?: number;
+    status?: string;
+    commander?: string;
+  }> = [];
+  let current: {
+    userId: string;
+    turnOrder?: number;
+    status?: string;
+    commander?: string;
+  } | null = null;
+
   for (const token of tokens) {
     if (/^<@!?(\d+)>$/.test(token)) {
-      if (current) players.push(current);
+      if (current) newPlayers.push(current);
       current = { userId: token.replace(/\D/g, '') };
     } else if (current) {
       if (/^[1-4]$/.test(token)) {
@@ -738,12 +704,74 @@ let current: {
       }
     }
   }
-  if (current) players.push(current);
+  if (current) newPlayers.push(current);
 
-  // Update existing matches
-  for (const player of players) {
-    const updates = [];
-    const params = [];
+  // Get existing match records for this game
+  const existingMatches = await db.all('SELECT * FROM matches WHERE gameId = ?', gameId);
+  const existingPlayerIds = new Set(existingMatches.map((m: any) => m.userId));
+  const newPlayerIds = new Set(newPlayers.map(p => p.userId));
+
+  // Determine added and removed players
+  const addedPlayerIds = newPlayers.filter(p => !existingPlayerIds.has(p.userId));
+  const removedPlayerIds = existingMatches.filter((m: any) => !newPlayerIds.has(m.userId));
+  const updatedPlayers = newPlayers.filter(p => existingPlayerIds.has(p.userId));
+
+  // Get game info for new match records
+  const gameInfo = await db.get('SELECT * FROM games_master WHERE gameId = ?', gameId);
+
+  // Remove players that are no longer in the game
+  for (const removed of removedPlayerIds) {
+    await db.run('DELETE FROM matches WHERE gameId = ? AND userId = ?', [gameId, removed.userId]);
+    await db.run('DELETE FROM deck_matches WHERE gameId = ? AND assignedPlayer = ?', [gameId, removed.userId]);
+    await db.run('DELETE FROM player_deck_assignments WHERE userId = ? AND gameId = ?', [removed.userId, gameId]);
+    modifications.push(`Removed player <@${removed.userId}> from game`);
+  }
+
+  // Add new players to the game
+  for (const added of addedPlayerIds) {
+    // Ensure the player exists in the players table
+    await getOrCreatePlayer(added.userId);
+
+    const normalizedCommander = added.commander ? normalizeCommanderName(added.commander) : null;
+
+    // Insert new match record with default mu/sigma (will be recalculated)
+    await db.run(`
+      INSERT INTO matches (id, gameId, userId, status, matchDate, mu, sigma, teams, scores, score, submittedByAdmin, turnOrder, gameSequence, assignedDeck)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      `set-${Date.now()}-${added.userId}`,
+      gameId,
+      added.userId,
+      added.status || 'l',
+      gameInfo?.createdAt || new Date().toISOString(),
+      25.0,
+      8.333,
+      '[]',
+      '[]',
+      null,
+      1, // admin-submitted since /set is admin-only
+      added.turnOrder || null,
+      gameInfo?.gameSequence || null,
+      normalizedCommander
+    ]);
+
+    // If commander assigned, create deck assignment record
+    if (normalizedCommander) {
+      await getOrCreateDeck(normalizedCommander, added.commander!);
+      await db.run(`
+        INSERT OR REPLACE INTO player_deck_assignments
+        (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
+        VALUES (?, ?, ?, ?, 'game_specific', 'set_command')
+      `, [added.userId, gameId, normalizedCommander, added.commander]);
+    }
+
+    modifications.push(`Added player <@${added.userId}> to game (${added.status || 'l'})`);
+  }
+
+  // Update existing players that remain in the game
+  for (const player of updatedPlayers) {
+    const updates: string[] = [];
+    const params: any[] = [];
 
     if (player.status) {
       updates.push('status = ?');
@@ -767,36 +795,76 @@ let current: {
     }
   }
 
-  modifications.push(`Modified ${players.length} player results`);
+  if (updatedPlayers.length > 0) {
+    modifications.push(`Updated ${updatedPlayers.length} existing player(s)`);
+  }
 }
 
 async function modifyDeckGameResults(gameId: string, tokens: string[], modifications: string[]) {
   const db = getDatabase();
 
-  // Parse deck entries
-  const decks = [];
+  // Parse deck entries from the new results string
+  const newDecks: Array<{ normalizedName: string; displayName: string; status: string }> = [];
   for (let i = 0; i < tokens.length; i += 2) {
     const deckName = tokens[i];
     const result = tokens[i + 1]?.toLowerCase();
-    
+
     if (deckName && ['w', 'l', 'd'].includes(result)) {
-      decks.push({
+      newDecks.push({
         normalizedName: normalizeCommanderName(deckName),
+        displayName: deckName,
         status: result
       });
     }
   }
 
-  // Update existing deck matches
-  for (let i = 0; i < decks.length; i++) {
-    const deck = decks[i];
-    await db.run(
-      'UPDATE deck_matches SET status = ? WHERE gameId = ? AND deckNormalizedName = ? LIMIT 1',
-      [deck.status, gameId, deck.normalizedName]
-    );
+  // Get existing deck match records for this game
+  const existingDeckMatches = await db.all('SELECT * FROM deck_matches WHERE gameId = ?', gameId);
+  const existingDeckNames = new Set(existingDeckMatches.map((m: any) => m.deckNormalizedName));
+  const newDeckNames = new Set(newDecks.map(d => d.normalizedName));
+
+  const gameInfo = await db.get('SELECT * FROM games_master WHERE gameId = ?', gameId);
+
+  // Remove decks no longer in the game
+  for (const existing of existingDeckMatches) {
+    if (!newDeckNames.has(existing.deckNormalizedName)) {
+      await db.run('DELETE FROM deck_matches WHERE gameId = ? AND deckNormalizedName = ?', [gameId, existing.deckNormalizedName]);
+      modifications.push(`Removed deck ${existing.deckDisplayName} from game`);
+    }
   }
 
-  modifications.push(`Modified ${decks.length} deck results`);
+  // Add new decks and update existing ones
+  for (const deck of newDecks) {
+    if (existingDeckNames.has(deck.normalizedName)) {
+      // Update existing
+      await db.run(
+        'UPDATE deck_matches SET status = ? WHERE gameId = ? AND deckNormalizedName = ?',
+        [deck.status, gameId, deck.normalizedName]
+      );
+    } else {
+      // Add new deck match record
+      await getOrCreateDeck(deck.normalizedName, deck.displayName);
+      await db.run(`
+        INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        `set-${Date.now()}-${deck.normalizedName}`,
+        gameId,
+        deck.normalizedName,
+        deck.displayName,
+        deck.status,
+        gameInfo?.createdAt || new Date().toISOString(),
+        25.0,
+        8.333,
+        null,
+        gameInfo?.gameSequence || null,
+        1
+      ]);
+      modifications.push(`Added deck ${deck.displayName} to game (${deck.status})`);
+    }
+  }
+
+  modifications.push(`Modified deck results: ${newDecks.length} deck(s) in game`);
 }
 
 async function createGameModificationSnapshot(gameId: string, adminId: string, gameInfo: any, active: boolean | null): Promise<SetCommandSnapshot> {
@@ -945,7 +1013,10 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
     };
 
     const oldRating = playerRatings[match.userId];
-    const adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
+    let adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    adjustedRating = applyParticipationBonus(adjustedRating);
 
     // Update stats based on ORIGINAL outcome
     const stats = playerStats[match.userId];
@@ -955,8 +1026,8 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
 
     // Update the match record with new ratings but keep original outcome
     await db.run(`
-      UPDATE matches 
-      SET mu = ?, sigma = ? 
+      UPDATE matches
+      SET mu = ?, sigma = ?
       WHERE gameId = ? AND userId = ?
     `, [adjustedRating.mu, adjustedRating.sigma, gameId, match.userId]);
 
@@ -1056,7 +1127,10 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
   // Apply changes to unique decks
   for (const [deckName, changes] of Object.entries(deckChanges)) {
     const stats = deckStats[deckName];
-    
+
+    // Apply participation bonus (+1 Elo for playing ranked)
+    const bonusRating = applyParticipationBonus(changes.newRating);
+
     // Update stats based on ORIGINAL outcomes
     for (const status of changes.statusUpdates) {
       if (status === 'w') stats.wins++;
@@ -1066,16 +1140,16 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
 
     // Update match records with new ratings but keep original outcomes
     await db.run(`
-      UPDATE deck_matches 
-      SET mu = ?, sigma = ? 
+      UPDATE deck_matches
+      SET mu = ?, sigma = ?
       WHERE gameId = ? AND deckNormalizedName = ?
-    `, [changes.newRating.mu, changes.newRating.sigma, gameId, deckName]);
+    `, [bonusRating.mu, bonusRating.sigma, gameId, deckName]);
 
     await updateDeckRating(
       deckName,
       stats.displayName,
-      changes.newRating.mu,
-      changes.newRating.sigma,
+      bonusRating.mu,
+      bonusRating.sigma,
       stats.wins,
       stats.losses,
       stats.draws
@@ -1185,6 +1259,19 @@ function ensureMinimumRatingChange(oldRating: any, newRating: any, status: strin
   }
   
   return newRating;
+}
+
+const PARTICIPATION_BONUS_ELO = 1;
+
+/**
+ * Apply participation bonus (+1 Elo) to a rating during re-execution.
+ * Adjusts mu to achieve +1 Elo while keeping sigma unchanged.
+ */
+function applyParticipationBonus(rating: { mu: number; sigma: number }): { mu: number; sigma: number } {
+  const currentElo = calculateElo(rating.mu, rating.sigma);
+  const bonusElo = currentElo + PARTICIPATION_BONUS_ELO;
+  const newMu = muFromElo(bonusElo, rating.sigma);
+  return { mu: newMu, sigma: rating.sigma };
 }
 
 async function handleCommanderRatingModification(
@@ -1483,12 +1570,13 @@ async function handleDeckAssignment(
         WHERE assignedPlayer = ?
       `, targetUserId);
       
-      // Trigger comprehensive recalculation for all affected games
+      // Full from-scratch recalculation for all affected games (includes 0/0/0 cleanup)
       if (gamesWithDecks.length > 0) {
+        await recalculateAllPlayersFromScratch();
         await recalculateAllDecksFromScratch();
       }
-      
-      return `Removed all deck assignments (past, present, future) for ${displayName} and recalculated commander ratings`;
+
+      return `Removed all deck assignments (past, present, future) for ${displayName} and recalculated all ratings`;
       
     } else if (gameId) {
       // Remove from SPECIFIC game only (does NOT affect other games)
@@ -1509,12 +1597,13 @@ async function handleDeckAssignment(
         WHERE gameId = ? AND assignedPlayer = ?
       `, [gameId, targetUserId]);
       
-      // If there was an assignment, trigger recalculation from this game's sequence
+      // Full from-scratch recalculation if there was an assignment change (includes 0/0/0 cleanup)
       if (currentAssignment && gameInfo) {
-        await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
+        await recalculateAllPlayersFromScratch();
+        await recalculateAllDecksFromScratch();
       }
-      
-      return `Removed deck assignment for ${displayName} in game ${gameId} ONLY and recalculated ratings`;
+
+      return `Removed deck assignment for ${displayName} in game ${gameId} ONLY and recalculated all ratings`;
       
     } else {
       // CRITICAL FIX: Remove ONLY the default deck setting
@@ -1535,10 +1624,11 @@ async function handleDeckAssignment(
       await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       
-      // Recalculate all deck ratings since we changed ALL assignments
+      // Full from-scratch recalculation since we changed ALL assignments (includes 0/0/0 cleanup)
+      await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
-      
-      return `Set ${deckName} for ${displayName} in ALL games (past, present, future) and recalculated ratings`;
+
+      return `Set ${deckName} for ${displayName} in ALL games (past, present, future) and recalculated all ratings`;
       
     } else if (gameId) {
       // CRITICAL FIX: Game-specific assignment (HIGHEST PRIORITY - overrides any default)
@@ -1551,14 +1641,11 @@ async function handleDeckAssignment(
       
       await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?', normalizedName, targetUserId, gameId);
       
-      // Get game info for sequence-based recalculation
-      const gameInfo = await db.get('SELECT gameSequence FROM games_master WHERE gameId = ?', gameId);
-      if (gameInfo) {
-        // Trigger comprehensive recalculation that includes both player and deck ratings
-        await recalculateAllRatingsFromSequence(gameInfo.gameSequence);
-      }
-      
-      return `Assigned ${deckName} to ${displayName} for game ${gameId} ONLY (does not affect other games) and recalculated ratings`;
+      // Full from-scratch recalculation (includes 0/0/0 cleanup)
+      await recalculateAllPlayersFromScratch();
+      await recalculateAllDecksFromScratch();
+
+      return `Assigned ${deckName} to ${displayName} for game ${gameId} ONLY (does not affect other games) and recalculated all ratings`;
       
     } else {
       // CRITICAL FIX: Set default deck for FUTURE games ONLY
