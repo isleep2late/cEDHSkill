@@ -343,17 +343,15 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
       return { sequence: (result?.maxSeq || 0) + 1.0, injectedTimestamp: null };
     }
 
-    // ENHANCED: Handle special case "0" for pre-injection (before all games)
-    if (afterGameId === '0') {
-      // Find the minimum sequence number and place the new game before it
-      const firstGame = await db.get('SELECT MIN(gameSequence) as minSeq, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
-      const result = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
-      const minSequence = firstGame?.minSeq || 1.0;
+    // Handle special cases "0" and "start" for pre-injection (before all games)
+    if (afterGameId === '0' || afterGameId.toLowerCase() === 'start') {
+      const firstGame = await db.get('SELECT gameSequence, createdAt FROM games_master WHERE status = "confirmed" AND active = 1 ORDER BY gameSequence ASC LIMIT 1');
+      const minSequence = firstGame?.gameSequence || 1.0;
 
       // Timestamp: 1 hour before the first game
       let injectedTimestamp: Date;
-      if (result?.createdAt) {
-        injectedTimestamp = new Date(new Date(result.createdAt).getTime() - 60 * 60 * 1000);
+      if (firstGame?.createdAt) {
+        injectedTimestamp = new Date(new Date(firstGame.createdAt).getTime() - 60 * 60 * 1000);
       } else {
         injectedTimestamp = new Date();
       }
@@ -382,21 +380,20 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
       : targetGame.gameSequence + 1.0;
 
     // Compute injected timestamp
-    let injectedTimestamp: Date;
+    let injectedTimestamp: Date | null;
     const targetTime = new Date(targetGame.createdAt).getTime();
 
     if (nextGame?.nextSeq && nextGame.createdAt) {
-      // There IS a game after the reference game: halfway point between the two
+      // There IS a game after the reference game: midway point between the two
       const nextTime = new Date(nextGame.createdAt).getTime();
       const midpoint = Math.floor((targetTime + nextTime) / 2);
       injectedTimestamp = new Date(midpoint);
+      // Round down to nearest minute
+      injectedTimestamp.setSeconds(0, 0);
     } else {
-      // No game after: 1 hour after the reference game
-      injectedTimestamp = new Date(targetTime + 60 * 60 * 1000);
+      // No game after the reference game: this is effectively appending to the end, use "now"
+      injectedTimestamp = null;
     }
-
-    // Round down to nearest minute
-    injectedTimestamp.setSeconds(0, 0);
 
     return { sequence, injectedTimestamp };
   } catch (error) {
@@ -1092,7 +1089,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('aftergame')
-      .setDescription('Admin only: Inject this game after specified game ID or 0 to place before all games')
+      .setDescription('Admin only: Inject this game after specified game ID. Use "start" or "0" to place before all games')
       .setRequired(false)
   );
 
