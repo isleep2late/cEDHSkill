@@ -30,6 +30,8 @@
 - ✅ Fixed: `/print` exports now include commander assignments in player and league history
 - ✅ Fixed: W/L/D records display correctly in all history exports
 - ✅ Fixed: Full league history export now retrieves ALL entries (removed artificial limits)
+- ✅ Fixed: `/thanossnap` now properly handles long-running operations without timeout errors
+- ✅ Fixed: `/snap` now properly handles deleting many limbo messages without timeout errors
 
 ---
 
