@@ -458,11 +458,11 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all pure deck games in chronological order (by sequence)
+  // Get all ACTIVE pure deck games in chronological order (by sequence)
   const allDeckGames = await db.all(`
     SELECT gameId, gameSequence
     FROM games_master
-    WHERE gameType = 'deck' AND status = 'confirmed'
+    WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
 
@@ -471,14 +471,14 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allDeckGames.length} pure deck games`);
+  console.log(`[RECALC] Completed recalculation of ${allDeckGames.length} active pure deck games`);
 
-  // Also replay commander ratings for hybrid player games (player games with assigned decks)
+  // Also replay commander ratings for ACTIVE hybrid player games (player games with assigned decks)
   const hybridGames = await db.all(`
     SELECT DISTINCT gm.gameId, gm.gameSequence
     FROM games_master gm
     JOIN matches m ON m.gameId = gm.gameId
-    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND m.assignedDeck IS NOT NULL
+    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND gm.active = 1 AND m.assignedDeck IS NOT NULL
     ORDER BY gm.gameSequence ASC
   `);
 
@@ -1449,7 +1449,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   // Pre-fetch usernames, ratings, and records
   const userNames: Record<string, string> = {};
   const preRatings: Record<string, Rating> = {};
-  const records: Record<string, { wins: number; losses: number; draws: number }> = {};
+  const records: Record<string, { wins: number; losses: number; draws: number; lastPlayed: string | null }> = {};
   for (const p of players) {
   try {
     const u = await client.users.fetch(p.userId);
@@ -1465,13 +1465,14 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     records[p.userId] = {
       wins: pd.wins || 0,
       losses: pd.losses || 0,
-      draws: pd.draws || 0
+      draws: pd.draws || 0,
+      lastPlayed: pd.lastPlayed || null
     };
   } catch (error) {
     console.error(`Failed to get player data for ${p.userId}:`, error);
     // Use defaults if database fails
     preRatings[p.userId] = rating({ mu: 25.0, sigma: 8.333 });
-    records[p.userId] = { wins: 0, losses: 0, draws: 0 };
+    records[p.userId] = { wins: 0, losses: 0, draws: 0, lastPlayed: null };
   }
 }
 
@@ -2671,6 +2672,7 @@ for (const player of players) {
     submittedBy: submitterId
   }));
 
+  const gameTimestamp = new Date().toISOString();
   await saveMatchSnapshot({
     matchId,
     gameId,
@@ -2686,7 +2688,8 @@ for (const player of players) {
       draws: records[p.userId].draws - (players.find(x => x.userId === p.userId)?.status === 'd' ? 1 : 0),
       tag: userNames[p.userId],
       turnOrder: p.turnOrder,
-      commander: p.commander || undefined
+      commander: p.commander || undefined,
+      lastPlayed: records[p.userId].lastPlayed // Pre-game lastPlayed
     })),
     after: players.map((p) => ({
       userId: p.userId,
@@ -2697,7 +2700,8 @@ for (const player of players) {
       draws: records[p.userId].draws,
       tag: userNames[p.userId],
       turnOrder: p.turnOrder,
-      commander: p.commander || undefined
+      commander: p.commander || undefined,
+      lastPlayed: gameTimestamp // Post-game lastPlayed (game happened now)
     }))
   });
 

@@ -98,12 +98,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
 async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: string): Promise<void> {
   console.log(`[UNDO] Restoring ratings from snapshot for ${snapshot.gameType} game ${snapshot.gameId}`);
+  const db = getDatabase();
 
   // Restore player ratings to before-game state
   const playerBefore = snapshot.before.filter(s => 'userId' in s) as PlayerSnapshot[];
   for (const playerSnapshot of playerBefore) {
     console.log(`[UNDO] Restoring player ${playerSnapshot.userId} to mu: ${playerSnapshot.mu}, sigma: ${playerSnapshot.sigma}, W/L/D: ${playerSnapshot.wins}/${playerSnapshot.losses}/${playerSnapshot.draws}`);
-    
+
     await updatePlayerRating(
       playerSnapshot.userId,
       playerSnapshot.mu,
@@ -112,6 +113,11 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
       playerSnapshot.losses,
       playerSnapshot.draws
     );
+
+    // Restore lastPlayed to pre-game value (updatePlayerRating resets it to "now")
+    if (playerSnapshot.lastPlayed !== undefined) {
+      await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [playerSnapshot.lastPlayed, playerSnapshot.userId]);
+    }
 
     // Log the reversion for audit purposes
     const afterSnapshot = snapshot.after.find(s => 'userId' in s && s.userId === playerSnapshot.userId) as PlayerSnapshot;
