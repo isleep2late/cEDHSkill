@@ -1665,7 +1665,6 @@ const turnOrderCollector = replyMsg.createReactionCollector({
 
 // Maintain clean state for admin collector too
 const adminCleanTurnOrderState = new Map<string, number>();
-const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
 
 // Add auto-assignment logic for admin games
 const checkAndApplyAdminAutoAssignment = () => {
@@ -1748,16 +1747,6 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     return; // Exit immediately
   }
 
-  // BOUNCER: Check if user has already reacted to turn order once
-  if (userHasReactedToTurnOrder.has(user.id)) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      console.error('Failed to remove second admin turn order reaction:', error);
-    }
-    return;
-  }
-
   const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
   if (playerHasTurnOrder) {
     try {
@@ -1769,28 +1758,47 @@ turnOrderCollector.on('collect', async (reaction, user) => {
   }
 
   const turnOrder = turnOrderEmojis.indexOf(reaction.emoji.name!) + 1;
+
+  // Check if this turn order was provided inline (from command input)
   if (!missingTurnOrders.includes(turnOrder)) {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove invalid admin turn order reaction:', error);
+      console.error('Failed to remove unavailable admin turn order reaction:', error);
     }
     return;
   }
 
-  // Mark user as having reacted to turn order
-  userHasReactedToTurnOrder.add(user.id);
+  // Check if this turn order is already claimed by ANOTHER user via reactions
+  const currentHolder = Array.from(adminCleanTurnOrderState.entries()).find(
+    ([otherId, otherOrder]) => otherId !== user.id && otherOrder === turnOrder
+  );
+  if (currentHolder) {
+    // Turn already taken by someone else - reject (first come, first served)
+    try {
+      await reaction.users.remove(user.id);
+    } catch (error) {
+      console.error('Failed to remove contested admin turn order reaction:', error);
+    }
+    return;
+  }
 
-  // Update our clean state (not Discord reactions)
-  adminCleanTurnOrderState.set(user.id, turnOrder);
-  
-  // Remove conflicts from our clean state
-  for (const [otherUserId, otherOrder] of Array.from(adminCleanTurnOrderState.entries())) {
-    if (otherUserId !== user.id && otherOrder === turnOrder) {
-      adminCleanTurnOrderState.delete(otherUserId);
-      userHasReactedToTurnOrder.delete(otherUserId);
+  // If this user already had a different turn order, free it and remove old reaction
+  if (adminCleanTurnOrderState.has(user.id)) {
+    const oldTurnOrder = adminCleanTurnOrderState.get(user.id)!;
+    adminCleanTurnOrderState.delete(user.id);
+    // Remove their old turn order reaction so the spot visually opens up
+    try {
+      const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
+      const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
+      if (oldReaction) await oldReaction.users.remove(user.id);
+    } catch (error) {
+      console.error('Failed to remove old admin turn order reaction:', error);
     }
   }
+
+  // Claim this turn order
+  adminCleanTurnOrderState.set(user.id, turnOrder);
 
   // Update embed using our clean state only
   await updateAdminEmbedWithTurnOrders();
@@ -1942,7 +1950,6 @@ let isProcessing = false;
 
 // Maintain our own clean state - ignore Discord reactions for display
 const cleanTurnOrderState = new Map<string, number>();
-const userHasReactedToTurnOrder = new Set<string>(); // Track who has already reacted to turn order
 
 // Add this function for auto-assignment logic
 const checkAndApplyAutoAssignment = () => {
@@ -2115,22 +2122,12 @@ collector.on('collect', async (reaction, user) => {
     return;
   }
 
-  // Handle turn order reactions with bouncer for turn order only
+  // Handle turn order reactions - first come first served, users can change their own
   const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
   if (turnOrderEmojis.includes(reaction.emoji.name!)) {
-    // BOUNCER: Check if user has already reacted to turn order once
-    if (userHasReactedToTurnOrder.has(user.id)) {
-      try {
-        await reaction.users.remove(user.id);
-      } catch (error) {
-        console.error('Failed to remove second turn order reaction:', error);
-      }
-      return;
-    }
-
     const isParticipant = players.some(p => p.userId === user.id);
     const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
-    
+
     if (!isParticipant || playerHasTurnOrder) {
       try {
         await reaction.users.remove(user.id);
@@ -2141,10 +2138,10 @@ collector.on('collect', async (reaction, user) => {
     }
 
     const turnOrder = turnOrderEmojis.indexOf(reaction.emoji.name!) + 1;
-    const currentProvidedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
-    const currentMissingTurnOrders = [1, 2, 3, 4].filter(t => !currentProvidedTurnOrders.has(t));
-    
-    if (!currentMissingTurnOrders.includes(turnOrder)) {
+
+    // Check if this turn order is already provided inline (from command input)
+    const inlineTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
+    if (inlineTurnOrders.has(turnOrder)) {
       try {
         await reaction.users.remove(user.id);
       } catch (error) {
@@ -2153,18 +2150,36 @@ collector.on('collect', async (reaction, user) => {
       return;
     }
 
-    // Mark user as having reacted to turn order
-    userHasReactedToTurnOrder.add(user.id);
+    // Check if this turn order is already claimed by ANOTHER user via reactions
+    const currentHolder = Array.from(cleanTurnOrderState.entries()).find(
+      ([otherId, otherOrder]) => otherId !== user.id && otherOrder === turnOrder
+    );
+    if (currentHolder) {
+      // Turn already taken by someone else - reject (first come, first served)
+      try {
+        await reaction.users.remove(user.id);
+      } catch (error) {
+        console.error('Failed to remove contested turn order reaction:', error);
+      }
+      return;
+    }
 
-    // Update our clean state (not Discord reactions)
-    cleanTurnOrderState.set(user.id, turnOrder);
-    
-    // Remove conflicts from our clean state
-    for (const [otherUserId, otherOrder] of Array.from(cleanTurnOrderState.entries())) {
-      if (otherUserId !== user.id && otherOrder === turnOrder) {
-        cleanTurnOrderState.delete(otherUserId);
+    // If this user already had a different turn order, free it and remove old reaction
+    if (cleanTurnOrderState.has(user.id)) {
+      const oldTurnOrder = cleanTurnOrderState.get(user.id)!;
+      cleanTurnOrderState.delete(user.id);
+      // Remove their old turn order reaction so the spot visually opens up
+      try {
+        const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
+        const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
+        if (oldReaction) await oldReaction.users.remove(user.id);
+      } catch (error) {
+        console.error('Failed to remove old turn order reaction:', error);
       }
     }
+
+    // Claim this turn order
+    cleanTurnOrderState.set(user.id, turnOrder);
 
     // Update embed using our clean state only
     await updateEmbedWithTurnOrders();
