@@ -62,6 +62,13 @@ export interface SetCommandSnapshot {
 
     // For game modifications
     active?: boolean;
+    matchRecords?: any[];
+    deckMatchRecords?: any[];
+
+    // For deck assignments (bulk/allgames)
+    matchAssignments?: Array<{ gameId: string; assignedDeck: string | null }>;
+    playerDeckAssignments?: any[];
+    needsRecalculation?: boolean;
 
   };
   after: {
@@ -75,6 +82,11 @@ export interface SetCommandSnapshot {
     turnOrder?: number | null;
     gamesWithTurnOrder?: string[];
     active?: boolean;
+    matchRecords?: any[];
+    deckMatchRecords?: any[];
+    matchAssignments?: Array<{ gameId: string; assignedDeck: string | null }>;
+    playerDeckAssignments?: any[];
+    needsRecalculation?: boolean;
   };
   metadata: {
     adminUserId: string;
@@ -310,26 +322,53 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
         snapshot.before.draws!
       );
     } else if (snapshot.operationType === 'deck_assignment') {
+      // Restore defaultDeck
       if (snapshot.before.defaultDeck !== undefined) {
-        await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', 
+        await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?',
           [snapshot.before.defaultDeck, snapshot.targetId]);
       }
-      if (snapshot.before.gameSpecificDeck !== undefined) {
-        if (snapshot.before.gameSpecificDeck === null) {
-          await db.run('DELETE FROM player_deck_assignments WHERE userId = ? AND gameId = ?', 
-            [snapshot.targetId, snapshot.gameId]);
-        } else {
-          await db.run(`
-            INSERT OR REPLACE INTO player_deck_assignments 
-            (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
-            VALUES (?, ?, ?, ?, 'game_specific', ?)
-          `, [snapshot.targetId, snapshot.gameId, snapshot.before.gameSpecificDeck, 
-              snapshot.before.gameSpecificDeck, snapshot.metadata.adminUserId]);
+
+      // Restore match assignedDeck values
+      if (snapshot.before.matchAssignments) {
+        for (const ma of snapshot.before.matchAssignments) {
+          await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?',
+            [ma.assignedDeck, snapshot.targetId, ma.gameId]);
         }
       }
-    } else if (snapshot.operationType === 'turn_order') {
-      await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?', 
+
+      // Restore player_deck_assignments
+      if (snapshot.before.playerDeckAssignments !== undefined) {
+        await db.run('DELETE FROM player_deck_assignments WHERE userId = ?', snapshot.targetId);
+        for (const pda of snapshot.before.playerDeckAssignments) {
+          await db.run(`
+            INSERT INTO player_deck_assignments (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [pda.userId, pda.gameId, pda.deckNormalizedName, pda.deckDisplayName, pda.assignmentType, pda.createdBy]);
+        }
+      }
+
+      // Recalculate if the original operation triggered recalculation
+      if (snapshot.before.needsRecalculation) {
+        const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
+        console.log(`[SNAPSHOT] Recalculating all ratings after undoing deck assignment...`);
+        await recalculateAllPlayersFromScratch();
+        await recalculateAllDecksFromScratch();
+        const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
+        await cleanupZeroPlayers();
+        await cleanupZeroDecks();
+      }
+    } else if (snapshot.operationType === 'turn_order' || snapshot.operationType === 'turn_order_removal') {
+      await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?',
         [snapshot.before.turnOrder, snapshot.targetId, snapshot.gameId]);
+    } else if (snapshot.operationType === 'bulk_turn_order_removal') {
+      // Restore each game's turn order from the before state
+      if (snapshot.before.gamesWithTurnOrder) {
+        for (const game of snapshot.before.gamesWithTurnOrder) {
+          await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?',
+            [(game as any).turnOrder, snapshot.targetId, (game as any).gameId]);
+        }
+        console.log(`[SNAPSHOT] Restored turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
+      }
     }
   } else if (snapshot.targetType === 'deck') {
     if (snapshot.operationType === 'rating_change') {
@@ -354,15 +393,41 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?',
         [snapshot.before.active ? 1 : 0, snapshot.targetId]);
 
-      // CRITICAL: Recalculate all ratings after changing game active status
-      // This mirrors what /set does when modifying game active status
+      // Restore match records to pre-modification state
+      if (snapshot.before.matchRecords) {
+        await db.run('DELETE FROM matches WHERE gameId = ?', snapshot.targetId);
+        for (const record of snapshot.before.matchRecords) {
+          await db.run(`
+            INSERT INTO matches (id, gameId, userId, status, matchDate, mu, sigma, teams, scores, score, submittedByAdmin, turnOrder, gameSequence, assignedDeck)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [record.id, record.gameId, record.userId, record.status, record.matchDate,
+              record.mu, record.sigma, record.teams, record.scores, record.score,
+              record.submittedByAdmin, record.turnOrder, record.gameSequence, record.assignedDeck]);
+        }
+        console.log(`[SNAPSHOT] Restored ${snapshot.before.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
+      }
+
+      if (snapshot.before.deckMatchRecords) {
+        await db.run('DELETE FROM deck_matches WHERE gameId = ?', snapshot.targetId);
+        for (const record of snapshot.before.deckMatchRecords) {
+          await db.run(`
+            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [record.id, record.gameId, record.deckNormalizedName, record.deckDisplayName,
+              record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
+              record.gameSequence, record.submittedByAdmin]);
+        }
+        console.log(`[SNAPSHOT] Restored ${snapshot.before.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
+      }
+
+      // Recalculate all ratings after restoring records
       const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
 
-      console.log(`[SNAPSHOT] Recalculating all ratings after undoing game activation change...`);
+      console.log(`[SNAPSHOT] Recalculating all ratings after undoing game modification...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
 
-      // Always run cleanup for consistency after game activation changes
+      // Always run cleanup for consistency
       const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
       const playerCleanup = await cleanupZeroPlayers();
       const deckCleanup = await cleanupZeroDecks();
@@ -389,26 +454,53 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
         snapshot.after.draws!
       );
     } else if (snapshot.operationType === 'deck_assignment') {
+      // Restore defaultDeck to "after" state
       if (snapshot.after.defaultDeck !== undefined) {
-        await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', 
+        await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?',
           [snapshot.after.defaultDeck, snapshot.targetId]);
       }
-      if (snapshot.after.gameSpecificDeck !== undefined) {
-        if (snapshot.after.gameSpecificDeck === null) {
-          await db.run('DELETE FROM player_deck_assignments WHERE userId = ? AND gameId = ?', 
-            [snapshot.targetId, snapshot.gameId]);
-        } else {
-          await db.run(`
-            INSERT OR REPLACE INTO player_deck_assignments 
-            (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
-            VALUES (?, ?, ?, ?, 'game_specific', ?)
-          `, [snapshot.targetId, snapshot.gameId, snapshot.after.gameSpecificDeck, 
-              snapshot.after.gameSpecificDeck, snapshot.metadata.adminUserId]);
+
+      // Restore match assignedDeck values to "after" state
+      if (snapshot.after.matchAssignments) {
+        for (const ma of snapshot.after.matchAssignments) {
+          await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?',
+            [ma.assignedDeck, snapshot.targetId, ma.gameId]);
         }
       }
-    } else if (snapshot.operationType === 'turn_order') {
-      await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?', 
+
+      // Restore player_deck_assignments to "after" state
+      if (snapshot.after.playerDeckAssignments !== undefined) {
+        await db.run('DELETE FROM player_deck_assignments WHERE userId = ?', snapshot.targetId);
+        for (const pda of snapshot.after.playerDeckAssignments) {
+          await db.run(`
+            INSERT INTO player_deck_assignments (userId, gameId, deckNormalizedName, deckDisplayName, assignmentType, createdBy)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [pda.userId, pda.gameId, pda.deckNormalizedName, pda.deckDisplayName, pda.assignmentType, pda.createdBy]);
+        }
+      }
+
+      // Recalculate if the original operation triggered recalculation
+      if (snapshot.after.needsRecalculation) {
+        const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
+        console.log(`[SNAPSHOT] Recalculating all ratings after redoing deck assignment...`);
+        await recalculateAllPlayersFromScratch();
+        await recalculateAllDecksFromScratch();
+        const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
+        await cleanupZeroPlayers();
+        await cleanupZeroDecks();
+      }
+    } else if (snapshot.operationType === 'turn_order' || snapshot.operationType === 'turn_order_removal') {
+      await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?',
         [snapshot.after.turnOrder, snapshot.targetId, snapshot.gameId]);
+    } else if (snapshot.operationType === 'bulk_turn_order_removal') {
+      // Re-apply bulk removal: set all turn orders to NULL
+      if (snapshot.before.gamesWithTurnOrder) {
+        for (const game of snapshot.before.gamesWithTurnOrder) {
+          await db.run('UPDATE matches SET turnOrder = NULL WHERE userId = ? AND gameId = ?',
+            [snapshot.targetId, (game as any).gameId]);
+        }
+        console.log(`[SNAPSHOT] Re-removed turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
+      }
     }
   } else if (snapshot.targetType === 'deck') {
     if (snapshot.operationType === 'rating_change') {
@@ -432,15 +524,41 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       await db.run('UPDATE game_ids SET active = ? WHERE gameId = ?',
         [snapshot.after.active ? 1 : 0, snapshot.targetId]);
 
-      // CRITICAL: Recalculate all ratings after changing game active status
-      // This mirrors what /set does when modifying game active status
+      // Restore match records to post-modification state
+      if (snapshot.after.matchRecords) {
+        await db.run('DELETE FROM matches WHERE gameId = ?', snapshot.targetId);
+        for (const record of snapshot.after.matchRecords) {
+          await db.run(`
+            INSERT INTO matches (id, gameId, userId, status, matchDate, mu, sigma, teams, scores, score, submittedByAdmin, turnOrder, gameSequence, assignedDeck)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [record.id, record.gameId, record.userId, record.status, record.matchDate,
+              record.mu, record.sigma, record.teams, record.scores, record.score,
+              record.submittedByAdmin, record.turnOrder, record.gameSequence, record.assignedDeck]);
+        }
+        console.log(`[SNAPSHOT] Restored ${snapshot.after.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
+      }
+
+      if (snapshot.after.deckMatchRecords) {
+        await db.run('DELETE FROM deck_matches WHERE gameId = ?', snapshot.targetId);
+        for (const record of snapshot.after.deckMatchRecords) {
+          await db.run(`
+            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [record.id, record.gameId, record.deckNormalizedName, record.deckDisplayName,
+              record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
+              record.gameSequence, record.submittedByAdmin]);
+        }
+        console.log(`[SNAPSHOT] Restored ${snapshot.after.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
+      }
+
+      // Recalculate all ratings after restoring records
       const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
 
-      console.log(`[SNAPSHOT] Recalculating all ratings after redoing game activation change...`);
+      console.log(`[SNAPSHOT] Recalculating all ratings after redoing game modification...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
 
-      // Always run cleanup for consistency after game activation changes
+      // Always run cleanup for consistency
       const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
       const playerCleanup = await cleanupZeroPlayers();
       const deckCleanup = await cleanupZeroDecks();
