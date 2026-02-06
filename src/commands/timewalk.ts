@@ -19,6 +19,9 @@ import { applyRatingDecay, getMinDaysForNextDecay, addTimewalkDays, getTimewalkD
  * IMPORTANT: This is for admin testing only, NOT for regular users or moderators.
  */
 
+// Maximum days allowed for timewalk (security limit)
+const MAX_TIMEWALK_DAYS = 90;
+
 function isAdmin(userId: string): boolean {
   return config.admins.includes(userId);
 }
@@ -29,10 +32,10 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption(option =>
     option
       .setName('days')
-      .setDescription('Number of days to simulate (default: minimum needed for next decay)')
+      .setDescription(`Number of days to simulate (1-${MAX_TIMEWALK_DAYS}, default: minimum needed for next decay)`)
       .setRequired(false)
       .setMinValue(1)
-      .setMaxValue(365)
+      .setMaxValue(MAX_TIMEWALK_DAYS)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -55,6 +58,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     // Get explicit days parameter, or calculate minimum needed for next decay
     const explicitDays = interaction.options.getInteger('days');
+
+    // Server-side validation (backup security check)
+    if (explicitDays !== null && (explicitDays < 1 || explicitDays > MAX_TIMEWALK_DAYS)) {
+      await interaction.editReply({
+        content: `Days must be between 1 and ${MAX_TIMEWALK_DAYS}.`
+      });
+      return;
+    }
+
     const simulatedDays = explicitDays ?? await getMinDaysForNextDecay();
 
     console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days, cumulative before: ${cumulativeBefore})`);
