@@ -420,6 +420,22 @@ async function storeGameInMaster(gameId: string, gameSequence: number, submitted
   }
 }
 
+// Clean up database records for an unconfirmed (limbo) game that was cancelled or timed out
+export async function cleanupUnconfirmedGame(gameId: string): Promise<void> {
+  const { getDatabase } = await import('../db/init.js');
+  const db = getDatabase();
+  try {
+    await db.run('DELETE FROM games_master WHERE gameId = ?', gameId);
+    await db.run('DELETE FROM game_ids WHERE gameId = ?', gameId);
+    // Also clean up any match/deck_match records just in case
+    await db.run('DELETE FROM matches WHERE gameId = ?', gameId);
+    await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
+    console.log(`[CLEANUP] Removed unconfirmed game ${gameId} from database`);
+  } catch (error) {
+    console.error(`[CLEANUP] Error removing unconfirmed game ${gameId}:`, error);
+  }
+}
+
 // Function to update all match records with game sequence
 async function updateMatchesWithSequence(gameId: string, gameSequence: number, gameType: 'player' | 'deck'): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
@@ -1550,9 +1566,9 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
       allRelevantUsers.delete(client.user.id);
     }
     
-    for (const [messageId, limboPlayerSet] of client.limboGames) {
+    for (const [messageId, limboData] of client.limboGames) {
       for (const userId of allRelevantUsers) {
-        if (limboPlayerSet.has(userId)) {
+        if (limboData.players.has(userId)) {
           playersInLimbo.push(userId);
         }
       }
@@ -1907,7 +1923,7 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
     if (players.map(p => p.userId).includes(interaction.user.id)) {
       limboUsers.add(interaction.user.id);
     }
-    client.limboGames.set(replyMsg.id, limboUsers);
+    client.limboGames.set(replyMsg.id, { gameId, gameType: 'player', players: limboUsers });
 
     // Track turn order selections
     const turnOrderSelections = new Map<string, number>();
@@ -2016,7 +2032,8 @@ collector.on('collect', async (reaction, user) => {
       if (isProcessing) return; // Prevent cancellation during processing
       collector.stop('cancelled');
       client.limboGames.delete(replyMsg.id);
-      
+      await cleanupUnconfirmedGame(gameId);
+
       const cancelEmbed = new EmbedBuilder()
         .setTitle('❌ Game Cancelled')
         .setDescription('The game creator has cancelled this pending game.')
@@ -2157,7 +2174,8 @@ collector.on('end', async (collected, reason) => {
   try {
     if (reason === 'time') {
       client.limboGames.delete(replyMsg.id);
-      
+      await cleanupUnconfirmedGame(gameId);
+
       const timeoutEmbed = new EmbedBuilder()
         .setTitle('⏰ Game Expired')
         .setDescription('This game timed out after 1 hour without all players confirming.')
@@ -2396,7 +2414,7 @@ if (decks.length === 4) {
     const requiredConfirmations = 2;
 
     // Track this game in limbo
-    client.limboGames.set(replyMsg.id, new Set([interaction.user.id]));
+    client.limboGames.set(replyMsg.id, { gameId, gameType: 'deck', players: new Set([interaction.user.id]) });
 
     const collector = replyMsg.createReactionCollector({
       filter: (reaction, user) =>
@@ -2410,7 +2428,8 @@ if (decks.length === 4) {
         try {
           collector.stop('cancelled');
           client.limboGames.delete(replyMsg.id);
-          
+          await cleanupUnconfirmedGame(gameId);
+
           // Notify that deck battle was cancelled
           const cancelEmbed = new EmbedBuilder()
             .setTitle('❌ Deck Battle Cancelled')
@@ -2476,7 +2495,8 @@ if (decks.length === 4) {
     collector.on('end', async (collected, reason) => {
       if (reason === 'time') {
         client.limboGames.delete(replyMsg.id);
-        
+        await cleanupUnconfirmedGame(gameId);
+
         const timeoutEmbed = new EmbedBuilder()
           .setTitle('⏰ Deck Battle Expired')
           .setDescription('This deck battle timed out after 1 hour without sufficient confirmations.')
