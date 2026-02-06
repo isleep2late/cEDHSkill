@@ -105,7 +105,7 @@ async function logSetCommandRedo(snapshot: SetCommandSnapshot, adminUserId: stri
       targetType: snapshot.targetType as 'player' | 'deck',
       targetId: snapshot.targetId,
       targetDisplayName: snapshot.description,
-      changeType: 'undo', // Using 'undo' type for redo operations to track reversals
+      changeType: 'redo',
       adminUserId,
       oldMu: snapshot.before.mu!,
       oldSigma: snapshot.before.sigma!,
@@ -147,7 +147,7 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
         targetType: 'player',
         targetId: playerSnapshot.userId,
         targetDisplayName: playerSnapshot.tag,
-        changeType: 'undo', // Using 'undo' type for redo operations to track reversals
+        changeType: 'redo',
         adminUserId,
         oldMu: beforeSnapshot.mu,
         oldSigma: beforeSnapshot.sigma,
@@ -189,7 +189,7 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
         targetType: 'deck',
         targetId: deckSnapshot.normalizedName,
         targetDisplayName: deckSnapshot.displayName,
-        changeType: 'undo', // Using 'undo' type for redo operations to track reversals
+        changeType: 'redo',
         adminUserId,
         oldMu: beforeSnapshot.mu,
         oldSigma: beforeSnapshot.sigma,

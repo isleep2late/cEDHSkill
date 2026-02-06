@@ -528,7 +528,13 @@ export async function replayPlayerGame(gameId: string): Promise<void> {
       stats.losses,
       stats.draws
     );
-    
+
+    // Update match record with recalculated mu/sigma values
+    await db.run(
+      'UPDATE matches SET mu = ?, sigma = ? WHERE gameId = ? AND userId = ?',
+      [adjustedRating.mu, adjustedRating.sigma, gameId, match.userId]
+    );
+
     // Log the rating change for audit trail (replay/recalculation)
     try {
       await logRatingChange({
@@ -645,6 +651,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
       stats.wins,
       stats.losses,
       stats.draws
+    );
+
+    // Update all deck_match records for this deck with recalculated mu/sigma
+    await db.run(
+      'UPDATE deck_matches SET mu = ?, sigma = ? WHERE gameId = ? AND deckNormalizedName = ?',
+      [bonusedRating.mu, bonusedRating.sigma, gameId, deckName]
     );
 
     // Log the deck rating change for audit trail (replay/recalculation)
