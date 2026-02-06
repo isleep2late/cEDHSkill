@@ -12,7 +12,7 @@ import {
 } from 'discord.js';
 import { config } from './config.js';
 import { setAlertOptIn } from './utils/suspicion-utils.js';
-import { getAllPlayers, updatePlayerRatingForDecay } from './db/player-utils.js';
+import { getAllPlayers, updatePlayerRatingForDecay, getOrCreatePlayer } from './db/player-utils.js';
 import { calculateElo, muFromElo } from './utils/elo-utils.js';
 import cron from 'node-cron';
 import fs from 'node:fs';
@@ -154,11 +154,13 @@ export async function getMinDaysForNextDecay(): Promise<number> {
  * @param triggeredBy - 'cron' for scheduled decay, 'timewalk' for manual trigger
  * @param adminUserId - Admin user ID if triggered by timewalk
  * @param simulatedDaysOffset - For timewalk: pretend this many extra days have passed
+ * @param skipSnapshot - If true, skip creating undo snapshot (used during recalculation)
  */
 export async function applyRatingDecay(
   triggeredBy: 'cron' | 'timewalk' = 'cron',
   adminUserId?: string,
-  simulatedDaysOffset: number = 0
+  simulatedDaysOffset: number = 0,
+  skipSnapshot: boolean = false
 ): Promise<number> {
   console.log('[DECAY] Starting linear rating decay process...');
 
@@ -267,7 +269,8 @@ export async function applyRatingDecay(
   }
 
   // Save decay snapshot for undo/redo if any players were affected
-  if (decayedPlayers.length > 0) {
+  // Skip snapshot during recalculation (parent operation handles undo)
+  if (decayedPlayers.length > 0 && !skipSnapshot) {
     const timestamp = new Date().toISOString();
     const decaySnapshot: DecaySnapshot = {
       matchId: `decay-${Date.now()}`,
@@ -295,6 +298,53 @@ export async function applyRatingDecay(
 
   console.log(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
   return decayedPlayers.length;
+}
+
+/**
+ * Apply inter-game decay for specific players up to a reference date.
+ * Used during recalculation to interleave decay between game replays.
+ *
+ * Only applies decay to the specified player IDs, using their current
+ * lastPlayed date and the game's date to calculate the inactivity gap.
+ * No snapshot or audit logging (this is part of a larger recalculation).
+ */
+export async function applyDecayForPlayers(
+  playerIds: string[],
+  referenceDate: Date
+): Promise<number> {
+  let decayCount = 0;
+
+  for (const userId of playerIds) {
+    const player = await getOrCreatePlayer(userId);
+
+    // Skip players who haven't played any games yet (no lastPlayed)
+    if (!player.lastPlayed) continue;
+
+    // Calculate days between lastPlayed and the reference date (the upcoming game)
+    const msSinceLast = referenceDate.getTime() - new Date(player.lastPlayed).getTime();
+    if (msSinceLast <= 0) continue; // Game is before or at lastPlayed - no gap
+
+    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+    const daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);
+
+    if (daysPastGrace <= 0) continue;
+
+    const currentElo = calculateElo(player.mu, player.sigma);
+    if (currentElo <= ELO_CUTOFF) continue;
+
+    // Apply decay: -1 Elo per day past grace, floored at cutoff
+    const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
+    const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
+
+    const sigmaIncrement = Math.min(daysPastGrace * SIGMA_INCREMENT_PER_DECAY, 2);
+    const newSigma = Math.min(player.sigma + sigmaIncrement, 10);
+    const newMu = muFromElo(targetElo, newSigma);
+
+    await updatePlayerRatingForDecay(userId, newMu, newSigma, player.wins, player.losses, player.draws);
+    decayCount++;
+  }
+
+  return decayCount;
 }
 
 async function main() {
