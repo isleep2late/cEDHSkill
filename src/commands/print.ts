@@ -705,10 +705,13 @@ async function generatePlayerHistory(userId: string, interaction: ChatInputComma
     return output;
   }
 
-  const currentElo = calculateElo(playerStats.mu, playerStats.sigma);
+  // Handle null mu/sigma values (player exists but never played)
+  const mu = playerStats.mu ?? 25.0;
+  const sigma = playerStats.sigma ?? 8.333;
+  const currentElo = calculateElo(mu, sigma);
   output += '📊 CURRENT STATISTICS\n';
   output += '─'.repeat(50) + '\n';
-  output += `Rating: ${currentElo} Elo (μ=${playerStats.mu.toFixed(2)}, σ=${playerStats.sigma.toFixed(2)})\n`;
+  output += `Rating: ${currentElo} Elo (μ=${mu.toFixed(2)}, σ=${sigma.toFixed(2)})\n`;
   output += `Record: ${playerStats.wins || 0}W/${playerStats.losses || 0}L/${playerStats.draws || 0}D\n`;
   output += `Total Games: ${(playerStats.wins || 0) + (playerStats.losses || 0) + (playerStats.draws || 0)}\n`;
   if (playerStats.lastPlayed) {
@@ -764,15 +767,18 @@ async function generatePlayerHistory(userId: string, interaction: ChatInputComma
 
     const result = playerMatch.status === 'w' ? '🏆 WIN' : playerMatch.status === 'd' ? '🤝 DRAW' : '💀 LOSS';
     const turnInfo = playerMatch.turnOrder ? ` | Turn Order: ${playerMatch.turnOrder}` : ' | Turn Order: Unknown';
-    const elo = calculateElo(playerMatch.mu, playerMatch.sigma);
-    
+    // Handle null mu/sigma values in match data
+    const matchMu = playerMatch.mu ?? 25.0;
+    const matchSigma = playerMatch.sigma ?? 8.333;
+    const elo = calculateElo(matchMu, matchSigma);
+
     output += `🎲 YOUR RESULT: ${result}${turnInfo}\n`;
     if (playerMatch.assignedDeck) {
         const deckData = await db.get('SELECT displayName FROM decks WHERE normalizedName = ?', playerMatch.assignedDeck);
   const commanderDisplay = deckData?.displayName || playerMatch.assignedDeck;
   output += `🃏 Commander Used: ${commanderDisplay}\n`;
     }
-    output += `📈 Rating After Game: ${elo} Elo (μ=${playerMatch.mu.toFixed(2)}, σ=${playerMatch.sigma.toFixed(2)})\n`;
+    output += `📈 Rating After Game: ${elo} Elo (μ=${matchMu.toFixed(2)}, σ=${matchSigma.toFixed(2)})\n`;
     output += `👥 Opponents (${allMatches.length}):\n`;
 
     for (const opponent of allMatches) {
@@ -818,10 +824,13 @@ async function generateDeckHistory(deckNormalizedName: string, originalName: str
   output += `Normalized Name: ${deckNormalizedName}\n`;
   output += `Generated: ${new Date().toLocaleString()}\n\n`;
 
-  const currentElo = calculateElo(deckStats.mu, deckStats.sigma);
+  // Handle null mu/sigma values (deck exists but never played)
+  const deckMu = deckStats.mu ?? 25.0;
+  const deckSigma = deckStats.sigma ?? 8.333;
+  const currentElo = calculateElo(deckMu, deckSigma);
   output += '📊 CURRENT STATISTICS\n';
   output += '─'.repeat(50) + '\n';
-  output += `Rating: ${currentElo} Elo (μ=${deckStats.mu.toFixed(2)}, σ=${deckStats.sigma.toFixed(2)})\n`;
+  output += `Rating: ${currentElo} Elo (μ=${deckMu.toFixed(2)}, σ=${deckSigma.toFixed(2)})\n`;
   output += `Record: ${deckStats.wins || 0}W/${deckStats.losses || 0}L/${deckStats.draws || 0}D\n`;
   output += `Total Games: ${(deckStats.wins || 0) + (deckStats.losses || 0) + (deckStats.draws || 0)}\n`;
   
@@ -887,10 +896,13 @@ async function generateDeckHistory(deckNormalizedName: string, originalName: str
 
     const result = deckMatch.status === 'w' ? '🏆 WIN' : deckMatch.status === 'd' ? '🤝 DRAW' : '💀 LOSS';
     const turnInfo = deckMatch.turnOrder ? ` | Turn Order: ${deckMatch.turnOrder}` : ' | Turn Order: Unknown';
-    const elo = calculateElo(deckMatch.mu, deckMatch.sigma);
-    
+    // Handle null mu/sigma values in deck match data
+    const deckMatchMu = deckMatch.mu ?? 25.0;
+    const deckMatchSigma = deckMatch.sigma ?? 8.333;
+    const elo = calculateElo(deckMatchMu, deckMatchSigma);
+
     output += `🎲 YOUR RESULT: ${result}${turnInfo}\n`;
-    output += `📈 Rating After Game: ${elo} Elo (μ=${deckMatch.mu.toFixed(2)}, σ=${deckMatch.sigma.toFixed(2)})\n`;
+    output += `📈 Rating After Game: ${elo} Elo (μ=${deckMatchMu.toFixed(2)}, σ=${deckMatchSigma.toFixed(2)})\n`;
     output += `🃏 Other Decks (${allMatches.length}):\n`;
 
     for (const opponent of allMatches) {
