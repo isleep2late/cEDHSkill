@@ -1477,12 +1477,15 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   // Handle recalculation if needed
   if (afterGameId) {
     await recalculateAllPlayersFromScratch();
-    if (playersWithCommanders.length > 0) {
-      await recalculateAllDecksFromScratch();
-    }
+    await recalculateAllDecksFromScratch();
+
+    // Clean up players and decks with 0/0/0 records for consistency
+    await cleanupZeroPlayers();
+    await cleanupZeroDecks();
+
     await showTop50PlayersAndDecks(interaction);
   }
-  
+
   // Handle turn order collection
   const providedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
   const missingTurnOrders = [1, 2, 3, 4].filter(t => !providedTurnOrders.has(t));
@@ -1946,9 +1949,12 @@ collector.on('collect', async (reaction, user) => {
         
         if (afterGameId) {
           await recalculateAllPlayersFromScratch();
-          if (playersWithCommanders.length > 0) {
-            await recalculateAllDecksFromScratch();
-          }
+          await recalculateAllDecksFromScratch();
+
+          // Clean up players and decks with 0/0/0 records for consistency
+          await cleanupZeroPlayers();
+          await cleanupZeroDecks();
+
           await showTop50PlayersAndDecks(interaction);
         }
       } catch (error) {
@@ -2234,9 +2240,14 @@ if (decks.length === 4) {
     // Admin path - process immediately
     await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, submittedByAdmin, interaction.user.id, replyMsg);
     
-    // If this was a deck game injection, recalculate all deck ratings
+    // If this was a deck game injection, recalculate all ratings
     if (afterGameId) {
+      await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
+
+      // Clean up players and decks with 0/0/0 records for consistency
+      await cleanupZeroPlayers();
+      await cleanupZeroDecks();
     }
   } else {
     // Add reactions for confirmation and cancellation
@@ -2314,9 +2325,14 @@ if (decks.length === 4) {
             // Process deck results (submittedByAdmin is false for non-admin path)
             await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg);
             
-            // If this was a deck game injection, recalculate all deck ratings
+            // If this was a deck game injection, recalculate all ratings
             if (afterGameId) {
+              await recalculateAllPlayersFromScratch();
               await recalculateAllDecksFromScratch();
+
+              // Clean up players and decks with 0/0/0 records for consistency
+              await cleanupZeroPlayers();
+              await cleanupZeroDecks();
             }
           } catch (error) {
             console.error('Error processing deck results:', error);
