@@ -26,6 +26,9 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  // Defer immediately since database queries can take time
+  await interaction.deferReply();
+
   const count = interaction.options.getInteger('count') ?? 10;
   const type = interaction.options.getString('type') ?? 'players';
 
@@ -49,7 +52,7 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
     });
 
     if (filteredPlayers.length === 0) {
-      await interaction.reply('No players have played any games yet.');
+      await interaction.editReply('No players have played any games yet.');
       return;
     }
 
@@ -116,13 +119,12 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
       text: `Showing ${topPlayers.length} players${expandedNote} • ${totalQualified} qualified of ${totalPlayers} total` 
     });
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error fetching player rankings:', error);
-    await interaction.reply({ 
-      content: 'An error occurred while fetching player rankings.', 
-      ephemeral: true 
+    await interaction.editReply({
+      content: 'An error occurred while fetching player rankings.'
     });
   }
 }
@@ -138,7 +140,7 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
     });
 
     if (filteredDecks.length === 0) {
-      await interaction.reply('No commanders have played any games yet.');
+      await interaction.editReply('No commanders have played any games yet.');
       return;
     }
 
@@ -207,13 +209,12 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
       text: `Showing ${topDecks.length} commanders${expandedNote} • ${totalQualified} qualified of ${totalDecks} total` 
     });
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error fetching deck rankings:', error);
-    await interaction.reply({ 
-      content: 'An error occurred while fetching deck rankings.', 
-      ephemeral: true 
+    await interaction.editReply({
+      content: 'An error occurred while fetching deck rankings.'
     });
   }
 }

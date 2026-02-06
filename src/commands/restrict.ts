@@ -19,19 +19,27 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  // Defer immediately to prevent timeout
+  await interaction.deferReply({ ephemeral: true });
+
   const user = interaction.options.getUser('user', true);
 
   if (!hasModAccess(interaction.user.id)) {
-    await interaction.reply({
-      content: 'You are not a bot admin/mod.',
-      ephemeral: true
+    await interaction.editReply({
+      content: 'You are not a bot admin/mod.'
     });
     return;
   }
 
-  restrictPlayer(user.id);
-  await interaction.reply({ 
-    content: `<@${user.id}> has been restricted from ranked games.`, 
-    ephemeral: true 
-  });
+  try {
+    await restrictPlayer(user.id);
+    await interaction.editReply({
+      content: `<@${user.id}> has been restricted from ranked games.`
+    });
+  } catch (error) {
+    console.error('Error in restrict command:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while restricting the player.'
+    });
+  }
 }

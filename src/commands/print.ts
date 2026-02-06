@@ -13,20 +13,20 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('target')
-      .setDescription('Filter options: blank, @user, commander-name, "decay", "setrank", "undo", "admin", "restricted"')
+      .setDescription('Filter options: blank, @user, commander-name, "decay", "set", "undo", "admin", "restricted"')
       .setRequired(false)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  // Defer immediately to prevent interaction timeout
+  await interaction.deferReply({ ephemeral: true });
+
   if (!hasModAccess(interaction.user.id)) {
-    await interaction.reply({ 
-      content: 'You do not have permission to use this command.', 
-      ephemeral: true 
+    await interaction.editReply({
+      content: 'You do not have permission to use this command.'
     });
     return;
   }
-
-  await interaction.deferReply({ ephemeral: true });
 
   try {
     const target = interaction.options.getString('target');
@@ -41,7 +41,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (userMatch) {
         userId = userMatch[1];
         isUserTarget = true;
-      } else if (['decay', 'setrank', 'undo', 'admin', 'restricted'].includes(target.toLowerCase())) {
+      } else if (['decay', 'set', 'undo', 'admin', 'restricted'].includes(target.toLowerCase())) {
         isSpecialFilter = true;
       } else {
         deckName = normalizeCommanderName(target);
@@ -78,7 +78,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         baseFilename = `deck_history_${target.replace(/[^a-zA-Z0-9-]/g, '_')}_${Date.now()}`;
       } else {
         await interaction.editReply({
-          content: 'Invalid target format. Use @user mention, commander-name, "decay", "setrank", "undo", "admin", "restricted", or leave blank for full history.'
+          content: 'Invalid target format. Use @user mention, commander-name, "decay", "set", "undo", "admin", "restricted", or leave blank for full history.'
         });
         return;
       }
@@ -263,20 +263,20 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
         output += '─'.repeat(40) + '\n';
       }
     }
-  } else if (filterType === 'setrank') {
-    // FIXED: Remove limit to get ALL setrank changes
+  } else if (filterType === 'set') {
+    // Get ALL /set command changes
     const manualChanges = await getAllRatingChanges(999999, 'manual');
     const wldChanges = await getAllRatingChanges(999999, 'wld_adjustment');
-    const allChanges = [...manualChanges, ...wldChanges].sort((a, b) => 
+    const allChanges = [...manualChanges, ...wldChanges].sort((a, b) =>
       new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime()
     );
-    
-    output += `🔧 SETRANK HISTORY (${allChanges.length} entries)\n`;
+
+    output += `🔧 /SET COMMAND HISTORY (${allChanges.length} entries)\n`;
     output += '═'.repeat(80) + '\n';
-    
+
     for (let i = 0; i < allChanges.length; i++) {
       const change = allChanges[i];
-      output += `\n🔧 Setrank ${i + 1}: ${change.targetDisplayName} (${change.targetType})\n`;
+      output += `\n🔧 Set ${i + 1}: ${change.targetDisplayName} (${change.targetType})\n`;
       output += `📅 Date: ${new Date(change.timestamp || '').toLocaleString()}\n`;
       
       try {

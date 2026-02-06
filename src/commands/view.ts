@@ -43,6 +43,9 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  // Defer immediately since all branches do database queries
+  await interaction.deferReply();
+
   const targetUser = interaction.options.getUser('player');
   const commanderName = interaction.options.getString('commander');
   const gameId = interaction.options.getString('gameid');
@@ -66,17 +69,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await showLeagueStats(interaction);
   } else if (type === 'player') {
     if (!targetUser) {
-      await interaction.reply({
-        content: '❌ You must specify a player when using type:player.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '❌ You must specify a player when using type:player.'
       });
       return;
     }
-    
+
     if (!await playerExistsWithGames(targetUser.id)) {
-      await interaction.reply({
-        content: `❌ ${targetUser.displayName || targetUser.username} has not participated in any games yet.`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `❌ ${targetUser.displayName || targetUser.username} has not participated in any games yet.`
       });
       return;
     }
@@ -84,39 +85,35 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await showPlayerStats(interaction, targetUser);
   } else if (type === 'commander') {
     if (!commanderName) {
-      await interaction.reply({
-        content: '❌ You must specify a commander when using type:commander.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '❌ You must specify a commander when using type:commander.'
       });
       return;
     }
-    
+
     const normalizedName = normalizeCommanderName(commanderName);
     if (!await deckExistsWithGames(normalizedName)) {
-      await interaction.reply({
-        content: `❌ Commander "${commanderName}" has not been played in any games yet.`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `❌ Commander "${commanderName}" has not been played in any games yet.`
       });
       return;
     }
-    
+
     await showCommanderStats(interaction, commanderName);
   } else if (type === 'game') {
     if (!gameId) {
-      await interaction.reply({
-        content: '❌ You must specify a gameid when using type:game.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '❌ You must specify a gameid when using type:game.'
       });
       return;
     }
-    
+
     await showGameDetails(interaction, gameId);
   }
 }
 
 async function showLeagueStats(interaction: ChatInputCommandInteraction) {
-  const db = getDatabase(); 
-  await interaction.deferReply();
+  const db = getDatabase();
 
   try {
     // Get basic counts
@@ -523,13 +520,12 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
       embed.setFooter({ text: `Last played: ${lastPlayedDate}` });
     }
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error fetching player stats:', error);
-    await interaction.reply({
-      content: '❌ Error fetching player statistics.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '❌ Error fetching player statistics.'
     });
   }
 }
@@ -682,13 +678,12 @@ async function showCommanderStats(interaction: ChatInputCommandInteraction, comm
       embed.setFooter({ text: `First used: ${createdDate}` });
     }
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error fetching commander stats:', error);
-    await interaction.reply({
-      content: '❌ Error fetching commander statistics.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '❌ Error fetching commander statistics.'
     });
   }
 }
@@ -701,9 +696,8 @@ async function showGameDetails(interaction: ChatInputCommandInteraction, gameId:
     const gameInfo = await db.get('SELECT * FROM games_master WHERE gameId = ?', gameId);
     
     if (!gameInfo) {
-      await interaction.reply({
-        content: `❌ Game "${gameId}" not found in database.`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `❌ Game "${gameId}" not found in database.`
       });
       return;
     }
@@ -845,13 +839,12 @@ async function showGameDetails(interaction: ChatInputCommandInteraction, gameId:
       }
     }
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error fetching game details:', error);
-    await interaction.reply({
-      content: '❌ Error fetching game details.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '❌ Error fetching game details.'
     });
   }
 }

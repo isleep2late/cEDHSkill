@@ -955,11 +955,13 @@ export async function execute(
   const input = interaction.options.getString('results', true);
   const afterGameId = interaction.options.getString('aftergame');
 
+  // Defer immediately to prevent interaction timeout
+  await interaction.deferReply();
+
   // Check if user is admin for aftergame parameter
   if (afterGameId && !config.admins.includes(interaction.user.id)) {
-    await interaction.reply({
-      content: 'Only admins can inject games using the `aftergame` parameter.',
-      ephemeral: true
+    await interaction.editReply({
+      content: 'Only admins can inject games using the `aftergame` parameter.'
     });
     return;
   }
@@ -980,9 +982,8 @@ export async function execute(
   // Check for restricted players
   for (const id of userIds) {
     if (await isPlayerRestricted(id)) {
-      await interaction.reply({
-        content: `🚫 <@${id}> is restricted from ranked games and cannot be included.`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `🚫 <@${id}> is restricted from ranked games and cannot be included.`
       });
       return;
     }
@@ -1100,12 +1101,11 @@ if (playersWithMultipleCommanders.length > 0) {
     .map(([userId]) => `<@${userId}>`)
     .join(', ');
   
-  await interaction.reply({
+  await interaction.editReply({
     content: `⚠️ Invalid format: Each player can only have ONE commander assigned per game.\n` +
              `The following players have multiple commanders: ${problematicPlayers}\n\n` +
              `Correct format: \`@user commander-name w\` or \`@user w commander-name\`\n` +
-             `Incorrect format: \`@user deck1 deck2 w\` or \`@user deck1 w deck2\``,
-    ephemeral: true
+             `Incorrect format: \`@user deck1 deck2 w\` or \`@user deck1 w deck2\``
   });
   return;
 }
@@ -1138,11 +1138,10 @@ for (let i = 0; i < tokens.length - 1; i++) {
 // Validation: Check for invalid combinations and provide helpful error messages
 const invalidPlayers = players.filter(p => !p.status);
 if (invalidPlayers.length > 0) {
-  await interaction.reply({
+  await interaction.editReply({
     content: '⚠️ Invalid format detected. Each player must have exactly one result (w/l/d) and optionally one turn order (1-4).\n' +
              'Valid formats: `@user w`, `@user 2 w`, `@user w 3`, `@user 2w`, `@user w2`\n' +
-             'Invalid formats: `@user 2w1`, `@user ww`, `@user 5w`, `@user 0l`',
-    ephemeral: true
+             'Invalid formats: `@user 2w1`, `@user ww`, `@user 5w`, `@user 0l`'
   });
   return;
 }
@@ -1154,9 +1153,8 @@ const assignedTurnOrders = players
 
 const uniqueTurnOrders = new Set(assignedTurnOrders);
 if (assignedTurnOrders.length !== uniqueTurnOrders.size) {
-  await interaction.reply({
-    content: '⚠️ Duplicate turn orders detected. Each player must have a unique turn order between 1-4.',
-    ephemeral: true
+  await interaction.editReply({
+    content: '⚠️ Duplicate turn orders detected. Each player must have a unique turn order between 1-4.'
   });
   return;
 }
@@ -1184,11 +1182,10 @@ for (let i = 0; i < tokens.length; i++) {
   // Check if this token was successfully parsed
   const parsed = parseStatusAndTurnOrder(token);
   if (parsed === null && !processedTokens.has(token)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `⚠️ Invalid token detected: "${token}"\n` +
                'Only use: user mentions (@user), commander names, results (w/l/d), and turn orders (1-4).\n' +
-               'Valid examples: `w`, `2`, `3w`, `l1`, but NOT `0w`, `5l`, `ww`, `2w3`',
-      ephemeral: true
+               'Valid examples: `w`, `2`, `3w`, `l1`, but NOT `0w`, `5l`, `ww`, `2w3`'
     });
     return;
   }
@@ -1210,9 +1207,8 @@ for (let i = 0; i < tokens.length; i++) {
   }
 
   if (players.length < 2) {
-    await interaction.reply({
-      content: '⚠️ You must enter at least two players with results.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '⚠️ You must enter at least two players with results.'
     });
     return;
   }
@@ -1223,9 +1219,8 @@ for (let i = 0; i < tokens.length; i++) {
   
   if (isCEDHMode) {
     if (numPlayers !== 4) {
-      await interaction.reply({
-        content: '⚠️ Only 4-player games are supported in cEDH mode.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '⚠️ Only 4-player games are supported in cEDH mode.'
       });
       return;
     }
@@ -1234,18 +1229,16 @@ for (let i = 0; i < tokens.length; i++) {
     const playerIds = players.map(p => p.userId);
     const uniqueIds = new Set(playerIds);
     if (uniqueIds.size !== playerIds.length) {
-      await interaction.reply({
-        content: '⚠️ Duplicate players detected: please list each player only once.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '⚠️ Duplicate players detected: please list each player only once.'
       });
       return;
     }
 
     // Ensure each player has w, l, or d
     if (players.some(p => !['w', 'l', 'd'].includes(p.status ?? ''))) {
-      await interaction.reply({
-        content: '⚠️ Invalid input: each player must have a result of w (win), l (loss), or d (draw).',
-        ephemeral: true
+      await interaction.editReply({
+        content: '⚠️ Invalid input: each player must have a result of w (win), l (loss), or d (draw).'
       });
       return;
     }
@@ -1258,9 +1251,8 @@ for (let i = 0; i < tokens.length; i++) {
     if (providedTurnOrders.length > 0) {
       // Check for valid range (1-4)
       if (providedTurnOrders.some(t => t < 1 || t > 4)) {
-        await interaction.reply({
-          content: '⚠️ Turn order numbers must be between 1 and 4.',
-          ephemeral: true
+        await interaction.editReply({
+          content: '⚠️ Turn order numbers must be between 1 and 4.'
         });
         return;
       }
@@ -1268,9 +1260,8 @@ for (let i = 0; i < tokens.length; i++) {
       // Check for duplicates
       const uniqueTurnOrders = new Set(providedTurnOrders);
       if (uniqueTurnOrders.size !== providedTurnOrders.length) {
-        await interaction.reply({
-          content: '⚠️ Duplicate turn order numbers detected. Each player must have a unique turn order.',
-          ephemeral: true
+        await interaction.editReply({
+          content: '⚠️ Duplicate turn order numbers detected. Each player must have a unique turn order.'
         });
         return;
       }
@@ -1286,9 +1277,8 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 } else if (winCount === 0 && lossCount === 0 && drawCount === 4) {
   // Valid: 4-way draw
 } else {
-  await interaction.reply({
-    content: '⚠️ Invalid result combination for cEDH format. Must be either: 1 winner + 3 losers, or 4 draws.',
-    ephemeral: true
+  await interaction.editReply({
+    content: '⚠️ Invalid result combination for cEDH format. Must be either: 1 winner + 3 losers, or 4 draws.'
   });
   return;
 }
@@ -1297,11 +1287,9 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   // Validate commanders (if any are assigned)
   const playersWithCommanders = players.filter(p => p.commander);
   if (playersWithCommanders.length > 0) {
-    await interaction.deferReply();
-    
     // Get unique commanders for validation
     const uniqueCommanders = [...new Set(playersWithCommanders.map(p => p.normalizedCommanderName!))];
-    
+
     // Validate all unique commanders exist on EDHREC
     const validationResults = await Promise.all(
       uniqueCommanders.map(async (normalizedName) => ({
@@ -1312,18 +1300,16 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
     const invalidDecks = validationResults.filter(r => !r.valid);
     if (invalidDecks.length > 0) {
-      const invalidNames = invalidDecks.map(r => 
+      const invalidNames = invalidDecks.map(r =>
         playersWithCommanders.find(p => p.normalizedCommanderName === r.normalizedName)?.commander
       ).filter(Boolean).join(', ');
-      
+
       await interaction.editReply({
         content: `⚠️ The following commanders could not be found on EDHREC: ${invalidNames}\n` +
                  'Please check the spelling and use the format from EDHREC URLs (e.g., "atraxa-praetors-voice").'
       });
       return;
     }
-  } else {
-    await interaction.deferReply();
   }
 
   // Admin check
@@ -2054,11 +2040,10 @@ async function executeDeckOnlyMode(
   // Parse input: commander-name followed by w/l/d
   const tokens = input.trim().split(/\s+/);
   if (tokens.length < 2 || tokens.length % 2 !== 0) {
-    await interaction.reply({
+    await interaction.editReply({
       content: '⚠️ Invalid format for deck-only mode. Use: `commander-name w/l/d commander-name w/l/d ...`\n' +
                'Example: `atraxa-praetors-voice l edgar-markov w kaalia-of-the-vast l edgar-markov w`\n' +
-               'Note: Duplicate commanders are allowed.',
-      ephemeral: true
+               'Note: Duplicate commanders are allowed.'
     });
     return;
   }
@@ -2069,9 +2054,8 @@ async function executeDeckOnlyMode(
     const result = tokens[i + 1]?.toLowerCase();
 
     if (!['w', 'l', 'd'].includes(result)) {
-      await interaction.reply({
-        content: `⚠️ Invalid result "${result}" for ${commanderName}. Use w (win), l (loss), or d (draw).`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `⚠️ Invalid result "${result}" for ${commanderName}. Use w (win), l (loss), or d (draw).`
       });
       return;
     }
@@ -2087,9 +2071,8 @@ async function executeDeckOnlyMode(
 
   // Validate deck count (3-4 players for cEDH)
   if (![3, 4].includes(decks.length)) {
-    await interaction.reply({
-      content: '⚠️ Only 3-deck or 4-deck games are supported in cEDH mode.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '⚠️ Only 3-deck or 4-deck games are supported in cEDH mode.'
     });
     return;
   }
@@ -2105,9 +2088,8 @@ if (decks.length === 4) {
   } else if (winCount === 0 && lossCount === 0 && drawCount === 4) {
     // Valid: 4-way draw
   } else {
-    await interaction.reply({
-      content: '⚠️ Invalid result combination for cEDH format. Must be either: 1 winner + 3 losers, or 4 draws.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '⚠️ Invalid result combination for cEDH format. Must be either: 1 winner + 3 losers, or 4 draws.'
     });
     return;
   }
@@ -2117,9 +2099,8 @@ if (decks.length === 4) {
   } else if (winCount === 0 && lossCount === 0 && drawCount === 3) {
     // Valid: 3-way draw
   } else {
-    await interaction.reply({
-      content: '⚠️ Invalid result combination for 3-deck cEDH format. Must be either: 1 winner + 2 losers, or 3 draws.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '⚠️ Invalid result combination for 3-deck cEDH format. Must be either: 1 winner + 2 losers, or 3 draws.'
     });
     return;
   }
@@ -2134,9 +2115,8 @@ if (decks.length === 4) {
   try {
     gameSequence = await getNextGameSequence(afterGameId || undefined);
   } catch (error) {
-    await interaction.reply({
-      content: `⚠️ Error: ${(error as Error).message}`,
-      ephemeral: true
+    await interaction.editReply({
+      content: `⚠️ Error: ${(error as Error).message}`
     });
     return;
   }
@@ -2148,9 +2128,6 @@ if (decks.length === 4) {
   // Store game in master table
   await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin);
 
-  // Show validation progress
-  await interaction.deferReply();
-  
   // Get unique commanders for validation (avoid validating duplicates multiple times)
   const uniqueCommanders = [...new Set(decks.map(d => d.normalizedName))];
   
