@@ -563,15 +563,12 @@ async function handleGameModification(
     modifications.push('🔄 Recalculating all player ratings from scratch...');
     await recalculateAllPlayersFromScratch();
 
-    // Also recalculate all deck ratings from scratch
+    // Also recalculate all deck ratings from scratch (includes 0/0/0 cleanup)
     modifications.push('🔄 Recalculating all deck ratings from scratch...');
-    await recalculateAllDecksFromScratch();
+    const { playerCleanup, deckCleanup } = await recalculateAllDecksFromScratch();
 
     modifications.push('✅ Complete from-scratch recalculation finished');
 
-    // Always clean up players and decks with 0/0/0 records
-    const playerCleanup = await cleanupZeroPlayers();
-    const deckCleanup = await cleanupZeroDecks();
     if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
       modifications.push(`🧹 Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
     }
@@ -618,9 +615,9 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
 }
 
-export async function recalculateAllDecksFromScratch(): Promise<void> {
+export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup: { cleanedPlayers: number }, deckCleanup: { cleanedDecks: number } }> {
   console.log('[SET] Starting complete deck rating recalculation...');
-  
+
   const db = getDatabase();
 
   // Get all decks and reset their ratings to defaults
@@ -631,8 +628,8 @@ export async function recalculateAllDecksFromScratch(): Promise<void> {
 
   // Get all ACTIVE games in chronological order (by sequence)
   const allGames = await db.all(`
-    SELECT gameId, gameSequence 
-    FROM games_master 
+    SELECT gameId, gameSequence
+    FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
@@ -643,6 +640,15 @@ export async function recalculateAllDecksFromScratch(): Promise<void> {
   }
 
   console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
+
+  // Always clean up players and decks with 0/0/0 records after recalculation
+  const playerCleanup = await cleanupZeroPlayers();
+  const deckCleanup = await cleanupZeroDecks();
+  if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+    console.log(`[SET] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+  }
+
+  return { playerCleanup, deckCleanup };
 }
 
 async function modifyGameResults(gameId: string, results: string, gameType: string, modifications: string[]) {
@@ -1564,15 +1570,11 @@ async function handleDeckAssignment(
         WHERE assignedPlayer = ?
       `, targetUserId);
       
-      // Full from-scratch recalculation for all affected games
+      // Full from-scratch recalculation for all affected games (includes 0/0/0 cleanup)
       if (gamesWithDecks.length > 0) {
         await recalculateAllPlayersFromScratch();
         await recalculateAllDecksFromScratch();
       }
-
-      // Clean up players and decks with 0/0/0 records
-      await cleanupZeroPlayers();
-      await cleanupZeroDecks();
 
       return `Removed all deck assignments (past, present, future) for ${displayName} and recalculated all ratings`;
       
@@ -1595,15 +1597,11 @@ async function handleDeckAssignment(
         WHERE gameId = ? AND assignedPlayer = ?
       `, [gameId, targetUserId]);
       
-      // Full from-scratch recalculation if there was an assignment change
+      // Full from-scratch recalculation if there was an assignment change (includes 0/0/0 cleanup)
       if (currentAssignment && gameInfo) {
         await recalculateAllPlayersFromScratch();
         await recalculateAllDecksFromScratch();
       }
-
-      // Clean up players and decks with 0/0/0 records
-      await cleanupZeroPlayers();
-      await cleanupZeroDecks();
 
       return `Removed deck assignment for ${displayName} in game ${gameId} ONLY and recalculated all ratings`;
       
@@ -1626,13 +1624,9 @@ async function handleDeckAssignment(
       await db.run('UPDATE players SET defaultDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ?', normalizedName, targetUserId);
       
-      // Full from-scratch recalculation since we changed ALL assignments
+      // Full from-scratch recalculation since we changed ALL assignments (includes 0/0/0 cleanup)
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
-
-      // Clean up players and decks with 0/0/0 records
-      await cleanupZeroPlayers();
-      await cleanupZeroDecks();
 
       return `Set ${deckName} for ${displayName} in ALL games (past, present, future) and recalculated all ratings`;
       
@@ -1647,13 +1641,9 @@ async function handleDeckAssignment(
       
       await db.run('UPDATE matches SET assignedDeck = ? WHERE userId = ? AND gameId = ?', normalizedName, targetUserId, gameId);
       
-      // Full from-scratch recalculation
+      // Full from-scratch recalculation (includes 0/0/0 cleanup)
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
-
-      // Clean up players and decks with 0/0/0 records
-      await cleanupZeroPlayers();
-      await cleanupZeroDecks();
 
       return `Assigned ${deckName} to ${displayName} for game ${gameId} ONLY (does not affect other games) and recalculated all ratings`;
       
