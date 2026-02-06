@@ -1783,9 +1783,18 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     return;
   }
 
-  // If this user already had a different turn order, free it (allow changing)
+  // If this user already had a different turn order, free it and remove old reaction
   if (adminCleanTurnOrderState.has(user.id)) {
+    const oldTurnOrder = adminCleanTurnOrderState.get(user.id)!;
     adminCleanTurnOrderState.delete(user.id);
+    // Remove their old turn order reaction so the spot visually opens up
+    try {
+      const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
+      const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
+      if (oldReaction) await oldReaction.users.remove(user.id);
+    } catch (error) {
+      console.error('Failed to remove old admin turn order reaction:', error);
+    }
   }
 
   // Claim this turn order
@@ -2155,9 +2164,18 @@ collector.on('collect', async (reaction, user) => {
       return;
     }
 
-    // If this user already had a different turn order, free it (allow changing)
+    // If this user already had a different turn order, free it and remove old reaction
     if (cleanTurnOrderState.has(user.id)) {
+      const oldTurnOrder = cleanTurnOrderState.get(user.id)!;
       cleanTurnOrderState.delete(user.id);
+      // Remove their old turn order reaction so the spot visually opens up
+      try {
+        const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
+        const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
+        if (oldReaction) await oldReaction.users.remove(user.id);
+      } catch (error) {
+        console.error('Failed to remove old turn order reaction:', error);
+      }
     }
 
     // Claim this turn order
