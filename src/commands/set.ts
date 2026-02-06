@@ -548,8 +548,15 @@ async function handleGameModification(
 
   // Handle results modification
   if (results) {
-    await modifyGameResults(gameId, results, gameInfo.gameType, modifications);
-    needsRecalculation = true;
+    try {
+      await modifyGameResults(gameId, results, gameInfo.gameType, modifications);
+      needsRecalculation = true;
+    } catch (error) {
+      await interaction.editReply({
+        content: `⚠️ ${(error as Error).message}`
+      });
+      return;
+    }
   }
 
   // Save snapshot
@@ -751,6 +758,41 @@ async function modifyPlayerGameResults(gameId: string, tokens: string[], modific
   const existingPlayerIds = new Set(existingMatches.map((m: any) => m.userId));
   const newPlayerIds = new Set(newPlayers.map(p => p.userId));
 
+  // Build the final result set to validate (after adds/removes/updates)
+  // Start with existing players that will remain (not removed)
+  const finalResults: string[] = [];
+  for (const existing of existingMatches) {
+    if (newPlayerIds.has(existing.userId)) {
+      // This player is being updated - use the new result
+      const updated = newPlayers.find(p => p.userId === existing.userId);
+      finalResults.push(updated?.status || existing.status);
+    } else {
+      // This player is being removed - skip
+    }
+  }
+  // Add new players
+  for (const added of newPlayers) {
+    if (!existingPlayerIds.has(added.userId)) {
+      finalResults.push(added.status || 'l');
+    }
+  }
+
+  // Validate player count
+  if (finalResults.length !== 4) {
+    throw new Error(`Invalid player count: ${finalResults.length}. Player games require exactly 4 players.`);
+  }
+
+  // Validate result combination (same rules as /rank)
+  const winCount = finalResults.filter(r => r === 'w').length;
+  const lossCount = finalResults.filter(r => r === 'l').length;
+  const drawCount = finalResults.filter(r => r === 'd').length;
+
+  const isValid = (winCount === 1 && lossCount === 3 && drawCount === 0) ||
+                  (winCount === 0 && lossCount === 0 && drawCount === 4);
+  if (!isValid) {
+    throw new Error(`Invalid result combination: ${winCount}w/${lossCount}l/${drawCount}d. Must be either: 1 winner + 3 losers, or 4 draws.`);
+  }
+
   // Determine added and removed players
   const addedPlayerIds = newPlayers.filter(p => !existingPlayerIds.has(p.userId));
   const removedPlayerIds = existingMatches.filter((m: any) => !newPlayerIds.has(m.userId));
@@ -856,6 +898,23 @@ async function modifyDeckGameResults(gameId: string, tokens: string[], modificat
         status: result
       });
     }
+  }
+
+  // Validate deck count
+  if (newDecks.length < 3 || newDecks.length > 4) {
+    throw new Error(`Invalid deck count: ${newDecks.length}. Deck games require 3 or 4 decks.`);
+  }
+
+  // Validate result combination (same rules as /rank)
+  const deckResults = newDecks.map(d => d.status);
+  const deckWins = deckResults.filter(r => r === 'w').length;
+  const deckLosses = deckResults.filter(r => r === 'l').length;
+  const deckDraws = deckResults.filter(r => r === 'd').length;
+
+  const isDeckValid = (deckWins === 1 && deckLosses === newDecks.length - 1 && deckDraws === 0) ||
+                      (deckWins === 0 && deckLosses === 0 && deckDraws === newDecks.length);
+  if (!isDeckValid) {
+    throw new Error(`Invalid result combination: ${deckWins}w/${deckLosses}l/${deckDraws}d. Must be either: 1 winner + ${newDecks.length - 1} losers, or ${newDecks.length} draws.`);
   }
 
   // Get existing deck match records for this game
