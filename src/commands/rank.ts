@@ -458,20 +458,37 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all games in chronological order (by sequence)
-  const allGames = await db.all(`
+  // Get all pure deck games in chronological order (by sequence)
+  const allDeckGames = await db.all(`
     SELECT gameId, gameSequence
     FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed'
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order
-  for (const game of allGames) {
+  // Replay each pure deck game in order
+  for (const game of allDeckGames) {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allGames.length} deck games`);
+  console.log(`[RECALC] Completed recalculation of ${allDeckGames.length} pure deck games`);
+
+  // Also replay commander ratings for hybrid player games (player games with assigned decks)
+  const hybridGames = await db.all(`
+    SELECT DISTINCT gm.gameId, gm.gameSequence
+    FROM games_master gm
+    JOIN matches m ON m.gameId = gm.gameId
+    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND m.assignedDeck IS NOT NULL
+    ORDER BY gm.gameSequence ASC
+  `);
+
+  for (const game of hybridGames) {
+    await replayCommanderRatingsForGame(game.gameId);
+  }
+
+  if (hybridGames.length > 0) {
+    console.log(`[RECALC] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+  }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
@@ -590,6 +607,47 @@ export async function replayPlayerGame(gameId: string): Promise<void> {
       console.error('Error logging player recalculation to audit trail:', auditError);
     }
   }
+
+  // Process commander ratings for hybrid games (player games with assigned decks)
+  await replayCommanderRatingsForGame(gameId, matches);
+}
+
+// Replay ONLY the commander/deck ratings for a player game that has assigned decks.
+// This is separated so it can be called independently during deck recalculation.
+export async function replayCommanderRatingsForGame(gameId: string, matches?: any[]): Promise<void> {
+  const { getDatabase } = await import('../db/init.js');
+  const db = getDatabase();
+
+  // If matches weren't passed in, fetch them
+  if (!matches) {
+    matches = await db.all('SELECT * FROM matches WHERE gameId = ? ORDER BY matchDate ASC', gameId);
+  }
+
+  if (!matches || matches.length === 0) return;
+
+  const matchesWithCommanders = matches.filter((m: any) => m.assignedDeck);
+  if (matchesWithCommanders.length === 0) return;
+
+  // Clean up any existing deck_matches for this game before re-creating
+  await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
+
+  const playerEntries: PlayerEntry[] = matchesWithCommanders.map((m: any) => ({
+    userId: m.userId,
+    status: m.status,
+    turnOrder: m.turnOrder,
+    commander: m.assignedDeck,
+    normalizedCommanderName: m.assignedDeck
+  }));
+
+  const allPlayerEntries: PlayerEntry[] = matches.map((m: any) => ({
+    userId: m.userId,
+    status: m.status,
+    turnOrder: m.turnOrder,
+    commander: m.assignedDeck || undefined,
+    normalizedCommanderName: m.assignedDeck || undefined
+  }));
+
+  await processCommanderRatingsEnhanced(playerEntries, allPlayerEntries, gameId, `${gameId}-replay`);
 }
 
 // Function to replay a single deck game (exported for use by /set command)
@@ -603,12 +661,12 @@ export async function replayDeckGame(gameId: string): Promise<void> {
   if (matches.length === 0) return;
 
   // Get current ratings for all UNIQUE decks in this game
-  const uniqueDecks = new Set(matches.map(m => m.deckNormalizedName));
+  const uniqueDecks = new Set<string>(matches.map((m: any) => m.deckNormalizedName));
   const deckRatings: Record<string, any> = {};
   const deckStats: Record<string, any> = {};
-  
+
   for (const deckName of uniqueDecks) {
-    const match = matches.find(m => m.deckNormalizedName === deckName);
+    const match = matches.find((m: any) => m.deckNormalizedName === deckName);
     const deck = await getOrCreateDeck(deckName, match.deckDisplayName);
     deckRatings[deckName] = rating({ mu: deck.mu, sigma: deck.sigma });
     deckStats[deckName] = {

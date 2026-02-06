@@ -12,7 +12,7 @@ import { getDatabase } from '../db/init.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js'; 
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
-import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
+import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
 import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 
@@ -642,20 +642,37 @@ export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup:
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all ACTIVE games in chronological order (by sequence)
-  const allGames = await db.all(`
+  // Get all ACTIVE pure deck games in chronological order (by sequence)
+  const allDeckGames = await db.all(`
     SELECT gameId, gameSequence
     FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order
-  for (const game of allGames) {
+  // Replay each pure deck game in order
+  for (const game of allDeckGames) {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[SET] Completed recalculation of ${allGames.length} active deck games`);
+  console.log(`[SET] Completed recalculation of ${allDeckGames.length} active pure deck games`);
+
+  // Also replay commander ratings for hybrid player games (player games with assigned decks)
+  const hybridGames = await db.all(`
+    SELECT DISTINCT gm.gameId, gm.gameSequence
+    FROM games_master gm
+    JOIN matches m ON m.gameId = gm.gameId
+    WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND gm.active = 1 AND m.assignedDeck IS NOT NULL
+    ORDER BY gm.gameSequence ASC
+  `);
+
+  for (const game of hybridGames) {
+    await replayCommanderRatingsForGame(game.gameId);
+  }
+
+  if (hybridGames.length > 0) {
+    console.log(`[SET] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+  }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
@@ -1065,31 +1082,8 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
     );
   }
 
- // CRITICAL: Process commander ratings if any players have assigned decks
-  const playersWithCommanders = originalMatches.filter(match => match.assignedDeck);
-  if (playersWithCommanders.length > 0) {
-    // First, clean up any existing deck_matches for this game
-    await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
-    
-    // Convert matches to the format expected by processCommanderRatingsEnhanced
-    const playerEntries = playersWithCommanders.map(match => ({
-      userId: match.userId,
-      status: match.status,
-      turnOrder: match.turnOrder,
-      commander: match.assignedDeck, // This is the normalized name
-      normalizedCommanderName: match.assignedDeck
-    }));
-    
-    const allPlayerEntries = originalMatches.map(match => ({
-      userId: match.userId,
-      status: match.status,
-      turnOrder: match.turnOrder,
-      commander: match.assignedDeck || undefined,
-      normalizedCommanderName: match.assignedDeck || undefined
-    }));
-    
-    await processCommanderRatingsEnhanced(playerEntries, allPlayerEntries, gameId, `${gameId}-recalc`);
-  }
+  // Process commander ratings for hybrid games (player games with assigned decks)
+  await replayCommanderRatingsForGame(gameId, originalMatches);
 }
 
 async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatches: any[]): Promise<void> {
