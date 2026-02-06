@@ -94,13 +94,35 @@ export async function execute(
   const dateStr = timestamp[0]; // YYYY-MM-DD
   const timeStr = timestamp[1].split('.')[0]; // HH-MM-SS
   const baseFilename = `Season-End-Backup-${dateStr}_${timeStr}`;
+
+  // Security: Validate filename contains only safe characters (alphanumeric, dash, underscore)
+  if (!/^[A-Za-z0-9_-]+$/.test(baseFilename)) {
+    console.error('[THANOSSNAP] Invalid backup filename generated:', baseFilename);
+    await interaction.editReply({
+      content: 'Failed to create backup: invalid filename generated.'
+    });
+    return;
+  }
+
+  const dataDir = path.resolve('data');
   const backupFile = path.resolve('data', `${baseFilename}.db`);
-  
+
+  // Security: Ensure backup path stays within data directory (prevent path traversal)
+  if (!backupFile.startsWith(dataDir + path.sep)) {
+    console.error('[THANOSSNAP] Path traversal attempt detected:', backupFile);
+    await interaction.editReply({
+      content: 'Failed to create backup: invalid path.'
+    });
+    return;
+  }
+
   let backupFiles: Array<{buffer: Buffer, filename: string}> = [];
-  
+
   try {
     const db = getDatabase();
-    await db.exec(`VACUUM INTO '${backupFile.replace(/\\/g, '/')}'`);
+    // Use forward slashes for SQLite compatibility
+    const safePath = backupFile.replace(/\\/g, '/');
+    await db.exec(`VACUUM INTO '${safePath}'`);
     console.log(`[THANOSSNAP] Created clean backup: ${backupFile}`);
     
     // Prepare backup files for DM
