@@ -351,11 +351,16 @@ async function main() {
     } catch (error) {
       console.error(`Error executing command ${interaction.commandName}:`, error);
       const errorResponse = 'There was an error executing this command.';
-      
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: errorResponse, ephemeral: true });
-      } else {
-        await interaction.reply({ content: errorResponse, ephemeral: true });
+
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: errorResponse, ephemeral: true });
+        } else {
+          await interaction.reply({ content: errorResponse, ephemeral: true });
+        }
+      } catch (replyError) {
+        // Interaction expired or already handled - log but don't crash
+        console.error(`Could not send error response for ${interaction.commandName}:`, replyError);
       }
     }
   });
