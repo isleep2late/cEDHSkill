@@ -13,7 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame } from '../commands/rank.js';
-import { resetTimewalkDays, applyRatingDecay } from '../bot.js';
+import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 
 export const data = new SlashCommandBuilder()
@@ -593,39 +593,42 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
 
   const db = getDatabase();
 
-  // Get all players and reset their ratings to defaults
+  // Get all players and reset their ratings to defaults (including lastPlayed = null)
   const allPlayers = await getAllPlayers();
   for (const player of allPlayers) {
     await updatePlayerRating(player.userId, 25.0, 8.333, 0, 0, 0);
+    await db.run('UPDATE players SET lastPlayed = NULL WHERE userId = ?', [player.userId]);
   }
 
-  // Get all ACTIVE games in chronological order (by sequence)
+  // Get all ACTIVE games in chronological order with their dates
   const allGames = await db.all(`
-    SELECT gameId, gameSequence 
-    FROM games_master 
+    SELECT gameId, gameSequence, createdAt
+    FROM games_master
     WHERE gameType = 'player' AND status = 'confirmed' AND active = 1
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order
+  // Replay each game in order, interleaving decay between games
   for (const game of allGames) {
+    // Get the players who participate in this game
+    const participants = await db.all('SELECT userId FROM matches WHERE gameId = ?', game.gameId);
+    const participantIds = participants.map((p: any) => p.userId);
+
+    // Apply decay for participants up to this game's date
+    // This ensures their pre-game rating includes accumulated decay from inactivity
+    const gameDate = new Date(game.createdAt);
+    await applyDecayForPlayers(participantIds, gameDate);
+
+    // Replay the game (uses current ratings, which now include decay)
     await replayPlayerGame(game.gameId);
+
+    // Fix lastPlayed for participants to the game's actual date (not "now")
+    for (const userId of participantIds) {
+      await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [game.createdAt, userId]);
+    }
   }
 
-  // Fix lastPlayed timestamps: updatePlayerRating sets lastPlayed to "now" during replay,
-  // but we need each player's actual last game date so decay calculates correctly
-  const playerLastGameDates = await db.all(`
-    SELECT m.userId, MAX(gm.createdAt) as lastGameDate
-    FROM matches m
-    JOIN games_master gm ON m.gameId = gm.gameId
-    WHERE gm.active = 1 AND gm.status = 'confirmed'
-    GROUP BY m.userId
-  `);
-  for (const row of playerLastGameDates) {
-    await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [row.lastGameDate, row.userId]);
-  }
-
-  console.log(`[SET] Completed recalculation of ${allGames.length} active player games`);
+  console.log(`[SET] Completed recalculation of ${allGames.length} active player games (with interleaved decay)`);
 }
 
 export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup: { cleanedPlayers: number }, deckCleanup: { cleanedDecks: number } }> {

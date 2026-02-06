@@ -7,7 +7,7 @@
 } from 'discord.js';
 import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
-import { recordPlayerActivity, applyRatingDecay } from '../bot.js';
+import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
 import { recordMatch, getRecentMatches, updateMatchTurnOrder } from '../db/match-utils.js';
 import { 
@@ -403,43 +403,46 @@ async function updateMatchesWithSequence(gameId: string, gameSequence: number, g
 // Function to recalculate ALL player ratings from scratch in chronological order
 async function recalculateAllPlayersFromScratch(): Promise<void> {
   console.log('[RECALC] Starting complete player rating recalculation...');
-  
+
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
 
-  // Get all players and reset their ratings to defaults
+  // Get all players and reset their ratings to defaults (including lastPlayed = null)
   const allPlayers = await getAllPlayers();
   for (const player of allPlayers) {
     await updatePlayerRating(player.userId, 25.0, 8.333, 0, 0, 0);
+    await db.run('UPDATE players SET lastPlayed = NULL WHERE userId = ?', [player.userId]);
   }
 
-  // Get all games in chronological order (by sequence)
+  // Get all ACTIVE games in chronological order with their dates
   const allGames = await db.all(`
-  SELECT gameId, gameSequence 
-  FROM games_master 
-  WHERE gameType = 'player' AND status = 'confirmed' AND active = 1
-  ORDER BY gameSequence ASC
-`);
-
-  // Replay each game in order
-  for (const game of allGames) {
-    await replayPlayerGame(game.gameId);
-  }
-
-  // Fix lastPlayed timestamps: updatePlayerRating sets lastPlayed to "now" during replay,
-  // but we need each player's actual last game date so decay calculates correctly
-  const playerLastGameDates = await db.all(`
-    SELECT m.userId, MAX(gm.createdAt) as lastGameDate
-    FROM matches m
-    JOIN games_master gm ON m.gameId = gm.gameId
-    WHERE gm.active = 1 AND gm.status = 'confirmed'
-    GROUP BY m.userId
+    SELECT gameId, gameSequence, createdAt
+    FROM games_master
+    WHERE gameType = 'player' AND status = 'confirmed' AND active = 1
+    ORDER BY gameSequence ASC
   `);
-  for (const row of playerLastGameDates) {
-    await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [row.lastGameDate, row.userId]);
+
+  // Replay each game in order, interleaving decay between games
+  for (const game of allGames) {
+    // Get the players who participate in this game
+    const participants = await db.all('SELECT userId FROM matches WHERE gameId = ?', game.gameId);
+    const participantIds = participants.map((p: any) => p.userId);
+
+    // Apply decay for participants up to this game's date
+    // This ensures their pre-game rating includes accumulated decay from inactivity
+    const gameDate = new Date(game.createdAt);
+    await applyDecayForPlayers(participantIds, gameDate);
+
+    // Replay the game (uses current ratings, which now include decay)
+    await replayPlayerGame(game.gameId);
+
+    // Fix lastPlayed for participants to the game's actual date (not "now")
+    for (const userId of participantIds) {
+      await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [game.createdAt, userId]);
+    }
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allGames.length} player games`);
+  console.log(`[RECALC] Completed recalculation of ${allGames.length} player games (with interleaved decay)`);
 }
 
 // Function to recalculate ALL deck ratings from scratch in chronological order
