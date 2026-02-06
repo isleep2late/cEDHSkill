@@ -621,7 +621,7 @@ async function generateFullLeagueHistory(interaction: ChatInputCommandInteractio
   output += `Total Player Games: ${playerGameCount?.count || 0}\n`;
   output += `Total Deck Games: ${deckGameCount?.count || 0}\n`;
   output += `Admin Submitted Games: ${adminGameCount?.count || 0}\n`;
-  output += `Inactive Games: ${inactiveGameCount?.count || 0}\n\n`;
+  output += `Deactivated Games: ${inactiveGameCount?.count || 0}\n\n`;
 
   // FIXED: Get ALL rating changes without limit
   const allChanges = await getAllRatingChanges(999999);

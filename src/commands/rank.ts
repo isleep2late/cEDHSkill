@@ -377,14 +377,14 @@ async function getNextGameSequence(afterGameId?: string): Promise<number> {
 }
 
 // Function to store game in games_master table with sequence
-async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck'): Promise<void> {
+async function storeGameInMaster(gameId: string, gameSequence: number, submittedBy: string, gameType: 'player' | 'deck', submittedByAdmin: boolean): Promise<void> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
-  
+
   await db.run(`
-  INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, status, active) 
-  VALUES (?, ?, ?, ?, 'confirmed', 1)
-`, [gameId, gameSequence, gameType, submittedBy]);
+  INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
+  VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
+`, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
 }
 
 // Function to update all match records with game sequence
@@ -1346,7 +1346,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   }
 
   // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player');
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'player', submittedByAdmin);
 
   // Pre-fetch usernames, ratings, and records
   const userNames: Record<string, string> = {};
@@ -2141,8 +2141,12 @@ if (decks.length === 4) {
     return;
   }
 
+  // Admin check for deck-only mode
+  const isAdmin = hasModAccess(interaction.user.id);
+  const submittedByAdmin = isAdmin;
+
   // Store game in master table
-  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck');
+  await storeGameInMaster(gameId, gameSequence, interaction.user.id, 'deck', submittedByAdmin);
 
   // Show validation progress
   await interaction.deferReply();
@@ -2197,9 +2201,6 @@ if (decks.length === 4) {
     acc[deck.normalizedName] = (acc[deck.normalizedName] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
-
-  // Admin check
-  const isAdmin = hasModAccess(interaction.user.id);
 
   // Initial embed showing the decks
   const embed = new EmbedBuilder()
