@@ -317,45 +317,45 @@ async function generateFilteredHistory(filterType: string, interaction: ChatInpu
       }
     }
   } else if (filterType === 'undo') {
-    // FIXED: Remove limit to get ALL undo changes
-    const undoChanges = await getAllRatingChanges(999999, 'undo');
-    output += `↩️ UNDO/REDO HISTORY (${undoChanges.length} entries)\n`;
+    // Get both undo and redo changes
+    const undoRedoChanges = await getAllRatingChanges(999999, 'undo_or_redo');
+    output += `↩️ UNDO/REDO HISTORY (${undoRedoChanges.length} entries)\n`;
     output += '═'.repeat(80) + '\n';
-    
-    for (let i = 0; i < undoChanges.length; i++) {
-      const change = undoChanges[i];
-      output += `\n↩️ Undo/Redo ${i + 1}: ${change.targetDisplayName} (${change.targetType})\n`;
+
+    for (let i = 0; i < undoRedoChanges.length; i++) {
+      const change = undoRedoChanges[i];
+      const actionLabel = change.changeType === 'redo' ? '↪️ Redo' : '↩️ Undo';
+      output += `\n${actionLabel} ${i + 1}: ${change.targetDisplayName} (${change.targetType})\n`;
       output += `📅 Date: ${new Date(change.timestamp || '').toLocaleString()}\n`;
-      
+
       try {
         const admin = await interaction.client.users.fetch(change.adminUserId!);
         output += `👤 Admin: @${admin.username}\n`;
       } catch {
         output += `👤 Admin: <@${change.adminUserId}>\n`;
       }
-      
+
       if (change.parameters) {
         try {
           const params = JSON.parse(change.parameters);
           output += `🎮 Game ID: ${params.gameId || 'Unknown'}\n`;
-          output += `🔄 Action: ${params.action || 'Unknown'}\n`;
         } catch {
-          output += `🔄 Undo/Redo operation\n`;
+          // No parameters
         }
       }
-      
+
       const eloDiff = change.newElo - change.oldElo;
       output += `📊 Before: ${change.oldElo} Elo (μ=${change.oldMu.toFixed(2)}, σ=${change.oldSigma.toFixed(2)})\n`;
       output += `📈 After:  ${change.newElo} Elo (μ=${change.newMu.toFixed(2)}, σ=${change.newSigma.toFixed(2)})\n`;
       output += `📉 Change: ${eloDiff >= 0 ? '+' : ''}${eloDiff} Elo\n`;
-      
-      // FIXED: Always show W/L/D if available
-      if (change.oldWins !== undefined && change.oldWins !== null && 
+
+      // Show W/L/D if available
+      if (change.oldWins !== undefined && change.oldWins !== null &&
           change.newWins !== undefined && change.newWins !== null) {
         output += `📊 Record: ${change.oldWins}W/${change.oldLosses || 0}L/${change.oldDraws || 0}D → ${change.newWins}W/${change.newLosses || 0}L/${change.newDraws || 0}D\n`;
       }
-      
-      if (i < undoChanges.length - 1) {
+
+      if (i < undoRedoChanges.length - 1) {
         output += '─'.repeat(40) + '\n';
       }
     }
@@ -553,13 +553,12 @@ async function generateRatingChangeHistory(
       } catch {
         output += `⏰ Rating decay applied\n`;
       }
-    } else if (change.changeType === 'undo' && change.parameters) {
+    } else if ((change.changeType === 'undo' || change.changeType === 'redo') && change.parameters) {
       try {
         const params = JSON.parse(change.parameters);
         output += `🎮 Game ID: ${params.gameId || 'Unknown'}\n`;
-        output += `🔄 Action: ${params.action || 'Undo/Redo'}\n`;
       } catch {
-        output += `↩️ Undo/Redo operation\n`;
+        // No additional parameters needed
       }
     }
     

@@ -5,7 +5,7 @@ export interface RatingChange {
   targetType: 'player' | 'deck';
   targetId: string;
   targetDisplayName: string;
-  changeType: 'manual' | 'game' | 'decay' | 'wld_adjustment' | 'undo';
+  changeType: 'manual' | 'game' | 'decay' | 'wld_adjustment' | 'undo' | 'redo';
   adminUserId?: string;
   oldMu: number;
   oldSigma: number;
@@ -81,7 +81,7 @@ export async function getRatingChangesForTarget(
 
 export async function getAllRatingChanges(
   limit: number = 100,
-  changeType?: 'manual' | 'game' | 'decay' | 'wld_adjustment' | 'undo'
+  changeType?: 'manual' | 'game' | 'decay' | 'wld_adjustment' | 'undo' | 'redo' | 'undo_or_redo'
 ): Promise<RatingChange[]> {
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
@@ -90,8 +90,13 @@ export async function getAllRatingChanges(
   const params: any[] = [];
 
   if (changeType) {
-    query += ' WHERE changeType = ?';
-    params.push(changeType);
+    if (changeType === 'undo_or_redo') {
+      query += ' WHERE changeType IN (?, ?)';
+      params.push('undo', 'redo');
+    } else {
+      query += ' WHERE changeType = ?';
+      params.push(changeType);
+    }
   }
 
   query += ' ORDER BY timestamp DESC LIMIT ?';
