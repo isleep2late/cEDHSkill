@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=cEDH League Bot
+Comment=Start the cEDH League Bot
+Type=Application
+Terminal=true
+Exec=bash -c 'cd "$(dirname "%k")" && ./start-leaguebot.sh --keep-open'
+Icon=utilities-terminal
+Categories=Game;
