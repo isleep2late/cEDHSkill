@@ -4,7 +4,7 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { config } from '../config.js';
-import { applyRatingDecay, getMinDaysForNextDecay, addTimewalkDays, getTimewalkDays } from '../bot.js';
+import { applyRatingDecay, getMinDaysForNextDecay, addTimewalkDays, getTimewalkDays, saveTimewalkEvent } from '../bot.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -72,8 +72,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     logger.info(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days, cumulative before: ${cumulativeBefore})`);
 
-    // Execute the decay process with timewalk trigger, admin ID, and simulated days
-    const decayedCount = await applyRatingDecay('timewalk', userId, simulatedDays);
+    // Save the timewalk event to the database for persistence across recalculations
+    const timewalkEventId = await saveTimewalkEvent(simulatedDays, userId);
+
+    // Execute the decay process with timewalk trigger, admin ID, simulated days, and event ID
+    const decayedCount = await applyRatingDecay('timewalk', userId, simulatedDays, false, timewalkEventId);
 
     // Add to cumulative counter AFTER successful decay
     addTimewalkDays(simulatedDays);
@@ -91,7 +94,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             `(Grace period: ${gracePeriod} day${gracePeriod > 1 ? 's' : ''})`)
       )
       .setColor(0x9B59B6) // Purple for the "time magic" theme
-      .setFooter({ text: 'Virtual time resets when ratings are recalculated' })
+      .setFooter({ text: 'Virtual time is preserved across recalculations' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });

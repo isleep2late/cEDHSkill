@@ -123,6 +123,7 @@ export interface DecaySnapshot {
     triggeredBy: 'cron' | 'timewalk';
     adminUserId?: string;
     simulatedDaysOffset?: number; // For timewalk: how many extra days were simulated
+    timewalkEventId?: number; // Link to timewalk_events table for persistence across recalculations
   };
   timestamp: string;
   description: string;
@@ -601,6 +602,18 @@ async function undoDecay(snapshot: DecaySnapshot): Promise<void> {
     logger.info(`[SNAPSHOT] Restored player ${player.userId} to pre-decay state`);
   }
 
+  // Deactivate the timewalk event in the database so recalculations don't replay it
+  if (snapshot.metadata.timewalkEventId) {
+    const { deactivateTimewalkEvent } = await import('../bot.js');
+    await deactivateTimewalkEvent(snapshot.metadata.timewalkEventId);
+  }
+
+  // Reverse the virtual clock advancement
+  if (snapshot.metadata.triggeredBy === 'timewalk' && snapshot.metadata.simulatedDaysOffset) {
+    const { subtractTimewalkDays } = await import('../bot.js');
+    subtractTimewalkDays(snapshot.metadata.simulatedDaysOffset);
+  }
+
   logger.info(`[SNAPSHOT] Undid decay affecting ${snapshot.players.length} players`);
 }
 
@@ -618,6 +631,18 @@ async function redoDecay(snapshot: DecaySnapshot): Promise<void> {
       player.draws
     );
     logger.info(`[SNAPSHOT] Re-applied decay to player ${player.userId}`);
+  }
+
+  // Reactivate the timewalk event in the database so recalculations will replay it
+  if (snapshot.metadata.timewalkEventId) {
+    const { reactivateTimewalkEvent } = await import('../bot.js');
+    await reactivateTimewalkEvent(snapshot.metadata.timewalkEventId);
+  }
+
+  // Re-advance the virtual clock
+  if (snapshot.metadata.triggeredBy === 'timewalk' && snapshot.metadata.simulatedDaysOffset) {
+    const { addTimewalkDays } = await import('../bot.js');
+    addTimewalkDays(snapshot.metadata.simulatedDaysOffset);
   }
 
   logger.info(`[SNAPSHOT] Redid decay affecting ${snapshot.players.length} players`);

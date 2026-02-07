@@ -13,7 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
-import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
+import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers, addTimewalkDays, getActiveTimewalkEvents } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 import { logger } from '../utils/logger.js';
 
@@ -629,27 +629,60 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
     ORDER BY gameSequence ASC
   `);
 
-  // Replay each game in order, interleaving decay between games
+  // Get all active timewalk events for replay
+  const timewalkEvents = await getActiveTimewalkEvents();
+
+  // Create a merged timeline of games and timewalk events, sorted chronologically
+  type TimelineEvent =
+    | { type: 'game'; gameId: string; createdAt: string }
+    | { type: 'timewalk'; days: number; createdAt: string };
+
+  const timeline: TimelineEvent[] = [];
+
   for (const game of allGames) {
-    // Get the players who participate in this game
-    const participants = await db.all('SELECT userId FROM matches WHERE gameId = ?', game.gameId);
-    const participantIds = participants.map((p: any) => p.userId);
+    timeline.push({ type: 'game', gameId: game.gameId, createdAt: game.createdAt });
+  }
+  for (const tw of timewalkEvents) {
+    timeline.push({ type: 'timewalk', days: tw.days, createdAt: tw.createdAt });
+  }
 
-    // Apply decay for participants up to this game's date
-    // This ensures their pre-game rating includes accumulated decay from inactivity
-    const gameDate = new Date(game.createdAt);
-    await applyDecayForPlayers(participantIds, gameDate);
+  // Sort by timestamp (stable sort preserves insertion order for ties)
+  timeline.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-    // Replay the game (uses current ratings, which now include decay)
-    await replayPlayerGame(game.gameId);
+  let gameCount = 0;
+  let timewalkCount = 0;
 
-    // Fix lastPlayed for participants to the game's actual date (not "now")
-    for (const userId of participantIds) {
-      await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [game.createdAt, userId]);
+  // Replay each event in chronological order
+  for (const event of timeline) {
+    if (event.type === 'game') {
+      // Get the players who participate in this game
+      const participants = await db.all('SELECT userId FROM matches WHERE gameId = ?', event.gameId);
+      const participantIds = participants.map((p: any) => p.userId);
+
+      // Apply real-time decay for participants up to this game's date
+      // This ensures their pre-game rating includes accumulated decay from inactivity
+      const gameDate = new Date(event.createdAt);
+      await applyDecayForPlayers(participantIds, gameDate);
+
+      // Replay the game (uses current ratings, which now include decay)
+      await replayPlayerGame(event.gameId);
+
+      // Fix lastPlayed for participants to the game's actual date (not "now")
+      // Note: recordPlayerActivity() is already called inside replayPlayerGame()
+      for (const userId of participantIds) {
+        await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [event.createdAt, userId]);
+      }
+      gameCount++;
+    } else if (event.type === 'timewalk') {
+      // Replay timewalk: advance virtual clock and apply virtual decay to all eligible players
+      // skipSnapshot=true since we're in recalculation (parent operation handles undo)
+      await applyRatingDecay('timewalk', undefined, event.days, true);
+      addTimewalkDays(event.days);
+      timewalkCount++;
     }
   }
 
-  logger.info(`[SET] Completed recalculation of ${allGames.length} active player games (with interleaved decay)`);
+  logger.info(`[SET] Completed recalculation of ${gameCount} active player games and ${timewalkCount} timewalk events (with interleaved decay)`);
 }
 
 export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup: { cleanedPlayers: number }, deckCleanup: { cleanedDecks: number } }> {

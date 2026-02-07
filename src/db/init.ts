@@ -207,6 +207,17 @@ export async function initDatabase() {
     )
   `);
 
+  // Timewalk events table for persisting virtual decay events across recalculations
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS timewalk_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      days INTEGER NOT NULL,
+      adminUserId TEXT,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+      active INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
   // Create indexes for performance
   logger.info('[DB] Creating indexes...');
   
@@ -249,6 +260,10 @@ export async function initDatabase() {
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_undoable_operations_timestamp ON undoable_operations(timestamp)`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_undoable_operations_status ON undoable_operations(status)`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_undoable_operations_admin ON undoable_operations(adminUserId)`);
+
+  // Timewalk events indexes
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_timewalk_events_active ON timewalk_events(active)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_timewalk_events_created ON timewalk_events(createdAt)`);
 
   // Add missing columns to existing tables if they don't exist
   logger.info('[DB] Checking for missing columns...');

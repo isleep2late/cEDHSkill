@@ -104,6 +104,57 @@ export function getTimewalkDays(): number {
 }
 
 /**
+ * Subtract days from the virtual clock (used when undoing a timewalk).
+ */
+export function subtractTimewalkDays(days: number): void {
+  cumulativeTimewalkDays = Math.max(0, cumulativeTimewalkDays - days);
+  logger.info(`[TIMEWALK] Virtual clock reversed to: Day ${cumulativeTimewalkDays}`);
+}
+
+/**
+ * Save a timewalk event to the database for persistence across recalculations.
+ */
+export async function saveTimewalkEvent(days: number, adminUserId: string): Promise<number> {
+  const { getDatabase } = await import('./db/init.js');
+  const db = getDatabase();
+  const result = await db.run(
+    'INSERT INTO timewalk_events (days, adminUserId) VALUES (?, ?)',
+    [days, adminUserId]
+  );
+  logger.info(`[TIMEWALK] Saved timewalk event (id=${result.lastID}, +${days} days) to database`);
+  return result.lastID!;
+}
+
+/**
+ * Get all active timewalk events, ordered chronologically.
+ */
+export async function getActiveTimewalkEvents(): Promise<Array<{ id: number; days: number; createdAt: string }>> {
+  const { getDatabase } = await import('./db/init.js');
+  const db = getDatabase();
+  return db.all('SELECT id, days, createdAt FROM timewalk_events WHERE active = 1 ORDER BY createdAt ASC');
+}
+
+/**
+ * Deactivate a timewalk event (used when undoing a timewalk decay).
+ */
+export async function deactivateTimewalkEvent(eventId: number): Promise<void> {
+  const { getDatabase } = await import('./db/init.js');
+  const db = getDatabase();
+  await db.run('UPDATE timewalk_events SET active = 0 WHERE id = ?', [eventId]);
+  logger.info(`[TIMEWALK] Deactivated timewalk event id=${eventId}`);
+}
+
+/**
+ * Reactivate a timewalk event (used when redoing a timewalk decay).
+ */
+export async function reactivateTimewalkEvent(eventId: number): Promise<void> {
+  const { getDatabase } = await import('./db/init.js');
+  const db = getDatabase();
+  await db.run('UPDATE timewalk_events SET active = 1 WHERE id = ?', [eventId]);
+  logger.info(`[TIMEWALK] Reactivated timewalk event id=${eventId}`);
+}
+
+/**
  * Calculate the minimum days to fast-forward until a decay occurs.
  * Uses virtual clock: player's inactivity = virtual_clock - their_last_play_position
  */
@@ -161,7 +212,8 @@ export async function applyRatingDecay(
   triggeredBy: 'cron' | 'timewalk' = 'cron',
   adminUserId?: string,
   simulatedDaysOffset: number = 0,
-  skipSnapshot: boolean = false
+  skipSnapshot: boolean = false,
+  timewalkEventId?: number
 ): Promise<number> {
   logger.info('[DECAY] Starting linear rating decay process...');
 
@@ -285,7 +337,8 @@ export async function applyRatingDecay(
         decayAmount: DECAY_ELO_PER_DAY,
         triggeredBy: triggeredBy,
         adminUserId: adminUserId,
-        simulatedDaysOffset: simulatedDaysOffset
+        simulatedDaysOffset: simulatedDaysOffset,
+        timewalkEventId: timewalkEventId
       },
       timestamp: timestamp,
       description: simulatedDaysOffset > 0
