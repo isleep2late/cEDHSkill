@@ -25,7 +25,36 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
    - `DECAY_START_DAYS` - Days before decay begins (default: 6)
 4. `npm run build`
 5. `npm run register-commands`
-6. `npm start`
+6. `./start-leaguebot.sh` (recommended) or `npm start`
+
+## Running the Bot
+
+### Startup Script (Recommended)
+
+```bash
+./start-leaguebot.sh            # Build + run (output visible in terminal + log file)
+./start-leaguebot.sh --no-build # Skip build, just run
+./start-leaguebot.sh --bg       # Run in background via screen (detachable)
+```
+
+- **Default mode** keeps the terminal open so you can watch all bot activity in real time.
+- **Background mode** (`--bg`) runs via `screen` - reattach with `screen -r leaguebot`.
+- Both modes write to `logs/bot.log` simultaneously.
+
+### Logging
+
+All bot activity is logged to both the terminal and `logs/bot.log`:
+
+- **Command logging** - Every slash command is logged with the user, server, options, execution time, and result
+- **Internal operations** - Decay, undo/redo, snapshots, recalculations, database migrations, cleanup, and EDHREC validation
+- **Log rotation** - Files auto-rotate at 10MB, keeping 5 previous log files (`bot.log.1` through `bot.log.5`)
+- **Log levels** - `[INFO]`, `[WARN]`, `[ERROR]`, `[DEBUG]`, `[CMD]`, `[CMD-DONE]`, `[CMD-ERR]`
+
+Example log output:
+```
+[2025-01-15T20:30:00.000Z] [CMD] /rank | User: player1 (123456) | Guild: 789012 | Options: {"type":"aftergame"}
+[2025-01-15T20:30:02.341Z] [CMD-DONE] /rank | User: 123456 | 2341ms | success
+```
 
 ## Commands
 

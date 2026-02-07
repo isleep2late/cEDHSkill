@@ -13,7 +13,8 @@
     "allowJs": false,
     "declaration": true,
     "sourceMap": false,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "node-cron"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
