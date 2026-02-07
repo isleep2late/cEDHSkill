@@ -1,5 +1,6 @@
 import { getDatabase } from '../db/init.js';
 import crypto from 'crypto';
+import { logger } from './logger.js';
 
 export async function generateUniqueGameId(): Promise<string> {
   const db = getDatabase();
@@ -29,7 +30,7 @@ if (gameId === '0' || gameId === '000000') {
   }
   
   // Fallback to UUID if we can't generate a unique short ID
-  console.warn('[GAME_ID] Failed to generate unique short ID, falling back to UUID');
+  logger.warn('[GAME_ID] Failed to generate unique short ID, falling back to UUID');
   return crypto.randomUUID().substring(0, 8).toUpperCase();
 }
 

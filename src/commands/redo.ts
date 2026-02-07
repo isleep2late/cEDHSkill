@@ -24,6 +24,7 @@ import {
   cleanupZeroPlayers,
   cleanupZeroDecks
 } from '../db/database-utils.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -66,7 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     } else if (redoneSnapshot.gameType === 'decay') {
       // Decay redo is handled internally by redoLastOperation()
       // Just log for audit purposes
-      console.log(`[REDO] Restored decay cycle affecting ${(redoneSnapshot as DecaySnapshot).players.length} players`);
+      logger.info(`[REDO] Restored decay cycle affecting ${(redoneSnapshot as DecaySnapshot).players.length} players`);
     } else {
       // Restore ratings to after-game state and restore game to database
       const gameSnapshot = redoneSnapshot as MatchSnapshot;
@@ -91,7 +92,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
   } catch (error) {
-    console.error('Error redoing operation:', error);
+    logger.error('Error redoing operation:', error);
     await interaction.editReply({
       content: 'An error occurred while redoing the operation.'
     });
@@ -311,9 +312,9 @@ async function restoreGameToDatabase(snapshot: MatchSnapshot): Promise<void> {
       }
     }
 
-    console.log(`[REDO] Restored ${snapshot.gameType} game ${snapshot.gameId} to database (has player data: ${hasPlayerData}, has deck data: ${hasDeckData})`);
+    logger.info(`[REDO] Restored ${snapshot.gameType} game ${snapshot.gameId} to database (has player data: ${hasPlayerData}, has deck data: ${hasDeckData})`);
   } catch (error) {
-    console.error(`[REDO] Error restoring game ${snapshot.gameId}:`, error);
+    logger.error(`[REDO] Error restoring game ${snapshot.gameId}:`, error);
     throw error;
   }
 }

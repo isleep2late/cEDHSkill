@@ -5,6 +5,7 @@ import { getOrCreatePlayer, getPlayerTurnOrderStats, getAllPlayerTurnOrderStats 
 import { getOrCreateDeck, getDeckTurnOrderStats } from '../db/deck-utils.js';
 import { calculateElo } from '../utils/elo-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('predict')
@@ -81,7 +82,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             return;
           }
         } catch (error) {
-          console.error('Error validating commander:', error);
+          logger.error('Error validating commander:', error);
           await interaction.editReply({
             content: `❌ Unable to validate commander "${commanderName}". Please check the name and try again.`
           });
@@ -97,7 +98,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await generatePredictions(interaction, paddedEntries);
 
   } catch (error) {
-    console.error('Error in predict command:', error);
+    logger.error('Error in predict command:', error);
     await interaction.editReply({
       content: '❌ An error occurred while generating predictions.'
     });
@@ -181,11 +182,13 @@ function padEntriesTo4Players(entries: ParsedEntry[]): ParsedEntry[] {
 }
 
 async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply();
+
   try {
     const turnOrderStats = await getAllPlayerTurnOrderStats();
-    
+
     if (turnOrderStats.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'No turn order data available yet. Play some games with turn order tracking to see statistics!'
       });
       return;
@@ -213,7 +216,7 @@ async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction)
       .sort((a, b) => a.turnOrder - b.turnOrder);
 
     if (results.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'No turn order data available yet.'
       });
       return;
@@ -253,13 +256,12 @@ async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction)
       text: `Based on ${totalGames} total games • Use /predict with players/commanders for game predictions`
     });
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error showing turn order statistics:', error);
-    await interaction.reply({
-      content: '❌ Error retrieving turn order statistics.',
-      ephemeral: true
+    logger.error('Error showing turn order statistics:', error);
+    await interaction.editReply({
+      content: '❌ Error retrieving turn order statistics.'
     });
   }
 }

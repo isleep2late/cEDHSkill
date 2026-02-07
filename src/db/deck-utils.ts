@@ -40,11 +40,12 @@ export async function getOrCreateDeck(normalizedName: string, displayName: strin
   let deck = await selectStmt.get(normalizedName) as Deck | undefined;
   
   if (!deck) {
+    // Use INSERT OR IGNORE to prevent race conditions if two calls happen concurrently
     const insertStmt = await db.prepare(`
-      INSERT INTO decks (normalizedName, displayName, mu, sigma, wins, losses, draws)
+      INSERT OR IGNORE INTO decks (normalizedName, displayName, mu, sigma, wins, losses, draws)
       VALUES (?, ?, 25.0, 8.333, 0, 0, 0)
     `);
-    
+
     await insertStmt.run(normalizedName, displayName);
     deck = await selectStmt.get(normalizedName) as Deck;
   }

@@ -31,6 +31,7 @@ import {
 import { updatePlayerRating, getOrCreatePlayer, getAllPlayers } from '../db/player-utils.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { calculateElo } from '../utils/elo-utils.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -89,7 +90,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
   } catch (error) {
-    console.error('Error undoing operation:', error);
+    logger.error('Error undoing operation:', error);
     await interaction.editReply({
       content: 'An error occurred while undoing the operation. Please check the logs for details.'
     });
@@ -97,13 +98,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 }
 
 async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: string): Promise<void> {
-  console.log(`[UNDO] Restoring ratings from snapshot for ${snapshot.gameType} game ${snapshot.gameId}`);
+  logger.info(`[UNDO] Restoring ratings from snapshot for ${snapshot.gameType} game ${snapshot.gameId}`);
   const db = getDatabase();
 
   // Restore player ratings to before-game state
   const playerBefore = snapshot.before.filter(s => 'userId' in s) as PlayerSnapshot[];
   for (const playerSnapshot of playerBefore) {
-    console.log(`[UNDO] Restoring player ${playerSnapshot.userId} to mu: ${playerSnapshot.mu}, sigma: ${playerSnapshot.sigma}, W/L/D: ${playerSnapshot.wins}/${playerSnapshot.losses}/${playerSnapshot.draws}`);
+    logger.info(`[UNDO] Restoring player ${playerSnapshot.userId} to mu: ${playerSnapshot.mu}, sigma: ${playerSnapshot.sigma}, W/L/D: ${playerSnapshot.wins}/${playerSnapshot.losses}/${playerSnapshot.draws}`);
 
     await updatePlayerRating(
       playerSnapshot.userId,
@@ -148,7 +149,7 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
   // Restore deck ratings to before-game state
   const deckBefore = snapshot.before.filter(s => 'normalizedName' in s) as DeckSnapshot[];
   for (const deckSnapshot of deckBefore) {
-    console.log(`[UNDO] Restoring deck ${deckSnapshot.normalizedName} to mu: ${deckSnapshot.mu}, sigma: ${deckSnapshot.sigma}, W/L/D: ${deckSnapshot.wins}/${deckSnapshot.losses}/${deckSnapshot.draws}`);
+    logger.info(`[UNDO] Restoring deck ${deckSnapshot.normalizedName} to mu: ${deckSnapshot.mu}, sigma: ${deckSnapshot.sigma}, W/L/D: ${deckSnapshot.wins}/${deckSnapshot.losses}/${deckSnapshot.draws}`);
     
     await updateDeckRating(
       deckSnapshot.normalizedName,
@@ -186,7 +187,7 @@ async function restoreRatingsFromSnapshot(snapshot: MatchSnapshot, adminUserId: 
     }
   }
 
-  console.log(`[UNDO] Completed rating restoration for ${snapshot.gameType} game ${snapshot.gameId}`);
+  logger.info(`[UNDO] Completed rating restoration for ${snapshot.gameType} game ${snapshot.gameId}`);
 }
 
 async function createUndoEmbed(undoneSnapshots: UniversalSnapshot[], interaction: ChatInputCommandInteraction): Promise<EmbedBuilder> {
@@ -466,13 +467,13 @@ async function createDetailedSnapshot(gameId: string): Promise<MatchSnapshot | n
   try {
     const gameType = await getGameType(gameId);
     if (!gameType) {
-      console.log(`[UNDO] Could not determine game type for ${gameId}`);
+      logger.info(`[UNDO] Could not determine game type for ${gameId}`);
       return null;
     }
 
     const gameDetails = await getGameDetails(gameId);
     if (!gameDetails || gameDetails.status !== 'confirmed') {
-      console.log(`[UNDO] Game ${gameId} not found or not confirmed`);
+      logger.info(`[UNDO] Game ${gameId} not found or not confirmed`);
       return null;
     }
 
@@ -484,16 +485,16 @@ async function createDetailedSnapshot(gameId: string): Promise<MatchSnapshot | n
     }
 
     if (matches.length === 0) {
-      console.log(`[UNDO] No matches found for game ${gameId}`);
+      logger.info(`[UNDO] No matches found for game ${gameId}`);
       return null;
     }
 
     const snapshot = await createSnapshotFromCurrentState(gameId, gameType, matches);
-    console.log(`[UNDO] Created detailed snapshot for ${gameType} game ${gameId} with ${matches.length} matches`);
+    logger.info(`[UNDO] Created detailed snapshot for ${gameType} game ${gameId} with ${matches.length} matches`);
     
     return snapshot;
   } catch (error) {
-    console.error(`[UNDO] Error creating detailed snapshot for game ${gameId}:`, error);
+    logger.error(`[UNDO] Error creating detailed snapshot for game ${gameId}:`, error);
     return null;
   }
 }
@@ -503,17 +504,17 @@ async function logUndoOperation(
   adminUserId: string,
   operationType: 'single' | 'multiple'
 ): Promise<void> {
-  console.log(`[UNDO] ${operationType} undo operation by admin ${adminUserId}:`);
+  logger.info(`[UNDO] ${operationType} undo operation by admin ${adminUserId}:`);
   
   for (const snapshot of undoneSnapshots) {
     if (snapshot.gameType === 'set_command') {
       const setSnapshot = snapshot as SetCommandSnapshot;
-      console.log(`  - Set command: ${setSnapshot.operationType} for ${setSnapshot.targetType} ${setSnapshot.targetId}`);
+      logger.info(`  - Set command: ${setSnapshot.operationType} for ${setSnapshot.targetType} ${setSnapshot.targetId}`);
     } else {
       const matchSnapshot = snapshot as MatchSnapshot;
       const playerCount = matchSnapshot.before.filter(s => 'userId' in s).length;
       const deckCount = matchSnapshot.before.filter(s => 'normalizedName' in s).length;
-      console.log(`  - ${matchSnapshot.gameType} game ${matchSnapshot.gameId}: ${playerCount} players, ${deckCount} decks`);
+      logger.info(`  - ${matchSnapshot.gameType} game ${matchSnapshot.gameId}: ${playerCount} players, ${deckCount} decks`);
     }
   }
 }
@@ -551,7 +552,7 @@ async function performPostUndoMaintenance(): Promise<{
   decksRemoved: number,
   entitiesUpdated: number
 }> {
-  console.log('[UNDO] Starting post-undo maintenance...');
+  logger.info('[UNDO] Starting post-undo maintenance...');
   
   const playerCleanup = await cleanupZeroPlayers();
   const deckCleanup = await cleanupZeroDecks();
@@ -572,7 +573,7 @@ async function performPostUndoMaintenance(): Promise<{
     WHERE m.assignedDeck IS NOT NULL AND d.normalizedName IS NULL
   `);
   
-  console.log(`[UNDO] Maintenance completed. Players removed: ${playerCleanup.cleanedPlayers}, Decks removed: ${deckCleanup.cleanedDecks}`);
+  logger.info(`[UNDO] Maintenance completed. Players removed: ${playerCleanup.cleanedPlayers}, Decks removed: ${deckCleanup.cleanedDecks}`);
   
   return {
     playersRemoved: playerCleanup.cleanedPlayers,

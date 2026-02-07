@@ -61,8 +61,9 @@ export async function getOrCreatePlayer(userId: string) {
     const losses = 0;
     const draws = 0;
     
+    // Use INSERT OR IGNORE to prevent race conditions if two calls happen concurrently
     const insertStmt = await db.prepare(`
-      INSERT INTO players (userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed) 
+      INSERT OR IGNORE INTO players (userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     await insertStmt.run(userId, mu, sigma, wins, losses, draws, 0, null);

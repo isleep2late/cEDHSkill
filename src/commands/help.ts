@@ -4,6 +4,7 @@
   EmbedBuilder,
 } from 'discord.js';
 import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('help')

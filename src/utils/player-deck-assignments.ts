@@ -1,5 +1,6 @@
 import { getDatabase } from '../db/init.js';
 import { normalizeCommanderName, validateCommander } from './edhrec-utils.js';
+import { logger } from './logger.js';
 
 export interface PlayerDeckAssignment {
   id: number;
@@ -100,7 +101,7 @@ export async function assignDeckToPlayer(
       throw new Error(`"${deckName}" is not a valid commander name according to EDHREC.`);
     }
   } catch (error) {
-    console.error('Error validating commander for assignment:', error);
+    logger.error('Error validating commander for assignment:', error);
     throw new Error(`Unable to validate commander "${deckName}". Please check the name and try again.`);
   }
 
@@ -296,7 +297,7 @@ export async function getTopPlayerDeckCombinations(limit: number = 10): Promise<
  */
 export async function migrateExistingDataForDeckAssignments(): Promise<void> {
   const db = getDatabase();
-  console.log('[MIGRATION] Starting deck assignment migration...');
+  logger.info('[MIGRATION] Starting deck assignment migration...');
   
   try {
     // Find matches that have deck information but no assignments
@@ -327,14 +328,14 @@ export async function migrateExistingDataForDeckAssignments(): Promise<void> {
           WHERE userId = ?
         `, mostUsedDeck.assignedDeck, match.userId);
         
-        console.log(`[MIGRATION] Set ${mostUsedDeck.assignedDeck} as default for user ${match.userId}`);
+        logger.info(`[MIGRATION] Set ${mostUsedDeck.assignedDeck} as default for user ${match.userId}`);
       }
     }
     
-    console.log('[MIGRATION] Deck assignment migration completed successfully');
+    logger.info('[MIGRATION] Deck assignment migration completed successfully');
     
   } catch (error) {
-    console.error('[MIGRATION] Error during deck assignment migration:', error);
+    logger.error('[MIGRATION] Error during deck assignment migration:', error);
     throw error;
   }
 }

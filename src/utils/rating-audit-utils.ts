@@ -1,5 +1,6 @@
 // src/utils/rating-audit-utils.ts
 import { calculateElo } from './elo-utils.js';
+import { logger } from './logger.js';
 
 export interface RatingChange {
   targetType: 'player' | 'deck';
@@ -58,7 +59,7 @@ export async function logRatingChange(change: RatingChange): Promise<void> {
     change.timestamp || new Date().toISOString()
   ]);
 
-  console.log(`[AUDIT] Logged ${change.changeType} rating change for ${change.targetType} ${change.targetDisplayName}`);
+  logger.info(`[AUDIT] Logged ${change.changeType} rating change for ${change.targetType} ${change.targetDisplayName}`);
 }
 
 export async function getRatingChangesForTarget(

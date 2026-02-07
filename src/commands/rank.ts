@@ -28,6 +28,7 @@ import { isExempt, getAlertOptIn } from '../utils/suspicion-utils.js';
 import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -69,7 +70,7 @@ class DiscordRateLimiter {
       const user = await client.users.fetch(userId);
       return user;
     } catch (error) {
-      console.error(`Failed to fetch user ${userId}:`, error);
+      logger.error(`Failed to fetch user ${userId}:`, error);
       return null;
     }
   }
@@ -177,7 +178,7 @@ class DatabaseErrorHandler {
       const result = await operation();
       return { success: true, data: result };
     } catch (error) {
-      console.error(`Database operation failed [${operationName}]:`, error);
+      logger.error(`Database operation failed [${operationName}]:`, error);
       
       if (fallbackValue !== undefined) {
         return { success: false, data: fallbackValue, error: `${operationName} failed, using fallback` };
@@ -200,7 +201,7 @@ class DatabaseErrorHandler {
       }
       return { success: true };
     } catch (error) {
-      console.error(`Transaction failed [${operationName}]:`, error);
+      logger.error(`Transaction failed [${operationName}]:`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : `Transaction failed in ${operationName}` 
@@ -249,7 +250,7 @@ class CommanderValidator {
         this.pendingValidations.delete(normalizedName);
       }
     } catch (error) {
-      console.error(`Commander validation error for ${commanderName}:`, error);
+      logger.error(`Commander validation error for ${commanderName}:`, error);
       return { valid: false, error: 'Validation service temporarily unavailable' };
     }
   }
@@ -287,7 +288,7 @@ class CommanderValidator {
         clearTimeout(timeoutId);
         return response.status === 200;
       } catch (error) {
-        console.warn(`Commander validation attempt ${attempt} failed for ${normalizedName}:`, error);
+        logger.warn(`Commander validation attempt ${attempt} failed for ${normalizedName}:`, error);
         
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
@@ -295,7 +296,7 @@ class CommanderValidator {
       }
     }
 
-    console.error(`All validation attempts failed for ${normalizedName}`);
+    logger.error(`All validation attempts failed for ${normalizedName}`);
     return false;
   }
 }
@@ -313,7 +314,7 @@ async function fetchUsernames(
   const invalidIds = userIds.filter(id => !InputValidator.validateUserId(id));
   
   for (const invalidId of invalidIds) {
-    console.warn(`Invalid user ID format: ${invalidId}`);
+    logger.warn(`Invalid user ID format: ${invalidId}`);
     userNames[invalidId] = `<@${invalidId}>`;
     failures.push(invalidId);
   }
@@ -397,7 +398,7 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
 
     return { sequence, injectedTimestamp };
   } catch (error) {
-    console.error('Error in getNextGameSequence:', error);
+    logger.error('Error in getNextGameSequence:', error);
     throw error;
   }
 }
@@ -430,9 +431,9 @@ export async function cleanupUnconfirmedGame(gameId: string): Promise<void> {
     // Also clean up any match/deck_match records just in case
     await db.run('DELETE FROM matches WHERE gameId = ?', gameId);
     await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
-    console.log(`[CLEANUP] Removed unconfirmed game ${gameId} from database`);
+    logger.info(`[CLEANUP] Removed unconfirmed game ${gameId} from database`);
   } catch (error) {
-    console.error(`[CLEANUP] Error removing unconfirmed game ${gameId}:`, error);
+    logger.error(`[CLEANUP] Error removing unconfirmed game ${gameId}:`, error);
   }
 }
 
@@ -451,7 +452,7 @@ async function updateMatchesWithSequence(gameId: string, gameSequence: number, g
 
 // Function to recalculate ALL player ratings from scratch in chronological order
 async function recalculateAllPlayersFromScratch(): Promise<void> {
-  console.log('[RECALC] Starting complete player rating recalculation...');
+  logger.info('[RECALC] Starting complete player rating recalculation...');
 
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
@@ -491,12 +492,12 @@ async function recalculateAllPlayersFromScratch(): Promise<void> {
     }
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allGames.length} player games (with interleaved decay)`);
+  logger.info(`[RECALC] Completed recalculation of ${allGames.length} player games (with interleaved decay)`);
 }
 
 // Function to recalculate ALL deck ratings from scratch in chronological order
 async function recalculateAllDecksFromScratch(): Promise<void> {
-  console.log('[RECALC] Starting complete deck rating recalculation...');
+  logger.info('[RECALC] Starting complete deck rating recalculation...');
 
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
@@ -520,7 +521,7 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[RECALC] Completed recalculation of ${allDeckGames.length} active pure deck games`);
+  logger.info(`[RECALC] Completed recalculation of ${allDeckGames.length} active pure deck games`);
 
   // Also replay commander ratings for ACTIVE hybrid player games (player games with assigned decks)
   const hybridGames = await db.all(`
@@ -536,21 +537,21 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
   }
 
   if (hybridGames.length > 0) {
-    console.log(`[RECALC] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+    logger.info(`[RECALC] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
   }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
   const decayCount = await applyRatingDecay('cron', undefined, 0, true);
   if (decayCount > 0) {
-    console.log(`[RECALC] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
+    logger.info(`[RECALC] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
   }
 
   // Always clean up players and decks with 0/0/0 records after recalculation
   const playerCleanup = await cleanupZeroPlayers();
   const deckCleanup = await cleanupZeroDecks();
   if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
-    console.log(`[RECALC] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+    logger.info(`[RECALC] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
   }
 }
 
@@ -653,7 +654,7 @@ export async function replayPlayerGame(gameId: string): Promise<void> {
         })
       });
     } catch (auditError) {
-      console.error('Error logging player recalculation to audit trail:', auditError);
+      logger.error('Error logging player recalculation to audit trail:', auditError);
     }
   }
 
@@ -831,7 +832,7 @@ export async function replayDeckGame(gameId: string): Promise<void> {
         })
       });
     } catch (auditError) {
-      console.error('Error logging deck recalculation to audit trail:', auditError);
+      logger.error('Error logging deck recalculation to audit trail:', auditError);
     }
   }
 }
@@ -866,7 +867,7 @@ async function buildTurnOrderFromReactions(message: any, players: PlayerEntry[])
       }
     }
   } catch (error) {
-    console.error('Error rebuilding turn order from reactions:', error);
+    logger.error('Error rebuilding turn order from reactions:', error);
   }
   
   return turnOrderData;
@@ -1321,8 +1322,8 @@ if (assignedTurnOrders.length !== uniqueTurnOrders.size) {
 }
 
 // Debug output
-console.log('Input tokens:', tokens);
-console.log('Parsed players:', players.map(p => ({
+logger.info('Input tokens:', tokens);
+logger.info('Parsed players:', players.map(p => ({
   userId: p.userId,
   status: p.status,
   turnOrder: p.turnOrder,
@@ -1510,7 +1511,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     const u = await client.users.fetch(p.userId);
     userNames[p.userId] = `@${u.username}`;
   } catch (error) {
-    console.warn(`Failed to fetch username for ${p.userId}:`, error);
+    logger.warn(`Failed to fetch username for ${p.userId}:`, error);
     userNames[p.userId] = `<@${p.userId}>`;
   }
   
@@ -1524,7 +1525,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
       lastPlayed: pd.lastPlayed || null
     };
   } catch (error) {
-    console.error(`Failed to get player data for ${p.userId}:`, error);
+    logger.error(`Failed to get player data for ${p.userId}:`, error);
     // Use defaults if database fails
     preRatings[p.userId] = rating({ mu: 25.0, sigma: 8.333 });
     records[p.userId] = { wins: 0, losses: 0, draws: 0, lastPlayed: null };
@@ -1649,11 +1650,11 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
         try {
           await replyMsg.react(turnOrderEmojis[turnOrder - 1]);
         } catch (error) {
-          console.error(`Failed to add admin reaction for turn order ${turnOrder}:`, error);
+          logger.error(`Failed to add admin reaction for turn order ${turnOrder}:`, error);
         }
       }
     } catch (error) {
-      console.error('Failed to add admin turn order reactions:', error);
+      logger.error('Failed to add admin turn order reactions:', error);
     }
 
     const turnOrderSelections = new Map<string, number>();
@@ -1729,7 +1730,7 @@ const updateAdminEmbedWithTurnOrders = async () => {
     
     await replyMsg.edit({ embeds: [updatedEmbed] });
   } catch (error) {
-    console.error('Failed to update admin embed with turn order progress:', error);
+    logger.error('Failed to update admin embed with turn order progress:', error);
   }
 };
 
@@ -1742,7 +1743,7 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove unauthorized admin reaction:', error);
+      logger.error('Failed to remove unauthorized admin reaction:', error);
     }
     return; // Exit immediately
   }
@@ -1752,7 +1753,7 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove reaction from player with existing turn order:', error);
+      logger.error('Failed to remove reaction from player with existing turn order:', error);
     }
     return;
   }
@@ -1764,7 +1765,7 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove unavailable admin turn order reaction:', error);
+      logger.error('Failed to remove unavailable admin turn order reaction:', error);
     }
     return;
   }
@@ -1778,7 +1779,7 @@ turnOrderCollector.on('collect', async (reaction, user) => {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove contested admin turn order reaction:', error);
+      logger.error('Failed to remove contested admin turn order reaction:', error);
     }
     return;
   }
@@ -1793,7 +1794,7 @@ turnOrderCollector.on('collect', async (reaction, user) => {
       const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
       if (oldReaction) await oldReaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove old admin turn order reaction:', error);
+      logger.error('Failed to remove old admin turn order reaction:', error);
     }
   }
 
@@ -1821,12 +1822,12 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
 }
       
       if (finalTurnOrders.length > 0) {
-        console.log(`Updating ${finalTurnOrders.length} turn orders for admin game ${gameId}`);
+        logger.info(`Updating ${finalTurnOrders.length} turn orders for admin game ${gameId}`);
         for (const [userId, turnOrder] of finalTurnOrders) {
           try {
             await updateMatchTurnOrder(matchId, userId, turnOrder);
           } catch (error) {
-            console.error(`Failed to update turn order for user ${userId}:`, error);
+            logger.error(`Failed to update turn order for user ${userId}:`, error);
           }
         }
       }
@@ -1845,7 +1846,7 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
       await replyMsg.edit({ embeds: [finalEmbed] });
     }
   } catch (error) {
-    console.error('Error in admin turn order end handler:', error);
+    logger.error('Error in admin turn order end handler:', error);
   }
 });
   }
@@ -1916,12 +1917,12 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
       try {
         await replyMsg.react(turnOrderEmojis[turnOrder - 1]);
       } catch (error) {
-        console.error(`Failed to add reaction for turn order ${turnOrder}:`, error);
+        logger.error(`Failed to add reaction for turn order ${turnOrder}:`, error);
       }
     }
   }
 } catch (error) {
-  console.error('Failed to add basic reactions:', error);
+  logger.error('Failed to add basic reactions:', error);
   // Continue execution even if reactions fail
 }
 
@@ -2014,7 +2015,7 @@ const updateEmbedWithTurnOrders = async () => {
     
     await replyMsg.edit({ embeds: [updatedEmbed] });
   } catch (error) {
-    console.error('Failed to update embed:', error);
+    logger.error('Failed to update embed:', error);
   }
 };
 
@@ -2028,7 +2029,7 @@ collector.on('collect', async (reaction, user) => {
     try {
       await reaction.users.remove(user.id);
     } catch (error) {
-      console.error('Failed to remove unauthorized reaction:', error);
+      logger.error('Failed to remove unauthorized reaction:', error);
     }
     return; // Exit immediately - don't process anything
   }
@@ -2053,7 +2054,7 @@ collector.on('collect', async (reaction, user) => {
       });
       return;
     } catch (error) {
-      console.error('Error in cancellation handler:', error);
+      logger.error('Error in cancellation handler:', error);
       return;
     }
   }
@@ -2073,7 +2074,7 @@ collector.on('collect', async (reaction, user) => {
         await interaction.editReply({ content: updatedContent });
       }
     } catch (error) {
-      console.error('Failed to update confirmation status:', error);
+      logger.error('Failed to update confirmation status:', error);
     }
     
     // CRITICAL FIX: Add processing guard
@@ -2114,9 +2115,13 @@ collector.on('collect', async (reaction, user) => {
           await showTop50PlayersAndDecks(interaction);
         }
       } catch (error) {
-        console.error('Error processing game results:', error);
+        logger.error('Error processing game results:', error);
         isProcessing = false; // Reset flag on error
-        throw error; // Re-throw to handle properly
+        try {
+          await interaction.followUp({ content: '❌ An error occurred while processing game results. Please check the logs.', ephemeral: true });
+        } catch {
+          // Interaction may have expired
+        }
       }
     }
     return;
@@ -2132,7 +2137,7 @@ collector.on('collect', async (reaction, user) => {
       try {
         await reaction.users.remove(user.id);
       } catch (error) {
-        console.error('Failed to remove invalid turn order reaction:', error);
+        logger.error('Failed to remove invalid turn order reaction:', error);
       }
       return;
     }
@@ -2145,7 +2150,7 @@ collector.on('collect', async (reaction, user) => {
       try {
         await reaction.users.remove(user.id);
       } catch (error) {
-        console.error('Failed to remove unavailable turn order reaction:', error);
+        logger.error('Failed to remove unavailable turn order reaction:', error);
       }
       return;
     }
@@ -2159,7 +2164,7 @@ collector.on('collect', async (reaction, user) => {
       try {
         await reaction.users.remove(user.id);
       } catch (error) {
-        console.error('Failed to remove contested turn order reaction:', error);
+        logger.error('Failed to remove contested turn order reaction:', error);
       }
       return;
     }
@@ -2174,7 +2179,7 @@ collector.on('collect', async (reaction, user) => {
         const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
         if (oldReaction) await oldReaction.users.remove(user.id);
       } catch (error) {
-        console.error('Failed to remove old turn order reaction:', error);
+        logger.error('Failed to remove old turn order reaction:', error);
       }
     }
 
@@ -2202,13 +2207,13 @@ collector.on('end', async (collected, reason) => {
       try {
         await chan.send({ content: timeoutMsg, embeds: [timeoutEmbed] });
       } catch (error) {
-        console.error('Failed to send timeout notification:', error);
+        logger.error('Failed to send timeout notification:', error);
       }
     } else if (reason === 'cancelled') {
       return;
     }
   } catch (error) {
-    console.error('Error in collector end handler:', error);
+    logger.error('Error in collector end handler:', error);
   }
 });
 }}
@@ -2457,11 +2462,11 @@ if (decks.length === 4) {
           try {
             await chan.send({ content: cancelMsg, embeds: [cancelEmbed] });
           } catch (error) {
-            console.error('Failed to send deck battle cancellation notification:', error);
+            logger.error('Failed to send deck battle cancellation notification:', error);
           }
           return;
         } catch (error) {
-          console.error('Error handling deck battle cancellation:', error);
+          logger.error('Error handling deck battle cancellation:', error);
           return;
         }
       }
@@ -2499,9 +2504,13 @@ if (decks.length === 4) {
               await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
             }
           } catch (error) {
-            console.error('Error processing deck results:', error);
+            logger.error('Error processing deck results:', error);
             isProcessingDeck = false; // Reset flag on error
-            throw error;
+            try {
+              await interaction.followUp({ content: '❌ An error occurred while processing deck results. Please check the logs.', ephemeral: true });
+            } catch {
+              // Interaction may have expired
+            }
           }
         }
       }
@@ -2523,7 +2532,7 @@ if (decks.length === 4) {
           const chan = replyMsg.channel as TextChannel;
           await chan.send({ content: timeoutMsg, embeds: [timeoutEmbed] });
         } catch (error) {
-          console.error('Failed to send deck battle timeout notification:', error);
+          logger.error('Failed to send deck battle timeout notification:', error);
         }
       } else if (reason === 'cancelled') {
         // Already handled in the collect event
@@ -2614,7 +2623,7 @@ for (const player of players) {
         player.commander = deckData.displayName;
         player.normalizedCommanderName = playerData.defaultDeck;
         
-        console.log(`[AUTO-ASSIGN] Applied default deck ${player.commander} to ${player.userId} for new game ${gameId}`);
+        logger.info(`[AUTO-ASSIGN] Applied default deck ${player.commander} to ${player.userId} for new game ${gameId}`);
       }
     } else if (existingMatch.assignedDeck) {
       // This is an existing game - use whatever deck was ALREADY assigned
@@ -2622,7 +2631,7 @@ for (const player of players) {
       player.commander = deckData?.displayName || existingMatch.assignedDeck;
       player.normalizedCommanderName = existingMatch.assignedDeck;
       
-      console.log(`[EXISTING] Preserved existing deck ${player.commander} for ${player.userId} in game ${gameId}`);
+      logger.info(`[EXISTING] Preserved existing deck ${player.commander} for ${player.userId} in game ${gameId}`);
     }
   }
 }
@@ -2694,7 +2703,7 @@ for (const player of players) {
         p.normalizedCommanderName || null  // CRITICAL: Pass the normalized commander name
       );
     } catch (error) {
-      console.error(`Failed to update player ${p.userId} rating/match:`, error);
+      logger.error(`Failed to update player ${p.userId} rating/match:`, error);
     }
 
     // Log the rating change for audit trail
@@ -2720,7 +2729,7 @@ for (const player of players) {
         })
       });
     } catch (auditError) {
-      console.error('Error logging player rating change to audit trail:', auditError);
+      logger.error('Error logging player rating change to audit trail:', auditError);
     }
 
     const commanderInfo = p.commander ? ` [${p.commander}]` : '';
@@ -3013,7 +3022,7 @@ export async function processCommanderRatingsEnhanced(
         })
       });
     } catch (auditError) {
-      console.error('Error logging commander rating change to audit trail:', auditError);
+      logger.error('Error logging commander rating change to audit trail:', auditError);
     }
 
     // Record individual deck matches for each instance
@@ -3195,7 +3204,7 @@ async function processDeckResults(
         })
       });
     } catch (auditError) {
-      console.error('Error logging deck rating change to audit trail:', auditError);
+      logger.error('Error logging deck rating change to audit trail:', auditError);
     }
     
     // Record individual matches for each instance

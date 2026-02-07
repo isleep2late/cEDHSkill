@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../utils/logger.js';
 
 let db: Database;
 
@@ -13,7 +14,7 @@ if (!fs.existsSync(dataDir)) {
 
 // Use consistent database name
 const dbPath = path.resolve('data', 'cEDHSkill.db');
-console.log(`[DB] Using database file at: ${dbPath}`);
+logger.info(`[DB] Using database file at: ${dbPath}`);
 
 // Export database instance for other modules
 export function getDatabase() {
@@ -21,7 +22,7 @@ export function getDatabase() {
 }
 
 export async function initDatabase() {
-  console.log('[DB] Initializing database...');
+  logger.info('[DB] Initializing database...');
 
   // Open database connection
   db = await open({
@@ -33,7 +34,7 @@ export async function initDatabase() {
   await db.exec('PRAGMA foreign_keys = ON');
   await db.exec('PRAGMA journal_mode = WAL');
 
-  console.log('[DB] Initializing tables...');
+  logger.info('[DB] Initializing tables...');
 
   // Players table with default deck support
   await db.exec(`
@@ -207,7 +208,7 @@ export async function initDatabase() {
   `);
 
   // Create indexes for performance
-  console.log('[DB] Creating indexes...');
+  logger.info('[DB] Creating indexes...');
   
   // Player and match indexes
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_matches_user_date ON matches(userId, matchDate)`);
@@ -250,137 +251,137 @@ export async function initDatabase() {
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_undoable_operations_admin ON undoable_operations(adminUserId)`);
 
   // Add missing columns to existing tables if they don't exist
-  console.log('[DB] Checking for missing columns...');
+  logger.info('[DB] Checking for missing columns...');
   
   try {
     await db.exec(`ALTER TABLE matches ADD COLUMN gameId TEXT`);
-    console.log('[DB] Added gameId column to matches table');
+    logger.info('[DB] Added gameId column to matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE matches ADD COLUMN gameSequence REAL`);
-    console.log('[DB] Added gameSequence column to matches table');
+    logger.info('[DB] Added gameSequence column to matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE matches ADD COLUMN assignedDeck TEXT`);
-    console.log('[DB] Added assignedDeck column to matches table');
+    logger.info('[DB] Added assignedDeck column to matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE players ADD COLUMN defaultDeck TEXT`);
-    console.log('[DB] Added defaultDeck column to players table');
+    logger.info('[DB] Added defaultDeck column to players table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE deck_matches ADD COLUMN gameId TEXT`);
-    console.log('[DB] Added gameId column to deck_matches table');
+    logger.info('[DB] Added gameId column to deck_matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE deck_matches ADD COLUMN gameSequence REAL`);
-    console.log('[DB] Added gameSequence column to deck_matches table');
+    logger.info('[DB] Added gameSequence column to deck_matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE deck_matches ADD COLUMN submittedByAdmin INTEGER DEFAULT 0`);
-    console.log('[DB] Added submittedByAdmin column to deck_matches table');
+    logger.info('[DB] Added submittedByAdmin column to deck_matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE deck_matches ADD COLUMN assignedPlayer TEXT`);
-    console.log('[DB] Added assignedPlayer column to deck_matches table');
+    logger.info('[DB] Added assignedPlayer column to deck_matches table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE game_ids ADD COLUMN gameSequence REAL`);
-    console.log('[DB] Added gameSequence column to game_ids table');
+    logger.info('[DB] Added gameSequence column to game_ids table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE game_ids ADD COLUMN status TEXT DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'undone'))`);
-    console.log('[DB] Added status column to game_ids table');
+    logger.info('[DB] Added status column to game_ids table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE games_master ADD COLUMN submittedByAdmin INTEGER DEFAULT 0`);
-    console.log('[DB] Added submittedByAdmin column to games_master table');
+    logger.info('[DB] Added submittedByAdmin column to games_master table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN oldWins INTEGER`);
-    console.log('[DB] Added oldWins column to rating_changes table');
+    logger.info('[DB] Added oldWins column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN oldLosses INTEGER`);
-    console.log('[DB] Added oldLosses column to rating_changes table');
+    logger.info('[DB] Added oldLosses column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN oldDraws INTEGER`);
-    console.log('[DB] Added oldDraws column to rating_changes table');
+    logger.info('[DB] Added oldDraws column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN newWins INTEGER`);
-    console.log('[DB] Added newWins column to rating_changes table');
+    logger.info('[DB] Added newWins column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN newLosses INTEGER`);
-    console.log('[DB] Added newLosses column to rating_changes table');
+    logger.info('[DB] Added newLosses column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE rating_changes ADD COLUMN newDraws INTEGER`);
-    console.log('[DB] Added newDraws column to rating_changes table');
+    logger.info('[DB] Added newDraws column to rating_changes table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE games_master ADD COLUMN active INTEGER DEFAULT 1`);
-    console.log('[DB] Added active column to games_master table');
+    logger.info('[DB] Added active column to games_master table');
   } catch (error) {
     // Column already exists, ignore
   }
 
   try {
     await db.exec(`ALTER TABLE game_ids ADD COLUMN active INTEGER DEFAULT 1`);
-    console.log('[DB] Added active column to game_ids table');
+    logger.info('[DB] Added active column to game_ids table');
   } catch (error) {
     // Column already exists, ignore
   }
@@ -388,14 +389,14 @@ export async function initDatabase() {
   // Add index for active field for performance
   try {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_active ON games_master(active)`);
-    console.log('[DB] Added active index to games_master table');
+    logger.info('[DB] Added active index to games_master table');
   } catch (error) {
     // Index already exists, ignore
   }
 
   try {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_game_ids_active ON game_ids(active)`);
-    console.log('[DB] Added active index to game_ids table');
+    logger.info('[DB] Added active index to game_ids table');
   } catch (error) {
     // Index already exists, ignore
   }
@@ -406,7 +407,7 @@ export async function initDatabase() {
     // Check if we need to migrate (try inserting a 'redo' type - if it fails, we need to migrate)
     const testResult = await db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name='rating_changes'`);
     if (testResult?.sql && !testResult.sql.includes("'redo'")) {
-      console.log('[DB] Migrating rating_changes table to support redo changeType...');
+      logger.info('[DB] Migrating rating_changes table to support redo changeType...');
 
       await db.exec(`BEGIN TRANSACTION`);
 
@@ -448,10 +449,10 @@ export async function initDatabase() {
       await db.exec(`ALTER TABLE rating_changes_new RENAME TO rating_changes`);
 
       await db.exec(`COMMIT`);
-      console.log('[DB] Successfully migrated rating_changes table');
+      logger.info('[DB] Successfully migrated rating_changes table');
     }
   } catch (error) {
-    console.log('[DB] rating_changes migration not needed or already complete');
+    logger.info('[DB] rating_changes migration not needed or already complete');
     try {
       await db.exec(`ROLLBACK`);
     } catch {
@@ -459,5 +460,5 @@ export async function initDatabase() {
     }
   }
 
-  console.log('[DB] All tables and indexes initialized successfully');
+  logger.info('[DB] All tables and indexes initialized successfully');
 }

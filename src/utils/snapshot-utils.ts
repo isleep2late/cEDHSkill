@@ -1,4 +1,5 @@
 import { calculateElo } from './elo-utils.js';
+import { logger } from './logger.js';
 
 export interface PlayerSnapshot {
   userId: string;
@@ -131,6 +132,7 @@ export interface DecaySnapshot {
 export type UniversalSnapshot = MatchSnapshot | SetCommandSnapshot | DecaySnapshot;
 
 // Main stacks for undo/redo functionality
+const MAX_STACK_SIZE = 100; // Prevent unbounded memory growth
 const rankOpHistoryStack: UniversalSnapshot[] = [];
 const undoneStack: UniversalSnapshot[] = [];
 
@@ -146,11 +148,17 @@ export function saveMatchSnapshot(snapshot: MatchSnapshot): void {
   }
 
   rankOpHistoryStack.push(snapshot);
-  
+
+  // Trim oldest entries if stack exceeds max size
+  if (rankOpHistoryStack.length > MAX_STACK_SIZE) {
+    const removed = rankOpHistoryStack.splice(0, rankOpHistoryStack.length - MAX_STACK_SIZE);
+    logger.info(`[SNAPSHOT] Trimmed ${removed.length} oldest entries from stack`);
+  }
+
   // Clear redo stack when new operation is saved
   undoneStack.length = 0;
-  
-  console.log(`[SNAPSHOT] Saved ${snapshot.description} to stack (${rankOpHistoryStack.length} total)`);
+
+  logger.info(`[SNAPSHOT] Saved ${snapshot.description} to stack (${rankOpHistoryStack.length} total)`);
 }
 
 export function saveOperationSnapshot(snapshot: UniversalSnapshot): void {
@@ -159,9 +167,16 @@ export function saveOperationSnapshot(snapshot: UniversalSnapshot): void {
   }
   
   rankOpHistoryStack.push(snapshot);
+
+  // Trim oldest entries if stack exceeds max size
+  if (rankOpHistoryStack.length > MAX_STACK_SIZE) {
+    const removed = rankOpHistoryStack.splice(0, rankOpHistoryStack.length - MAX_STACK_SIZE);
+    logger.info(`[SNAPSHOT] Trimmed ${removed.length} oldest entries from stack`);
+  }
+
   undoneStack.length = 0; // Clear redo stack
-  
-  console.log(`[SNAPSHOT] Saved ${snapshot.gameType} operation to stack (${rankOpHistoryStack.length} total)`);
+
+  logger.info(`[SNAPSHOT] Saved ${snapshot.gameType} operation to stack (${rankOpHistoryStack.length} total)`);
 }
 
 export function getStackInfo(): { active: number; undone: number } {
@@ -174,13 +189,13 @@ export function getStackInfo(): { active: number; undone: number } {
 export function clearAllStacks(): void {
   rankOpHistoryStack.length = 0;
   undoneStack.length = 0;
-  console.log('[SNAPSHOT] Cleared all stacks');
+  logger.info('[SNAPSHOT] Cleared all stacks');
 }
 
 // Unified undo/redo operations
 export async function undoLastOperation(): Promise<UniversalSnapshot | null> {
   if (rankOpHistoryStack.length === 0) {
-    console.log('[SNAPSHOT] No operations to undo');
+    logger.info('[SNAPSHOT] No operations to undo');
     return null;
   }
 
@@ -197,13 +212,13 @@ export async function undoLastOperation(): Promise<UniversalSnapshot | null> {
 
   undoneStack.push(snapshot);
 
-  console.log(`[SNAPSHOT] Undid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} remaining, ${undoneStack.length} undone)`);
+  logger.info(`[SNAPSHOT] Undid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} remaining, ${undoneStack.length} undone)`);
   return snapshot;
 }
 
 export async function redoLastOperation(): Promise<UniversalSnapshot | null> {
   if (undoneStack.length === 0) {
-    console.log('[SNAPSHOT] No operations to redo');
+    logger.info('[SNAPSHOT] No operations to redo');
     return null;
   }
 
@@ -218,7 +233,7 @@ export async function redoLastOperation(): Promise<UniversalSnapshot | null> {
 
   rankOpHistoryStack.push(snapshot);
 
-  console.log(`[SNAPSHOT] Redid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} active, ${undoneStack.length} undone)`);
+  logger.info(`[SNAPSHOT] Redid operation: ${snapshot.gameType} (${rankOpHistoryStack.length} active, ${undoneStack.length} undone)`);
   return snapshot;
 }
 
@@ -239,7 +254,7 @@ export async function undoToSpecificGame(gameId: string): Promise<MatchSnapshot[
   const gameIndex = rankOpHistoryStack.findIndex(snapshot => snapshot.gameId === gameId);
   
   if (gameIndex === -1) {
-    console.log(`[SNAPSHOT] Game ${gameId} not found in active stack`);
+    logger.info(`[SNAPSHOT] Game ${gameId} not found in active stack`);
     return [];
   }
   
@@ -263,7 +278,7 @@ export async function undoToSpecificGame(gameId: string): Promise<MatchSnapshot[
     undoneStack.push(snapshot);
   }
   
-  console.log(`[SNAPSHOT] Undid ${undoneSnapshots.length} operations back to game ${gameId}`);
+  logger.info(`[SNAPSHOT] Undid ${undoneSnapshots.length} operations back to game ${gameId}`);
   return undoneSnapshots;
 }
 
@@ -280,12 +295,12 @@ export async function undoLastDeckMatch(): Promise<MatchSnapshot | null> {
       undoneStack.push(snapshot);
       await removeGameFromDatabase(snapshot.gameId, snapshot.gameType);
       
-      console.log(`[SNAPSHOT] Undid deck game ${snapshot.gameId} from position ${i}`);
+      logger.info(`[SNAPSHOT] Undid deck game ${snapshot.gameId} from position ${i}`);
       return snapshot;
     }
   }
   
-  console.log('[SNAPSHOT] No deck games found in stack to undo');
+  logger.info('[SNAPSHOT] No deck games found in stack to undo');
   return null;
 }
 
@@ -296,12 +311,12 @@ export async function redoLastDeckMatch(): Promise<MatchSnapshot | null> {
       const snapshot = undoneStack.splice(i, 1)[0] as MatchSnapshot;
       rankOpHistoryStack.push(snapshot);
       
-      console.log(`[SNAPSHOT] Redid deck game ${snapshot.gameId} from undone stack position ${i}`);
+      logger.info(`[SNAPSHOT] Redid deck game ${snapshot.gameId} from undone stack position ${i}`);
       return snapshot;
     }
   }
   
-  console.log('[SNAPSHOT] No deck games found in undone stack to redo');
+  logger.info('[SNAPSHOT] No deck games found in undone stack to redo');
   return null;
 }
 
@@ -350,7 +365,7 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       // Recalculate if the original operation triggered recalculation
       if (snapshot.before.needsRecalculation) {
         const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
-        console.log(`[SNAPSHOT] Recalculating all ratings after undoing deck assignment...`);
+        logger.info(`[SNAPSHOT] Recalculating all ratings after undoing deck assignment...`);
         await recalculateAllPlayersFromScratch();
         await recalculateAllDecksFromScratch();
         const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
@@ -367,7 +382,7 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
           await db.run('UPDATE matches SET turnOrder = ? WHERE userId = ? AND gameId = ?',
             [(game as any).turnOrder, snapshot.targetId, (game as any).gameId]);
         }
-        console.log(`[SNAPSHOT] Restored turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
+        logger.info(`[SNAPSHOT] Restored turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
       }
     }
   } else if (snapshot.targetType === 'deck') {
@@ -404,7 +419,7 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
               record.mu, record.sigma, record.teams, record.scores, record.score,
               record.submittedByAdmin, record.turnOrder, record.gameSequence, record.assignedDeck]);
         }
-        console.log(`[SNAPSHOT] Restored ${snapshot.before.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
+        logger.info(`[SNAPSHOT] Restored ${snapshot.before.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
       }
 
       if (snapshot.before.deckMatchRecords) {
@@ -417,13 +432,13 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
               record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
               record.gameSequence, record.submittedByAdmin]);
         }
-        console.log(`[SNAPSHOT] Restored ${snapshot.before.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
+        logger.info(`[SNAPSHOT] Restored ${snapshot.before.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
       }
 
       // Recalculate all ratings after restoring records
       const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
 
-      console.log(`[SNAPSHOT] Recalculating all ratings after undoing game modification...`);
+      logger.info(`[SNAPSHOT] Recalculating all ratings after undoing game modification...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
 
@@ -431,11 +446,11 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
       const playerCleanup = await cleanupZeroPlayers();
       const deckCleanup = await cleanupZeroDecks();
-      console.log(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
+      logger.info(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
     }
   }
 
-  console.log(`[SNAPSHOT] Undid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
+  logger.info(`[SNAPSHOT] Undid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
 }
 
 async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
@@ -482,7 +497,7 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       // Recalculate if the original operation triggered recalculation
       if (snapshot.after.needsRecalculation) {
         const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
-        console.log(`[SNAPSHOT] Recalculating all ratings after redoing deck assignment...`);
+        logger.info(`[SNAPSHOT] Recalculating all ratings after redoing deck assignment...`);
         await recalculateAllPlayersFromScratch();
         await recalculateAllDecksFromScratch();
         const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
@@ -499,7 +514,7 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
           await db.run('UPDATE matches SET turnOrder = NULL WHERE userId = ? AND gameId = ?',
             [snapshot.targetId, (game as any).gameId]);
         }
-        console.log(`[SNAPSHOT] Re-removed turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
+        logger.info(`[SNAPSHOT] Re-removed turn orders for ${snapshot.before.gamesWithTurnOrder.length} game(s)`);
       }
     }
   } else if (snapshot.targetType === 'deck') {
@@ -535,7 +550,7 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
               record.mu, record.sigma, record.teams, record.scores, record.score,
               record.submittedByAdmin, record.turnOrder, record.gameSequence, record.assignedDeck]);
         }
-        console.log(`[SNAPSHOT] Restored ${snapshot.after.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
+        logger.info(`[SNAPSHOT] Restored ${snapshot.after.matchRecords.length} match record(s) for game ${snapshot.targetId}`);
       }
 
       if (snapshot.after.deckMatchRecords) {
@@ -548,13 +563,13 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
               record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
               record.gameSequence, record.submittedByAdmin]);
         }
-        console.log(`[SNAPSHOT] Restored ${snapshot.after.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
+        logger.info(`[SNAPSHOT] Restored ${snapshot.after.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
       }
 
       // Recalculate all ratings after restoring records
       const { recalculateAllPlayersFromScratch, recalculateAllDecksFromScratch } = await import('../commands/set.js');
 
-      console.log(`[SNAPSHOT] Recalculating all ratings after redoing game modification...`);
+      logger.info(`[SNAPSHOT] Recalculating all ratings after redoing game modification...`);
       await recalculateAllPlayersFromScratch();
       await recalculateAllDecksFromScratch();
 
@@ -562,11 +577,11 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
       const { cleanupZeroPlayers, cleanupZeroDecks } = await import('../db/database-utils.js');
       const playerCleanup = await cleanupZeroPlayers();
       const deckCleanup = await cleanupZeroDecks();
-      console.log(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
+      logger.info(`[SNAPSHOT] Cleanup: ${playerCleanup.cleanedPlayers} player(s), ${deckCleanup.cleanedDecks} deck(s)`);
     }
   }
 
-  console.log(`[SNAPSHOT] Redid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
+  logger.info(`[SNAPSHOT] Redid ${snapshot.operationType} for ${snapshot.targetType} ${snapshot.targetId}`);
 }
 
 // Decay undo/redo handlers
@@ -583,10 +598,10 @@ async function undoDecay(snapshot: DecaySnapshot): Promise<void> {
       player.losses,
       player.draws
     );
-    console.log(`[SNAPSHOT] Restored player ${player.userId} to pre-decay state`);
+    logger.info(`[SNAPSHOT] Restored player ${player.userId} to pre-decay state`);
   }
 
-  console.log(`[SNAPSHOT] Undid decay affecting ${snapshot.players.length} players`);
+  logger.info(`[SNAPSHOT] Undid decay affecting ${snapshot.players.length} players`);
 }
 
 async function redoDecay(snapshot: DecaySnapshot): Promise<void> {
@@ -602,10 +617,10 @@ async function redoDecay(snapshot: DecaySnapshot): Promise<void> {
       player.losses,
       player.draws
     );
-    console.log(`[SNAPSHOT] Re-applied decay to player ${player.userId}`);
+    logger.info(`[SNAPSHOT] Re-applied decay to player ${player.userId}`);
   }
 
-  console.log(`[SNAPSHOT] Redid decay affecting ${snapshot.players.length} players`);
+  logger.info(`[SNAPSHOT] Redid decay affecting ${snapshot.players.length} players`);
 }
 
 // Utility functions
@@ -631,14 +646,14 @@ async function ensureCompleteGameMetadata(snapshot: MatchSnapshot): Promise<void
         }
       }
     } catch (error) {
-      console.error(`[SNAPSHOT] Error ensuring game metadata for ${snapshot.gameId}:`, error);
+      logger.error(`[SNAPSHOT] Error ensuring game metadata for ${snapshot.gameId}:`, error);
     }
   }
 }
 
 async function removeGameFromDatabase(gameId: string, gameType: 'player' | 'deck' | 'set_command'): Promise<void> {
   if (gameType === 'set_command') {
-    console.log(`[SNAPSHOT] Set command ${gameId} - no database records to remove`);
+    logger.info(`[SNAPSHOT] Set command ${gameId} - no database records to remove`);
     return;
   }
 
@@ -657,19 +672,19 @@ async function removeGameFromDatabase(gameId: string, gameType: 'player' | 'deck
 
     if (playerMatches.count > 0) {
       await db.run('DELETE FROM matches WHERE gameId = ?', gameId);
-      console.log(`[SNAPSHOT] Removed ${playerMatches.count} player matches for game ${gameId}`);
+      logger.info(`[SNAPSHOT] Removed ${playerMatches.count} player matches for game ${gameId}`);
     }
 
     if (deckMatches.count > 0) {
       await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
-      console.log(`[SNAPSHOT] Removed ${deckMatches.count} deck matches for game ${gameId}`);
+      logger.info(`[SNAPSHOT] Removed ${deckMatches.count} deck matches for game ${gameId}`);
     }
 
     const gameDescription = gameType === 'player' ? 'player' : 'deck';
     
-    console.log(`[SNAPSHOT] Removed ${gameDescription} game ${gameId} from database`);
+    logger.info(`[SNAPSHOT] Removed ${gameDescription} game ${gameId} from database`);
   } catch (error) {
-    console.error(`[SNAPSHOT] Error removing game ${gameId}:`, error);
+    logger.error(`[SNAPSHOT] Error removing game ${gameId}:`, error);
     throw error;
   }
 }
@@ -750,7 +765,7 @@ export function removeFromActiveStack(gameId: string): boolean {
   const index = rankOpHistoryStack.findIndex(snapshot => snapshot.gameId === gameId);
   if (index !== -1) {
     rankOpHistoryStack.splice(index, 1);
-    console.log(`[SNAPSHOT] Removed game ${gameId} from active stack`);
+    logger.info(`[SNAPSHOT] Removed game ${gameId} from active stack`);
     return true;
   }
   return false;
@@ -760,7 +775,7 @@ export function removeFromUndoneStack(gameId: string): boolean {
   const index = undoneStack.findIndex(snapshot => snapshot.gameId === gameId);
   if (index !== -1) {
     undoneStack.splice(index, 1);
-    console.log(`[SNAPSHOT] Removed game ${gameId} from undone stack`);
+    logger.info(`[SNAPSHOT] Removed game ${gameId} from undone stack`);
     return true;
   }
   return false;
@@ -769,20 +784,20 @@ export function removeFromUndoneStack(gameId: string): boolean {
 // Validation functions
 export function validateSnapshot(snapshot: UniversalSnapshot): boolean {
   if (!snapshot.gameId || !snapshot.gameType) {
-    console.error('[SNAPSHOT] Invalid snapshot: missing required fields');
+    logger.error('[SNAPSHOT] Invalid snapshot: missing required fields');
     return false;
   }
 
   if (snapshot.gameType === 'set_command') {
     const setSnapshot = snapshot as SetCommandSnapshot;
     if (!setSnapshot.operationType || !setSnapshot.targetType || !setSnapshot.targetId) {
-      console.error('[SNAPSHOT] Invalid set command snapshot: missing operation details');
+      logger.error('[SNAPSHOT] Invalid set command snapshot: missing operation details');
       return false;
     }
   } else {
     const matchSnapshot = snapshot as MatchSnapshot;
     if (!matchSnapshot.matchData || (matchSnapshot.before.length === 0 && matchSnapshot.after.length === 0)) {
-      console.error('[SNAPSHOT] Invalid match snapshot: no match data or before/after data');
+      logger.error('[SNAPSHOT] Invalid match snapshot: no match data or before/after data');
       return false;
     }
   }
@@ -908,23 +923,23 @@ export async function createSnapshotFromCurrentState(gameId: string, gameType: '
 
   // Note: Don't add to undone stack here - that should be done by the caller if needed
   
-  console.log(`[SNAPSHOT] Created snapshot from current state for ${snapshot.description}`);
+  logger.info(`[SNAPSHOT] Created snapshot from current state for ${snapshot.description}`);
   return snapshot;
 }
 
 // Debug functions
 export function printStackStatus(): void {
-  console.log(`[SNAPSHOT] Stack Status:`);
-  console.log(`  Active Operations: ${rankOpHistoryStack.length}`);
-  console.log(`  Undone Operations: ${undoneStack.length}`);
+  logger.info(`[SNAPSHOT] Stack Status:`);
+  logger.info(`  Active Operations: ${rankOpHistoryStack.length}`);
+  logger.info(`  Undone Operations: ${undoneStack.length}`);
   
   if (rankOpHistoryStack.length > 0) {
     const latest = rankOpHistoryStack[rankOpHistoryStack.length - 1];
-    console.log(`  Latest Active: ${latest.gameType} ${latest.gameId}`);
+    logger.info(`  Latest Active: ${latest.gameType} ${latest.gameId}`);
   }
   
   if (undoneStack.length > 0) {
     const latest = undoneStack[undoneStack.length - 1];
-    console.log(`  Latest Undone: ${latest.gameType} ${latest.gameId}`);
+    logger.info(`  Latest Undone: ${latest.gameType} ${latest.gameId}`);
   }
 }

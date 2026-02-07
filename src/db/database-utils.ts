@@ -1,4 +1,5 @@
 import { getDatabase } from './init.js';
+import { logger } from '../utils/logger.js';
 
 export interface CleanupResult {
   cleanedPlayers: number;
@@ -27,7 +28,7 @@ export async function cleanupZeroPlayers(): Promise<{ cleanedPlayers: number }> 
       return { cleanedPlayers: 0 };
     }
 
-    console.log(`[CLEANUP] Found ${playersWithoutActiveGames.length} players with no active games`);
+    logger.info(`[CLEANUP] Found ${playersWithoutActiveGames.length} players with no active games`);
 
     // Remove from all related tables
     for (const player of playersWithoutActiveGames) {
@@ -47,11 +48,11 @@ export async function cleanupZeroPlayers(): Promise<{ cleanedPlayers: number }> 
       await db.run('DELETE FROM players WHERE userId = ?', player.userId);
     }
 
-    console.log(`[CLEANUP] Successfully removed ${playersWithoutActiveGames.length} players with no active games`);
+    logger.info(`[CLEANUP] Successfully removed ${playersWithoutActiveGames.length} players with no active games`);
     return { cleanedPlayers: playersWithoutActiveGames.length };
 
   } catch (error) {
-    console.error('[CLEANUP] Error removing players without active games:', error);
+    logger.error('[CLEANUP] Error removing players without active games:', error);
     throw error;
   }
 }
@@ -78,7 +79,7 @@ export async function cleanupZeroDecks(): Promise<{ cleanedDecks: number }> {
       return { cleanedDecks: 0 };
     }
 
-    console.log(`[CLEANUP] Found ${decksWithoutActiveGames.length} decks with no active games`);
+    logger.info(`[CLEANUP] Found ${decksWithoutActiveGames.length} decks with no active games`);
 
     // Remove from all related tables
     for (const deck of decksWithoutActiveGames) {
@@ -95,11 +96,11 @@ export async function cleanupZeroDecks(): Promise<{ cleanedDecks: number }> {
       await db.run('DELETE FROM decks WHERE normalizedName = ?', deck.normalizedName);
     }
 
-    console.log(`[CLEANUP] Successfully removed ${decksWithoutActiveGames.length} decks with no active games`);
+    logger.info(`[CLEANUP] Successfully removed ${decksWithoutActiveGames.length} decks with no active games`);
     return { cleanedDecks: decksWithoutActiveGames.length };
 
   } catch (error) {
-    console.error('[CLEANUP] Error removing decks without active games:', error);
+    logger.error('[CLEANUP] Error removing decks without active games:', error);
     throw error;
   }
 }

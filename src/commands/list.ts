@@ -4,6 +4,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from '
 import { getAllPlayers, getRestrictedPlayers } from '../db/player-utils.js';
 import { getAllDecks } from '../db/deck-utils.js';
 import { calculateElo } from '../utils/elo-utils.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('list')
@@ -122,7 +123,7 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching player rankings:', error);
+    logger.error('Error fetching player rankings:', error);
     await interaction.editReply({
       content: 'An error occurred while fetching player rankings.'
     });
@@ -185,8 +186,6 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
         decksAtCurrentRank++;
       }
       
-      const statusIcon = getRankIcon(currentRank);
-      
       // Add qualification status like the old list
       const qualificationStatus = deck.qualified 
         ? '' 
@@ -212,7 +211,7 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching deck rankings:', error);
+    logger.error('Error fetching deck rankings:', error);
     await interaction.editReply({
       content: 'An error occurred while fetching deck rankings.'
     });
@@ -239,29 +238,7 @@ function getTopEntriesWithTies<T extends { elo: number }>(
   return entries.slice(0, finalCount);
 }
 
-function getRankIcon(rank: number): string {
-  switch (rank) {
-    case 1: return '🥇';
-    case 2: return '🥈';
-    case 3: return '🥉';
-    default: return '🎖️';
-  }
-}
-
-function getPerformanceEmoji(winRate: number): string {
-  if (winRate >= 60) return '🔥';
-  if (winRate >= 50) return '⚡';
-  if (winRate >= 40) return '💪';
-  if (winRate >= 30) return '📈';
-  return '🔄';
-}
-
 // Export function for use by other commands
 export async function showTop64Players(interaction: ChatInputCommandInteraction) {
   await showTopPlayers(interaction, 64);
-}
-
-// Keep the old function for backward compatibility
-export async function showTop50Players(interaction: ChatInputCommandInteraction) {
-  await showTopPlayers(interaction, 50);
 }

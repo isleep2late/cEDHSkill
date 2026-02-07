@@ -4,7 +4,8 @@ import {
 } from 'discord.js';
 import { unrestrictPlayer } from '../db/player-utils.js';
 import { exemptPlayer } from '../utils/suspicion-utils.js';
-import { config } from '../config.js';  
+import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -41,7 +42,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       content: `✅ <@${user.id}> is now unrestricted and cleared of suspicion.`
     });
   } catch (error) {
-    console.error('Error in vindicate command:', error);
+    logger.error('Error in vindicate command:', error);
     await interaction.editReply({
       content: '❌ An error occurred while vindicating the player.'
     });
