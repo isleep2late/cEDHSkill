@@ -2,6 +2,7 @@
 import { config } from '../config.js';
 import { calculateElo } from '../utils/elo-utils.js';
 import { getRatingChangesForTarget, getAllRatingChanges } from '../utils/rating-audit-utils.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -138,7 +139,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
 
   } catch (error) {
-    console.error('Error in print command:', error);
+    logger.error('Error in print command:', error);
     await interaction.editReply({
       content: `❌ An error occurred while generating history: ${error instanceof Error ? error.message : 'Unknown error'}`
     });

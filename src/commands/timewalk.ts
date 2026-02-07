@@ -5,6 +5,7 @@ import {
 } from 'discord.js';
 import { config } from '../config.js';
 import { applyRatingDecay, getMinDaysForNextDecay, addTimewalkDays, getTimewalkDays } from '../bot.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * /timewalk - Admin-only command for testing the decay system
@@ -69,7 +70,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const simulatedDays = explicitDays ?? await getMinDaysForNextDecay();
 
-    console.log(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days, cumulative before: ${cumulativeBefore})`);
+    logger.info(`[TIMEWALK] Admin ${userId} triggered manual decay cycle (simulating +${simulatedDays} days, cumulative before: ${cumulativeBefore})`);
 
     // Execute the decay process with timewalk trigger, admin ID, and simulated days
     const decayedCount = await applyRatingDecay('timewalk', userId, simulatedDays);
@@ -96,7 +97,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('[TIMEWALK] Error during manual decay:', error);
+    logger.error('[TIMEWALK] Error during manual decay:', error);
     await interaction.editReply({
       content: 'An error occurred while executing the decay cycle. Check the logs for details.'
     });

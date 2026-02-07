@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { removeExemption } from '../utils/suspicion-utils.js';
 import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -35,7 +36,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       content: `✅ <@${user.id}> can now be flagged for suspicious activity again.`
     });
   } catch (error) {
-    console.error('Error in reanimate command:', error);
+    logger.error('Error in reanimate command:', error);
     await interaction.editReply({
       content: '❌ An error occurred while processing this command.'
     });

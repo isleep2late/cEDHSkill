@@ -7,6 +7,7 @@ import type { ExtendedClient } from '../bot.js';
 import { config } from '../config.js';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -125,7 +126,7 @@ export async function execute(
     });
 
   } catch (dmError) {
-    console.error('Failed to send DM backup:', dmError);
+    logger.error('Failed to send DM backup:', dmError);
     
     // If DM fails, offer alternative
     await interaction.editReply({

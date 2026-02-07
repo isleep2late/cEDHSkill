@@ -5,6 +5,7 @@ import {
 import type { ExtendedClient } from '../bot.js';
 import { config } from '../config.js';
 import { cleanupUnconfirmedGame } from './rank.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -52,7 +53,7 @@ export async function execute(
     } catch (error) {
       // Cannot fetch or delete: ignore and count as failed
       failed++;
-      console.log(`[SNAP] Failed to delete message ${msgId}:`, error);
+      logger.info(`[SNAP] Failed to delete message ${msgId}:`, error);
     }
 
     // Clean up database records for the unconfirmed game
@@ -60,7 +61,7 @@ export async function execute(
       await cleanupUnconfirmedGame(limboData.gameId);
       dbCleaned++;
     } catch (error) {
-      console.error(`[SNAP] Failed to clean up game ${limboData.gameId} from database:`, error);
+      logger.error(`[SNAP] Failed to clean up game ${limboData.gameId} from database:`, error);
     }
   }
 

@@ -13,6 +13,7 @@ import { config } from '../config.js';
 import { calculateElo } from '../utils/elo-utils.js';
 import { getDatabase } from '../db/init.js';
 import type { ExtendedClient } from '../bot.js';
+import { logger } from '../utils/logger.js';
 
 function getTopEntriesWithTies<T extends { elo: number }>(
   entries: T[], 
@@ -97,7 +98,7 @@ export async function execute(
 
   // Security: Validate filename contains only safe characters (alphanumeric, dash, underscore)
   if (!/^[A-Za-z0-9_-]+$/.test(baseFilename)) {
-    console.error('[THANOSSNAP] Invalid backup filename generated:', baseFilename);
+    logger.error('[THANOSSNAP] Invalid backup filename generated:', baseFilename);
     await interaction.editReply({
       content: 'Failed to create backup: invalid filename generated.'
     });
@@ -109,7 +110,7 @@ export async function execute(
 
   // Security: Ensure backup path stays within data directory (prevent path traversal)
   if (!backupFile.startsWith(dataDir + path.sep)) {
-    console.error('[THANOSSNAP] Path traversal attempt detected:', backupFile);
+    logger.error('[THANOSSNAP] Path traversal attempt detected:', backupFile);
     await interaction.editReply({
       content: 'Failed to create backup: invalid path.'
     });
@@ -123,13 +124,13 @@ export async function execute(
     // Use forward slashes for SQLite compatibility
     const safePath = backupFile.replace(/\\/g, '/');
     await db.exec(`VACUUM INTO '${safePath}'`);
-    console.log(`[THANOSSNAP] Created clean backup: ${backupFile}`);
+    logger.info(`[THANOSSNAP] Created clean backup: ${backupFile}`);
     
     // Prepare backup files for DM
     backupFiles = await splitDatabaseIntoFiles(backupFile, baseFilename);
     
   } catch (err) {
-    console.error('[THANOSSNAP] Backup failed:', err);
+    logger.error('[THANOSSNAP] Backup failed:', err);
     await interaction.editReply({
       content: 'Failed to create backup. Season end aborted.'
     });
@@ -289,10 +290,10 @@ export async function execute(
         });
       }
       
-      console.log(`[THANOSSNAP] Sent backup to ${user.username}`);
+      logger.info(`[THANOSSNAP] Sent backup to ${user.username}`);
       
     } catch (dmError) {
-      console.error(`[THANOSSNAP] Failed to send backup to ${userId}:`, dmError);
+      logger.error(`[THANOSSNAP] Failed to send backup to ${userId}:`, dmError);
     }
   }
 
@@ -312,16 +313,16 @@ export async function execute(
     await db.exec('DELETE FROM rating_changes');
     await db.exec('DELETE FROM player_deck_assignments');
 
-    console.log('[THANOS-SNAP] Complete database reset - all player and deck data cleared');
+    logger.info('[THANOS-SNAP] Complete database reset - all player and deck data cleared');
   } catch (error) {
-    console.error('[THANOS-SNAP] Error resetting database:', error);
+    logger.error('[THANOS-SNAP] Error resetting database:', error);
   }
 
   // Clean up the backup file from disk since it's now been sent to admins
   try {
     await fs.unlink(backupFile);
-    console.log('[THANOSSNAP] Cleaned up backup file from disk');
+    logger.info('[THANOSSNAP] Cleaned up backup file from disk');
   } catch (cleanupError) {
-    console.error('[THANOSSNAP] Error cleaning up backup file:', cleanupError);
+    logger.error('[THANOSSNAP] Error cleaning up backup file:', cleanupError);
   }
 }

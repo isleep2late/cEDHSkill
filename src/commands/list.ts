@@ -4,6 +4,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from '
 import { getAllPlayers, getRestrictedPlayers } from '../db/player-utils.js';
 import { getAllDecks } from '../db/deck-utils.js';
 import { calculateElo } from '../utils/elo-utils.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('list')
@@ -122,7 +123,7 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching player rankings:', error);
+    logger.error('Error fetching player rankings:', error);
     await interaction.editReply({
       content: 'An error occurred while fetching player rankings.'
     });
@@ -212,7 +213,7 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching deck rankings:', error);
+    logger.error('Error fetching deck rankings:', error);
     await interaction.editReply({
       content: 'An error occurred while fetching deck rankings.'
     });

@@ -1,4 +1,5 @@
 // utils/edhrec-utils.ts - Commander validation against EDHREC
+import { logger } from './logger.js';
 
 /**
  * Normalize commander name for database storage and URL formatting
@@ -34,12 +35,12 @@ export async function validateCommander(commanderName: string): Promise<boolean>
     return response.status === 200;
     
   } catch (error) {
-    console.error(`Error validating commander ${commanderName}:`, error);
+    logger.error(`Error validating commander ${commanderName}:`, error);
     
     // If there's a network error or other issue, we'll be lenient
     // and allow the commander name to pass validation
     // This prevents the bot from breaking due to network issues
-    console.warn(`EDHREC validation failed for ${commanderName}, allowing anyway`);
+    logger.warn(`EDHREC validation failed for ${commanderName}, allowing anyway`);
     return true;
   }
 }
@@ -89,7 +90,7 @@ export async function findSimilarCommanders(searchTerm: string, maxResults: numb
     // In the future, this could use EDHREC's search API or a local commander database
     return [];
   } catch (error) {
-    console.error('Error finding similar commanders:', error);
+    logger.error('Error finding similar commanders:', error);
     return [];
   }
 }

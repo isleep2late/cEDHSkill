@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { logRatingChange } from './utils/rating-audit-utils.js';
 import { saveOperationSnapshot, DecaySnapshot, DecayPlayerState } from './utils/snapshot-utils.js';
+import { logger } from './utils/logger.js';
 
 export interface ExtendedClient extends Client {
   commands: Collection<string, {
@@ -81,7 +82,7 @@ export function getPlayerVirtualInactivity(userId: string): number {
  */
 export function addTimewalkDays(days: number): void {
   cumulativeTimewalkDays += days;
-  console.log(`[TIMEWALK] Virtual clock: Day ${cumulativeTimewalkDays}`);
+  logger.info(`[TIMEWALK] Virtual clock: Day ${cumulativeTimewalkDays}`);
 }
 
 /**
@@ -89,7 +90,7 @@ export function addTimewalkDays(days: number): void {
  */
 export function resetTimewalkDays(): void {
   if (cumulativeTimewalkDays > 0) {
-    console.log(`[TIMEWALK] Resetting virtual clock (was day ${cumulativeTimewalkDays})`);
+    logger.info(`[TIMEWALK] Resetting virtual clock (was day ${cumulativeTimewalkDays})`);
   }
   cumulativeTimewalkDays = 0;
   playerLastPlayPosition.clear();
@@ -162,7 +163,7 @@ export async function applyRatingDecay(
   simulatedDaysOffset: number = 0,
   skipSnapshot: boolean = false
 ): Promise<number> {
-  console.log('[DECAY] Starting linear rating decay process...');
+  logger.info('[DECAY] Starting linear rating decay process...');
 
   const isTimewalk = triggeredBy === 'timewalk';
   const now = Date.now();
@@ -222,9 +223,9 @@ export async function applyRatingDecay(
     const newElo = calculateElo(newMu, newSigma);
     const actualDecay = currentElo - newElo;
 
-    console.log(
+    logger.info(
       `[DECAY] ${p.userId}: Elo ${currentElo}→${newElo} (-${actualDecay}) ` +
-      `(μ: ${p.mu.toFixed(3)}→${newMu.toFixed(3)}, σ: ${p.sigma.toFixed(3)}→${newSigma.toFixed(3)}) ` +
+      `(mu: ${p.mu.toFixed(3)}→${newMu.toFixed(3)}, sigma: ${p.sigma.toFixed(3)}→${newSigma.toFixed(3)}) ` +
       `[${daysSinceLast} days inactive, ${daysPastGrace} days past grace]`
     );
 
@@ -264,7 +265,7 @@ export async function applyRatingDecay(
         })
       });
     } catch (auditError) {
-      console.error('Error logging decay change to audit trail:', auditError);
+      logger.error('Error logging decay change to audit trail:', auditError);
     }
   }
 
@@ -293,10 +294,10 @@ export async function applyRatingDecay(
     };
 
     saveOperationSnapshot(decaySnapshot);
-    console.log(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
+    logger.info(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
   }
 
-  console.log(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
+  logger.info(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
   return decayedPlayers.length;
 }
 
@@ -355,7 +356,7 @@ async function main() {
   const commandsPath = path.resolve('./dist/commands');
   
   if (!fs.existsSync(commandsPath)) {
-    console.error('Commands directory not found. Make sure to run "npm run build" first.');
+    logger.error('Commands directory not found. Make sure to run "npm run build" first.');
     process.exit(1);
   }
 
@@ -368,21 +369,21 @@ async function main() {
       
       if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
-        console.log(`✓ Loaded command: ${command.data.name}`);
+        logger.info(`Loaded command: ${command.data.name}`);
       } else {
-        console.warn(`⚠ Command at ${file} missing data or execute export`);
+        logger.warn(`Command at ${file} missing data or execute export`);
       }
     } catch (error) {
-      console.error(`✗ Failed to load command ${file}:`, error);
+      logger.error(`Failed to load command ${file}:`, error);
     }
   }
 
   client.once(Events.ClientReady, async () => {
-    console.log(`🤖 Bot logged in as ${client.user?.tag}`);
-    console.log(`📊 Database initialized`);
-    console.log(`⚙️ Loaded ${client.commands.size} commands`);
-    console.log(`📄 Linear rating decay system active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day after grace period)`);
-    
+    logger.info(`Bot logged in as ${client.user?.tag}`);
+    logger.info(`Database initialized`);
+    logger.info(`Loaded ${client.commands.size} commands: ${Array.from(client.commands.keys()).join(', ')}`);
+    logger.info(`Linear rating decay system active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day after grace period)`);
+
     // Run initial decay check
     await applyRatingDecay();
   });
@@ -392,14 +393,35 @@ async function main() {
 
     const command = client.commands.get(interaction.commandName);
     if (!command) {
-      console.error(`No command matching ${interaction.commandName} found`);
+      logger.error(`No command matching ${interaction.commandName} found`);
       return;
     }
 
+    // Extract all command options for logging
+    const options: Record<string, any> = {};
+    for (const opt of interaction.options.data) {
+      if (opt.type === 6) { // USER type
+        options[opt.name] = `@${(opt.user as any)?.username || opt.value} (${opt.value})`;
+      } else {
+        options[opt.name] = opt.value;
+      }
+    }
+
+    const userName = interaction.user.username;
+    const userId = interaction.user.id;
+    const guildId = interaction.guildId;
+
+    logger.command(interaction.commandName, userId, userName, guildId, options);
+    const startTime = Date.now();
+
     try {
       await command.execute(interaction, client);
+      const duration = Date.now() - startTime;
+      logger.commandComplete(interaction.commandName, userId, duration, 'success');
     } catch (error) {
-      console.error(`Error executing command ${interaction.commandName}:`, error);
+      const duration = Date.now() - startTime;
+      logger.commandError(interaction.commandName, userId, error);
+      logger.commandComplete(interaction.commandName, userId, duration, 'error');
       const errorResponse = 'There was an error executing this command.';
 
       try {
@@ -409,8 +431,7 @@ async function main() {
           await interaction.reply({ content: errorResponse, ephemeral: true });
         }
       } catch (replyError) {
-        // Interaction expired or already handled - log but don't crash
-        console.error(`Could not send error response for ${interaction.commandName}:`, replyError);
+        logger.error(`Could not send error response for ${interaction.commandName}:`, replyError);
       }
     }
   });
@@ -422,6 +443,8 @@ async function main() {
     const isAdmin = config.admins.includes(message.author.id);
     const content = message.content.toLowerCase().trim();
 
+    logger.info(`[DM] From ${message.author.username} (${message.author.id}): "${content}" | admin: ${isAdmin}`);
+
     if (!isAdmin) {
       await message.reply("Only registered admins can use this command.");
       return;
@@ -430,17 +453,19 @@ async function main() {
     if (content === '!optout') {
       await setAlertOptIn(message.author.id, false);
       await message.reply("✅ You will no longer receive suspicious activity alerts.");
+      logger.info(`[DM] ${message.author.username} opted out of alerts`);
     } else if (content === '!optin') {
       await setAlertOptIn(message.author.id, true);
       await message.reply("✅ You will now receive suspicious activity alerts.");
+      logger.info(`[DM] ${message.author.username} opted in to alerts`);
     }
   });
 
   // Schedule daily rating decay at midnight
   cron.schedule('0 0 * * *', () => {
-    console.log('[DECAY] Scheduled daily decay starting...');
+    logger.info('[DECAY] Scheduled daily decay starting...');
     applyRatingDecay().catch(error => {
-      console.error('[DECAY] Error during scheduled decay:', error);
+      logger.error('[DECAY] Error during scheduled decay:', error);
     });
   });
 

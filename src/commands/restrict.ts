@@ -3,7 +3,8 @@ import {
   ChatInputCommandInteraction,
 } from 'discord.js';
 import { restrictPlayer } from '../db/player-utils.js';
-import { config } from '../config.js'; 
+import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
@@ -37,7 +38,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       content: `<@${user.id}> has been restricted from ranked games.`
     });
   } catch (error) {
-    console.error('Error in restrict command:', error);
+    logger.error('Error in restrict command:', error);
     await interaction.editReply({
       content: '❌ An error occurred while restricting the player.'
     });

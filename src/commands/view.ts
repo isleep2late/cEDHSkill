@@ -10,6 +10,7 @@ import { calculateElo } from '../utils/elo-utils.js';
 import { getDatabase } from '../db/init.js';
 import { normalizeCommanderName } from '../utils/edhrec-utils.js';
 import { playerExistsWithGames, deckExistsWithGames } from '../db/database-utils.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('view')
@@ -373,7 +374,7 @@ async function showLeagueStats(interaction: ChatInputCommandInteraction) {
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error generating league stats:', error);
+    logger.error('Error generating league stats:', error);
     await interaction.editReply({
       content: '❌ An error occurred while generating league statistics.'
     });
@@ -523,7 +524,7 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching player stats:', error);
+    logger.error('Error fetching player stats:', error);
     await interaction.editReply({
       content: '❌ Error fetching player statistics.'
     });
@@ -681,7 +682,7 @@ async function showCommanderStats(interaction: ChatInputCommandInteraction, comm
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching commander stats:', error);
+    logger.error('Error fetching commander stats:', error);
     await interaction.editReply({
       content: '❌ Error fetching commander statistics.'
     });
@@ -842,7 +843,7 @@ async function showGameDetails(interaction: ChatInputCommandInteraction, gameId:
     await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
-    console.error('Error fetching game details:', error);
+    logger.error('Error fetching game details:', error);
     await interaction.editReply({
       content: '❌ Error fetching game details.'
     });

@@ -15,6 +15,7 @@ import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-uti
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
 import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
+import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -194,7 +195,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
 
   } catch (error) {
-    console.error('Error in /set command:', error);
+    logger.error('Error in /set command:', error);
     
     // FIXED: Check for specific EDHREC validation errors and provide helpful feedback
     if (error instanceof Error && error.message.includes('not a valid commander name according to EDHREC')) {
@@ -606,7 +607,7 @@ async function handleGameModification(
 // ENHANCED: Recalculation functions (exported for use by undo/redo)
 
 export async function recalculateAllPlayersFromScratch(): Promise<void> {
-  console.log('[SET] Starting complete player rating recalculation...');
+  logger.info('[SET] Starting complete player rating recalculation...');
 
   // Reset timewalk virtual time since we're recalculating from scratch
   resetTimewalkDays();
@@ -648,11 +649,11 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
     }
   }
 
-  console.log(`[SET] Completed recalculation of ${allGames.length} active player games (with interleaved decay)`);
+  logger.info(`[SET] Completed recalculation of ${allGames.length} active player games (with interleaved decay)`);
 }
 
 export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup: { cleanedPlayers: number }, deckCleanup: { cleanedDecks: number } }> {
-  console.log('[SET] Starting complete deck rating recalculation...');
+  logger.info('[SET] Starting complete deck rating recalculation...');
 
   const db = getDatabase();
 
@@ -675,7 +676,7 @@ export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup:
     await replayDeckGame(game.gameId);
   }
 
-  console.log(`[SET] Completed recalculation of ${allDeckGames.length} active pure deck games`);
+  logger.info(`[SET] Completed recalculation of ${allDeckGames.length} active pure deck games`);
 
   // Also replay commander ratings for hybrid player games (player games with assigned decks)
   const hybridGames = await db.all(`
@@ -691,21 +692,21 @@ export async function recalculateAllDecksFromScratch(): Promise<{ playerCleanup:
   }
 
   if (hybridGames.length > 0) {
-    console.log(`[SET] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
+    logger.info(`[SET] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
   }
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
   const decayCount = await applyRatingDecay('cron', undefined, 0, true);
   if (decayCount > 0) {
-    console.log(`[SET] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
+    logger.info(`[SET] Re-applied rating decay to ${decayCount} player(s) after recalculation`);
   }
 
   // Always clean up players and decks with 0/0/0 records after recalculation
   const playerCleanup = await cleanupZeroPlayers();
   const deckCleanup = await cleanupZeroDecks();
   if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
-    console.log(`[SET] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
+    logger.info(`[SET] Cleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games`);
   }
 
   return { playerCleanup, deckCleanup };
@@ -1014,7 +1015,7 @@ async function createGameModificationSnapshot(gameId: string, adminId: string, g
 }
 
 async function recalculateAllRatingsFromSequence(fromSequence: number) {
-  console.log(`[SET] Starting comprehensive recalculation from sequence ${fromSequence}`);
+  logger.info(`[SET] Starting comprehensive recalculation from sequence ${fromSequence}`);
   
   const db = getDatabase();
 
@@ -1029,7 +1030,7 @@ async function recalculateAllRatingsFromSequence(fromSequence: number) {
     ORDER BY gameSequence ASC, createdAt ASC
   `, [fromSequence]);
 
-  console.log(`[SET] Re-executing ${subsequentGames.length} games from sequence ${fromSequence} onwards with original outcomes...`);
+  logger.info(`[SET] Re-executing ${subsequentGames.length} games from sequence ${fromSequence} onwards with original outcomes...`);
 
   // Step 3: Re-execute each subsequent game with its original outcomes but new rating calculations
   let processedGames = 0;
@@ -1040,27 +1041,27 @@ async function recalculateAllRatingsFromSequence(fromSequence: number) {
 
       if (playerMatches.length > 0) {
         await reexecutePlayerGameWithOriginalOutcome(game.gameId, playerMatches);
-        console.log(`[SET] Re-executed player game ${game.gameId} (${processedGames + 1}/${subsequentGames.length})`);
+        logger.info(`[SET] Re-executed player game ${game.gameId} (${processedGames + 1}/${subsequentGames.length})`);
       }
       
       if (deckMatches.length > 0) {
         await reexecuteDeckGameWithOriginalOutcome(game.gameId, deckMatches);
-        console.log(`[SET] Re-executed deck game ${game.gameId} (${processedGames + 1}/${subsequentGames.length})`);
+        logger.info(`[SET] Re-executed deck game ${game.gameId} (${processedGames + 1}/${subsequentGames.length})`);
       }
       
       processedGames++;
     } catch (error) {
-      console.error(`[SET] Error re-executing game ${game.gameId}:`, error);
+      logger.error(`[SET] Error re-executing game ${game.gameId}:`, error);
     }
   }
 
-  console.log(`[SET] Comprehensive recalculation completed. Re-executed ${processedGames} games from sequence ${fromSequence}.`);
+  logger.info(`[SET] Comprehensive recalculation completed. Re-executed ${processedGames} games from sequence ${fromSequence}.`);
 }
 
 async function resetAllEntitiesToStateBeforeSequence(beforeSequence: number): Promise<void> {
   const db = getDatabase();
   
-  console.log(`[SET] Resetting ALL entities to their state before sequence ${beforeSequence}...`);
+  logger.info(`[SET] Resetting ALL entities to their state before sequence ${beforeSequence}...`);
 
   // Get all players and reset them to their state before the modified game
   const allPlayers = await db.all('SELECT userId FROM players');
@@ -1091,7 +1092,7 @@ async function resetAllEntitiesToStateBeforeSequence(beforeSequence: number): Pr
     );
   }
 
-  console.log(`[SET] Reset ${allPlayers.length} players and ${allDecks.length} decks to pre-sequence ${beforeSequence} state`);
+  logger.info(`[SET] Reset ${allPlayers.length} players and ${allDecks.length} decks to pre-sequence ${beforeSequence} state`);
 }
 
 async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMatches: any[]): Promise<void> {
