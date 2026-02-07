@@ -35,9 +35,11 @@ Once your `.env` is configured and you've run `npm install` + `npm run build` + 
 
 | OS | File | How |
 |----|------|-----|
-| **Linux** | `start-leaguebot.sh` | Double-click in your file manager (or right-click > Run in Terminal) |
+| **Linux** | `start-leaguebot.desktop` | Double-click in your file manager — opens a terminal window automatically |
 | **macOS** | `start-leaguebot.command` | Double-click in Finder — a Terminal window opens automatically |
 | **Windows** | `start-leaguebot.bat` | Double-click in File Explorer — a Command Prompt window opens automatically |
+
+> **Linux note:** Double-clicking `.sh` files directly won't open a terminal on most Linux file managers — they run silently in the background. Use the `.desktop` file instead, which tells your file manager to open a terminal. If your file manager asks you to "Trust and Launch" it, go ahead — it just runs `start-leaguebot.sh` under the hood.
 
 All scripts will build the project and then start the bot. Output is shown in the terminal window and saved to `logs/bot.log`.
 
