@@ -132,6 +132,7 @@ export interface DecaySnapshot {
 export type UniversalSnapshot = MatchSnapshot | SetCommandSnapshot | DecaySnapshot;
 
 // Main stacks for undo/redo functionality
+const MAX_STACK_SIZE = 100; // Prevent unbounded memory growth
 const rankOpHistoryStack: UniversalSnapshot[] = [];
 const undoneStack: UniversalSnapshot[] = [];
 
@@ -147,10 +148,16 @@ export function saveMatchSnapshot(snapshot: MatchSnapshot): void {
   }
 
   rankOpHistoryStack.push(snapshot);
-  
+
+  // Trim oldest entries if stack exceeds max size
+  if (rankOpHistoryStack.length > MAX_STACK_SIZE) {
+    const removed = rankOpHistoryStack.splice(0, rankOpHistoryStack.length - MAX_STACK_SIZE);
+    logger.info(`[SNAPSHOT] Trimmed ${removed.length} oldest entries from stack`);
+  }
+
   // Clear redo stack when new operation is saved
   undoneStack.length = 0;
-  
+
   logger.info(`[SNAPSHOT] Saved ${snapshot.description} to stack (${rankOpHistoryStack.length} total)`);
 }
 
@@ -160,8 +167,15 @@ export function saveOperationSnapshot(snapshot: UniversalSnapshot): void {
   }
   
   rankOpHistoryStack.push(snapshot);
+
+  // Trim oldest entries if stack exceeds max size
+  if (rankOpHistoryStack.length > MAX_STACK_SIZE) {
+    const removed = rankOpHistoryStack.splice(0, rankOpHistoryStack.length - MAX_STACK_SIZE);
+    logger.info(`[SNAPSHOT] Trimmed ${removed.length} oldest entries from stack`);
+  }
+
   undoneStack.length = 0; // Clear redo stack
-  
+
   logger.info(`[SNAPSHOT] Saved ${snapshot.gameType} operation to stack (${rankOpHistoryStack.length} total)`);
 }
 

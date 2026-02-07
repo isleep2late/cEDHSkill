@@ -1,4 +1,4 @@
-import { initDatabase } from './db/init.js';
+// initDatabase is called by loader.ts before this module is imported
 import {
   Client,
   GatewayIntentBits,
@@ -349,9 +349,9 @@ export async function applyDecayForPlayers(
 }
 
 async function main() {
-  // Initialize database first
-  await initDatabase();
-  
+  // Note: Database is already initialized by loader.ts before this module is imported.
+  // Do NOT call initDatabase() here - it would re-open the database connection.
+
   // Load commands
   const commandsPath = path.resolve('./dist/commands');
   
@@ -438,28 +438,45 @@ async function main() {
 
   // Handle DM commands for admin opt in/out
   client.on('messageCreate', async (message: Message) => {
-    if (message.author.bot || message.guild) return;
+    try {
+      if (message.author.bot || message.guild) return;
 
-    const isAdmin = config.admins.includes(message.author.id);
-    const content = message.content.toLowerCase().trim();
+      const isAdmin = config.admins.includes(message.author.id);
+      const content = message.content.toLowerCase().trim();
 
-    logger.info(`[DM] From ${message.author.username} (${message.author.id}): "${content}" | admin: ${isAdmin}`);
+      logger.info(`[DM] From ${message.author.username} (${message.author.id}): "${content}" | admin: ${isAdmin}`);
 
-    if (!isAdmin) {
-      await message.reply("Only registered admins can use this command.");
-      return;
-    }
+      if (!isAdmin) {
+        await message.reply("Only registered admins can use this command.");
+        return;
+      }
 
-    if (content === '!optout') {
-      await setAlertOptIn(message.author.id, false);
-      await message.reply("✅ You will no longer receive suspicious activity alerts.");
-      logger.info(`[DM] ${message.author.username} opted out of alerts`);
-    } else if (content === '!optin') {
-      await setAlertOptIn(message.author.id, true);
-      await message.reply("✅ You will now receive suspicious activity alerts.");
-      logger.info(`[DM] ${message.author.username} opted in to alerts`);
+      if (content === '!optout') {
+        await setAlertOptIn(message.author.id, false);
+        await message.reply("✅ You will no longer receive suspicious activity alerts.");
+        logger.info(`[DM] ${message.author.username} opted out of alerts`);
+      } else if (content === '!optin') {
+        await setAlertOptIn(message.author.id, true);
+        await message.reply("✅ You will now receive suspicious activity alerts.");
+        logger.info(`[DM] ${message.author.username} opted in to alerts`);
+      }
+    } catch (error) {
+      logger.error(`[DM] Error handling DM from ${message.author?.id}:`, error);
     }
   });
+
+  // Periodically clean up abandoned limbo games (every 30 minutes)
+  setInterval(() => {
+    const now = Date.now();
+    const TTL_MS = 60 * 60 * 1000; // 1 hour
+    for (const [key, value] of client.limboGames.entries()) {
+      // limboGames entries don't have timestamps, so just cap the total size
+      if (client.limboGames.size > 50) {
+        client.limboGames.delete(key);
+        logger.info(`[LIMBO] Cleaned up stale limbo game entry: ${key}`);
+      }
+    }
+  }, 30 * 60 * 1000);
 
   // Schedule daily rating decay at midnight
   cron.schedule('0 0 * * *', () => {
@@ -472,4 +489,7 @@ async function main() {
   await client.login(config.token);
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('[STARTUP] Fatal error during bot startup:', error);
+  process.exit(1);
+});

@@ -2117,7 +2117,11 @@ collector.on('collect', async (reaction, user) => {
       } catch (error) {
         logger.error('Error processing game results:', error);
         isProcessing = false; // Reset flag on error
-        throw error; // Re-throw to handle properly
+        try {
+          await interaction.followUp({ content: '❌ An error occurred while processing game results. Please check the logs.', ephemeral: true });
+        } catch {
+          // Interaction may have expired
+        }
       }
     }
     return;
@@ -2502,7 +2506,11 @@ if (decks.length === 4) {
           } catch (error) {
             logger.error('Error processing deck results:', error);
             isProcessingDeck = false; // Reset flag on error
-            throw error;
+            try {
+              await interaction.followUp({ content: '❌ An error occurred while processing deck results. Please check the logs.', ephemeral: true });
+            } catch {
+              // Interaction may have expired
+            }
           }
         }
       }

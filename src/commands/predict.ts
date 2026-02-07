@@ -182,11 +182,13 @@ function padEntriesTo4Players(entries: ParsedEntry[]): ParsedEntry[] {
 }
 
 async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply();
+
   try {
     const turnOrderStats = await getAllPlayerTurnOrderStats();
-    
+
     if (turnOrderStats.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'No turn order data available yet. Play some games with turn order tracking to see statistics!'
       });
       return;
@@ -214,7 +216,7 @@ async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction)
       .sort((a, b) => a.turnOrder - b.turnOrder);
 
     if (results.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'No turn order data available yet.'
       });
       return;
@@ -254,13 +256,12 @@ async function showTurnOrderStatistics(interaction: ChatInputCommandInteraction)
       text: `Based on ${totalGames} total games • Use /predict with players/commanders for game predictions`
     });
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     logger.error('Error showing turn order statistics:', error);
-    await interaction.reply({
-      content: '❌ Error retrieving turn order statistics.',
-      ephemeral: true
+    await interaction.editReply({
+      content: '❌ Error retrieving turn order statistics.'
     });
   }
 }

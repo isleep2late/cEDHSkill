@@ -538,6 +538,13 @@ async function showCommanderStats(interaction: ChatInputCommandInteraction, comm
     const db = getDatabase();
     const deck = await db.get('SELECT * FROM decks WHERE normalizedName = ?', normalizedName);
 
+    if (!deck) {
+      await interaction.editReply({
+        content: `❌ Commander "${commanderName}" not found in the database.`
+      });
+      return;
+    }
+
     const elo = calculateElo(deck.mu, deck.sigma);
     const totalGames = deck.wins + deck.losses + deck.draws;
 

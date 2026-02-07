@@ -299,6 +299,7 @@ export async function execute(
 
   // 5) Reset ALL tables - complete fresh start
   const db = getDatabase();
+  let resetSucceeded = false;
   try {
     await db.exec('DELETE FROM players');
     await db.exec('DELETE FROM matches');
@@ -314,15 +315,19 @@ export async function execute(
     await db.exec('DELETE FROM player_deck_assignments');
 
     logger.info('[THANOS-SNAP] Complete database reset - all player and deck data cleared');
+    resetSucceeded = true;
   } catch (error) {
     logger.error('[THANOS-SNAP] Error resetting database:', error);
+    logger.warn('[THANOS-SNAP] Keeping backup file on disk since reset failed');
   }
 
-  // Clean up the backup file from disk since it's now been sent to admins
-  try {
-    await fs.unlink(backupFile);
-    logger.info('[THANOSSNAP] Cleaned up backup file from disk');
-  } catch (cleanupError) {
-    logger.error('[THANOSSNAP] Error cleaning up backup file:', cleanupError);
+  // Only clean up the backup file if the reset succeeded
+  if (resetSucceeded) {
+    try {
+      await fs.unlink(backupFile);
+      logger.info('[THANOSSNAP] Cleaned up backup file from disk');
+    } catch (cleanupError) {
+      logger.error('[THANOSSNAP] Error cleaning up backup file:', cleanupError);
+    }
   }
 }
