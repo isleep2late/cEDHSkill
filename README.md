@@ -25,21 +25,60 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
    - `DECAY_START_DAYS` - Days before decay begins (default: 6)
 4. `npm run build`
 5. `npm run register-commands`
-6. `./start-leaguebot.sh` (recommended) or `npm start`
+6. Start the bot using one of the methods below
 
 ## Running the Bot
 
-### Startup Script (Recommended)
+Once your `.env` is configured and you've run `npm install` + `npm run build` + `npm run register-commands`, you can start the bot by **double-clicking** a startup script or running it from a terminal.
+
+### Quick Start (Double-Click)
+
+| OS | File | How |
+|----|------|-----|
+| **Linux** | `start-leaguebot.sh` | Double-click in your file manager (or right-click > Run in Terminal) |
+| **macOS** | `start-leaguebot.command` | Double-click in Finder — a Terminal window opens automatically |
+| **Windows** | `start-leaguebot.bat` | Double-click in File Explorer — a Command Prompt window opens automatically |
+
+All scripts will build the project and then start the bot. Output is shown in the terminal window and saved to `logs/bot.log`.
+
+### Terminal Usage
+
+If you prefer running from a terminal:
 
 ```bash
+# Linux / macOS
 ./start-leaguebot.sh            # Build + run (output visible in terminal + log file)
 ./start-leaguebot.sh --no-build # Skip build, just run
 ./start-leaguebot.sh --bg       # Run in background via screen (detachable)
+
+# Windows (Command Prompt)
+start-leaguebot.bat             # Build + run
+start-leaguebot.bat --no-build  # Skip build, just run
+
+# Any OS (npm)
+npm start                       # Runs node dist/loader.js directly (no log file)
 ```
 
 - **Default mode** keeps the terminal open so you can watch all bot activity in real time.
-- **Background mode** (`--bg`) runs via `screen` - reattach with `screen -r leaguebot`.
+- **Background mode** (`--bg`, Linux/macOS only) runs via `screen` — reattach with `screen -r leaguebot`.
 - Both modes write to `logs/bot.log` simultaneously.
+
+### Stopping the Bot
+
+- **If the terminal window is visible:** Press `Ctrl+C` to stop the bot.
+- **If you can't find the terminal window** (e.g. you double-clicked the script and the window is hidden):
+  ```bash
+  # Linux / macOS — find the bot process
+  pgrep -af "node.*loader.js"
+
+  # Kill it by name (only kills the bot, nothing else)
+  pkill -f "node.*loader.js"
+
+  # Windows (Command Prompt or PowerShell)
+  tasklist | findstr "node"
+  taskkill /F /IM node.exe    &REM kills all node processes — use with caution
+  ```
+- **If running in a screen session** (`--bg`): `screen -r leaguebot` to reattach, then `Ctrl+C`.
 
 ### Logging
 
