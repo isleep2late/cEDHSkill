@@ -41,7 +41,7 @@ Once your `.env` is configured and you've run `npm install` + `npm run build` + 
 
 > **Linux note:** Double-clicking `.sh` files directly won't open a terminal on most Linux file managers — they run silently in the background. Use the `.desktop` file instead, which tells your file manager to open a terminal. If your file manager asks you to "Trust and Launch" it, go ahead — it just runs `start-leaguebot.sh` under the hood.
 
-All scripts will build the project and then start the bot. Output is shown in the terminal window and saved to `logs/bot.log`. *Make sure you go into these files and replace the directory with your actual folder location!*
+All scripts will build the project and then start the bot. Output is shown in the terminal window and saved to `logs/bot.log`. *Make sure you go into the .desktop file via text editor and replace the directory `"$(dirname "%k")"` with your actual folder location!*
 
 ### Terminal Usage
 
