@@ -27,6 +27,8 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 5. `npm run register-commands`
 6. Start the bot using one of the methods below
 
+> **Optional:** Grant the bot **Manage Messages** permission in your Discord server to allow automatic reaction cleanup during turn order selection. The bot works without this, but players may need to manually remove their old reactions when changing turn order picks.
+
 ## Running the Bot
 
 Once your `.env` is configured and you've run `npm install` + `npm run build` + `npm run register-commands`, you can start the bot by **double-clicking** a startup script or running it from a terminal.
