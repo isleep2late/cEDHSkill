@@ -81,15 +81,15 @@ if [ "$BACKGROUND" = true ]; then
   echo "Starting bot in screen session 'leaguebot'..."
   echo "Reattach with: screen -r leaguebot"
   echo "Log file: $LOG_FILE"
-  screen -dmS leaguebot bash -c "cd $SCRIPT_DIR && node dist/loader.js 2>&1 | tee -a $LOG_FILE"
+  screen -dmS leaguebot bash -c "cd $SCRIPT_DIR && node dist/loader.js 2>&1"
 else
-  # Foreground mode - see everything in terminal AND log to file
+  # Foreground mode - see everything in terminal, logger writes to log file
   echo "=== Starting cEDH League Bot ==="
   echo "Log file: $LOG_FILE"
   echo "Press Ctrl+C to stop"
   echo "================================"
   echo ""
-  node dist/loader.js 2>&1 | tee -a "$LOG_FILE"
+  node dist/loader.js 2>&1
   # If the bot exits (crash, error, Ctrl+C), keep window open if double-clicked
   pause_if_needed
 fi

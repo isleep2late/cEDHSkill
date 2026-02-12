@@ -9,7 +9,7 @@ import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
 import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
-import { recordMatch, getRecentMatches, updateMatchTurnOrder } from '../db/match-utils.js';
+import { recordMatch, getRecentMatches, updateMatchTurnOrder, getOpponentsByGameIds } from '../db/match-utils.js';
 import { 
   getOrCreateDeck, 
   updateDeckRating, 
@@ -1049,26 +1049,25 @@ for (const [submitter, entries] of Object.entries(submitterMap)) {
   }
 }
 
-// 3) Repeated opponents: >=9 wins against same group - ALREADY CORRECT
-const opponentKeyMap: Record<string, string[]> = {};
+// 3) Repeated opponents: >=9 wins against same group
+// Query actual opponents from the database using gameId (teams/scores fields are not populated)
+const wonGameIds: string[] = [];
 for (const m of recent) {
-  if (m.status === 'w' && !m.submittedByAdmin) { // Correctly excludes admin games
-    const teams = JSON.parse(m.teams || '[]');
-    const scores = JSON.parse(m.scores || '[]');
-    // Create a key based on match participants (simplified approach)
-    const key = JSON.stringify([...teams, ...scores].sort());
-    opponentKeyMap[m.userId] = opponentKeyMap[m.userId] || [];
-    opponentKeyMap[m.userId].push(key);
+  if (m.status === 'w' && !m.submittedByAdmin) {
+    wonGameIds.push(m.gameId);
   }
 }
-for (const [player, keys] of Object.entries(opponentKeyMap)) {
-  const countMap: Record<string, number> = {};
-  for (const key of keys) {
-    countMap[key] = (countMap[key] || 0) + 1;
+if (wonGameIds.length >= 9) {
+  const opponentsByGame = await getOpponentsByGameIds(wonGameIds, userId);
+  const groupCountMap: Record<string, number> = {};
+  for (const gameId of wonGameIds) {
+    const opponents = opponentsByGame[gameId] || [];
+    const key = JSON.stringify(opponents);
+    groupCountMap[key] = (groupCountMap[key] || 0) + 1;
   }
-  for (const count of Object.values(countMap)) {
+  for (const [key, count] of Object.entries(groupCountMap)) {
     if (count >= 9) {
-      return `⚠️ Suspicious activity detected: <@${player}> has won ${count} matches against the same group.`;
+      return `⚠️ Suspicious activity detected: <@${userId}> has won ${count} matches against the same group.`;
     }
   }
 }

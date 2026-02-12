@@ -489,18 +489,20 @@ async function main() {
     }
   });
 
-  // Handle DM commands for admin opt in/out
+  // Handle DM commands for admin/moderator opt in/out
   client.on('messageCreate', async (message: Message) => {
     try {
       if (message.author.bot || message.guild) return;
 
       const isAdmin = config.admins.includes(message.author.id);
+      const isMod = config.moderators.includes(message.author.id);
+      const hasAccess = isAdmin || isMod;
       const content = message.content.toLowerCase().trim();
 
-      logger.info(`[DM] From ${message.author.username} (${message.author.id}): "${content}" | admin: ${isAdmin}`);
+      logger.info(`[DM] From ${message.author.username} (${message.author.id}): "${content}" | admin: ${isAdmin} | mod: ${isMod}`);
 
-      if (!isAdmin) {
-        await message.reply("Only registered admins can use this command.");
+      if (!hasAccess) {
+        await message.reply("Only registered admins and moderators can use this command.");
         return;
       }
 

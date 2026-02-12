@@ -45,6 +45,6 @@ echo Press Ctrl+C to stop
 echo ================================
 echo.
 
-node dist/loader.js 2>&1 | powershell -Command "& { $input | Tee-Object -FilePath 'logs\bot.log' -Append }"
+node dist/loader.js 2>&1
 
 pause

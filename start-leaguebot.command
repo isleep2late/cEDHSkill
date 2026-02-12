@@ -55,4 +55,4 @@ echo "Log file: $LOG_FILE"
 echo "Press Ctrl+C to stop (or close this window)"
 echo "================================"
 echo ""
-node dist/loader.js 2>&1 | tee -a "$LOG_FILE"
+node dist/loader.js 2>&1
