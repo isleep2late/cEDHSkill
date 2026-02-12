@@ -77,6 +77,27 @@ export async function updateMatchTurnOrder(matchId: string, userId: string, turn
   await stmt.run(turnOrder, matchId, userId);
 }
 
+export async function getOpponentsByGameIds(gameIds: string[], userId: string): Promise<Record<string, string[]>> {
+  if (gameIds.length === 0) return {};
+  const db = getDatabase();
+  const placeholders = gameIds.map(() => '?').join(',');
+  const rows = await db.all(
+    `SELECT gameId, userId FROM matches WHERE gameId IN (${placeholders}) AND userId != ?`,
+    [...gameIds, userId]
+  ) as { gameId: string; userId: string }[];
+
+  const result: Record<string, string[]> = {};
+  for (const row of rows) {
+    if (!result[row.gameId]) result[row.gameId] = [];
+    result[row.gameId].push(row.userId);
+  }
+  // Sort each opponent list for consistent key generation
+  for (const gameId of Object.keys(result)) {
+    result[gameId].sort();
+  }
+  return result;
+}
+
 export async function getTotalMatches(): Promise<number> {
   const db = getDatabase();
   const stmt = await db.prepare('SELECT COUNT(DISTINCT gameId) as count FROM matches');

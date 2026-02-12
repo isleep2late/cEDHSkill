@@ -43,6 +43,8 @@
 3. **Enable Developer Mode**: Required to copy Discord IDs (Settings → Advanced → Developer Mode)
 4. **Dedicated hosting**: Keep the bot running continuously for persistent data
 
+> **Optional permission:** Granting the bot **Manage Messages** permission in your server allows it to automatically clean up reactions during turn order selection (e.g., removing a player's old reaction when they change their pick). This is not required for the bot to function -- if the permission is missing, turn order selection still works but players may need to manually remove their old reactions.
+
 ---
 
 ## Setup Instructions
@@ -336,8 +338,8 @@ npm start
 - Sends backup to all admins/moderators via DM
 - Shows top 64 qualified players and commanders (with tie handling)
 
-### 📧 Admin Notifications
-**DM Commands for Admins:**
+### 📧 Admin/Moderator Notifications
+**DM Commands for Admins and Moderators:**
 - `!optout` - Stop receiving suspicious activity alerts
 - `!optin` - Resume receiving suspicious activity alerts
 
@@ -577,6 +579,7 @@ export const config = {
 - **Deck assignments not working**: Verify commander names against EDHREC
 - **Multiple commanders error**: Only assign ONE commander per player per game
 - **Default deck changing past games**: Use `/set deck:X` NOT `/set deck:X gameid:allgames`
+- **"Missing Permissions" errors in logs**: The bot needs **Manage Messages** permission to remove reactions during turn order selection. This is optional -- the bot works without it, but reaction cleanup won't function automatically.
 
 ### Data Management
 - **Manual Backups**: Use `/backup` command

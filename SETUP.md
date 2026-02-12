@@ -69,6 +69,7 @@ sudo pacman -S nodejs npm
    - Attach Files
    - Read Message History
    - Use Slash Commands
+   - **Manage Messages** (optional) - Allows the bot to remove reactions during turn order selection. The bot works fine without this, but turn order reaction cleanup won't work (users may need to manually remove their old reactions).
 10. Copy the generated URL at the bottom and open it in your browser to invite the bot to your server
 
 ---
