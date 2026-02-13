@@ -1013,11 +1013,12 @@ async function checkForSuspiciousPatterns(
   const recent = await getRecentMatches(userId, 50);
   const now = Date.now();
 
-  // 1) Win streak in last 10 games (changed from 5 in 7 to 8 in 10)
-const last10 = recent.slice(0, 10);
+  // 1) Win streak in last 10 non-admin games (changed from 5 in 7 to 8 in 10)
+const nonAdminMatches = recent.filter(m => !m.submittedByAdmin);
+const last10 = nonAdminMatches.slice(0, 10);
 const winSet = new Set<string>();
 for (const m of last10) {
-  if (!m.submittedByAdmin && m.status === 'w') {
+  if (m.status === 'w') {
     winSet.add(m.id);
   }
 }
@@ -1044,7 +1045,7 @@ for (const [submitter, entries] of Object.entries(submitterMap)) {
   }
   for (const [winner, count] of Object.entries(countByWinner)) {
     if (count >= 4) {
-      return `⚠️ Suspicious activity detected: <@${winner}> has won ${count} matches submitted in the last 30 minutes.`;
+      return `⚠️ Suspicious activity detected: <@${submitter}> has submitted ${count} matches involving <@${winner}> in the last 30 minutes.`;
     }
   }
 }
