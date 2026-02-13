@@ -404,11 +404,13 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
     // Get recent games
     const db = getDatabase();
     const recentGames = await db.all(`
-      SELECT m.status, m.matchDate, m.turnOrder, m.assignedDeck, m.gameId
+      SELECT m.status, m.matchDate, m.turnOrder, m.assignedDeck, m.gameId,
+             d.displayName as deckDisplayName
       FROM matches m
       JOIN games_master gm ON m.gameId = gm.gameId
+      LEFT JOIN decks d ON m.assignedDeck = d.normalizedName
       WHERE m.userId = ? AND gm.active = 1
-      ORDER BY m.matchDate DESC 
+      ORDER BY m.matchDate DESC
       LIMIT 10
     `, userId);
 
@@ -503,7 +505,7 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
       const recentDisplay = recentGames.slice(0, 5).map(game => {
         const status = game.status === 'w' ? '🟢 Win' : game.status === 'l' ? '🔴 Loss' : '🟡 Draw';
         const turnInfo = game.turnOrder ? ` (T${game.turnOrder})` : '';
-        const deckInfo = game.assignedDeck ? ` with ${game.assignedDeck}` : '';
+        const deckInfo = game.assignedDeck ? ` with ${game.deckDisplayName || game.assignedDeck}` : '';
         const date = new Date(game.matchDate).toLocaleDateString();
         return `${status}${turnInfo}${deckInfo} - ${date}`;
       }).join('\n');
