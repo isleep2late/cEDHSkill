@@ -14,30 +14,32 @@ export interface PlayerDeckAssignment {
 }
 
 /**
- * Get the deck assigned to a player for a specific game
+ * Get the deck assigned to a player for a specific game.
+ * Only returns the deck explicitly assigned to this game (via match record or game-specific assignment).
+ * Does NOT fall back to the player's defaultDeck, since defaultDeck is for FUTURE games only.
  */
 export async function getPlayerDeckForGame(userId: string, gameId: string): Promise<string | null> {
   const db = getDatabase();
-  
-  // First check for game-specific assignment
+
+  // First check for game-specific assignment in player_deck_assignments
   const gameSpecific = await db.get(`
-    SELECT deckNormalizedName 
-    FROM player_deck_assignments 
+    SELECT deckNormalizedName
+    FROM player_deck_assignments
     WHERE userId = ? AND gameId = ? AND assignmentType = 'game_specific'
   `, userId, gameId);
-  
+
   if (gameSpecific) {
     return gameSpecific.deckNormalizedName;
   }
-  
-  // Then check for default deck
-  const defaultDeck = await db.get(`
-    SELECT defaultDeck 
-    FROM players 
-    WHERE userId = ? AND defaultDeck IS NOT NULL
-  `, userId);
-  
-  return defaultDeck?.defaultDeck || null;
+
+  // Then check the actual match record's assignedDeck (set at game submission time)
+  const matchRecord = await db.get(`
+    SELECT assignedDeck
+    FROM matches
+    WHERE userId = ? AND gameId = ? AND assignedDeck IS NOT NULL
+  `, userId, gameId);
+
+  return matchRecord?.assignedDeck || null;
 }
 
 /**
