@@ -508,37 +508,34 @@ async function recalculateAllDecksFromScratch(): Promise<void> {
     await updateDeckRating(deck.normalizedName, deck.displayName, 25.0, 8.333, 0, 0, 0);
   }
 
-  // Get all ACTIVE pure deck games in chronological order (by sequence)
-  const allDeckGames = await db.all(`
-    SELECT gameId, gameSequence
+  // Get ALL deck-related games (pure deck + hybrid player-commander) interleaved
+  // chronologically by gameSequence. This ensures deck ratings are calculated in the
+  // correct order regardless of game type.
+  const allDeckRelatedGames = await db.all(`
+    SELECT gameId, gameSequence, 'deck' as replayType
     FROM games_master
     WHERE gameType = 'deck' AND status = 'confirmed' AND active = 1
-    ORDER BY gameSequence ASC
-  `);
-
-  // Replay each pure deck game in order
-  for (const game of allDeckGames) {
-    await replayDeckGame(game.gameId);
-  }
-
-  logger.info(`[RECALC] Completed recalculation of ${allDeckGames.length} active pure deck games`);
-
-  // Also replay commander ratings for ACTIVE hybrid player games (player games with assigned decks)
-  const hybridGames = await db.all(`
-    SELECT DISTINCT gm.gameId, gm.gameSequence
+    UNION
+    SELECT DISTINCT gm.gameId, gm.gameSequence, 'hybrid' as replayType
     FROM games_master gm
     JOIN matches m ON m.gameId = gm.gameId
     WHERE gm.gameType = 'player' AND gm.status = 'confirmed' AND gm.active = 1 AND m.assignedDeck IS NOT NULL
-    ORDER BY gm.gameSequence ASC
+    ORDER BY gameSequence ASC
   `);
 
-  for (const game of hybridGames) {
-    await replayCommanderRatingsForGame(game.gameId);
+  let pureDeckCount = 0;
+  let hybridCount = 0;
+  for (const game of allDeckRelatedGames) {
+    if (game.replayType === 'deck') {
+      await replayDeckGame(game.gameId);
+      pureDeckCount++;
+    } else {
+      await replayCommanderRatingsForGame(game.gameId);
+      hybridCount++;
+    }
   }
 
-  if (hybridGames.length > 0) {
-    logger.info(`[RECALC] Completed recalculation of commander ratings for ${hybridGames.length} hybrid player games`);
-  }
+  logger.info(`[RECALC] Completed recalculation of ${pureDeckCount} pure deck games and ${hybridCount} hybrid player-commander games (interleaved chronologically)`);
 
   // Re-apply rating decay based on actual lastPlayed dates (skip undo snapshot since
   // the parent operation handles undo for the entire recalculation)
