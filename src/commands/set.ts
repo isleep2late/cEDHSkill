@@ -196,26 +196,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   } catch (error) {
     logger.error('Error in /set command:', error);
-    
+
+    // Use editReply if interaction was already deferred, otherwise reply
+    const respond = interaction.deferred || interaction.replied
+      ? (opts: any) => interaction.editReply(opts)
+      : (opts: any) => interaction.reply(opts);
+
     // FIXED: Check for specific EDHREC validation errors and provide helpful feedback
     if (error instanceof Error && error.message.includes('not a valid commander name according to EDHREC')) {
-      await interaction.reply({
+      await respond({
         content: `⚠️ ${error.message}\nPlease check the spelling and use the format from EDHREC URLs (e.g., "atraxa-praetors-voice").`,
         ephemeral: true
       });
       return;
     }
-    
+
     if (error instanceof Error && error.message.includes('Unable to validate commander')) {
-      await interaction.reply({
+      await respond({
         content: `⚠️ ${error.message}\nThe EDHREC validation service may be temporarily unavailable. Please try again later.`,
         ephemeral: true
       });
       return;
     }
-    
+
     // Generic error fallback
-    await interaction.reply({
+    await respond({
       content: 'An error occurred while updating settings.',
       ephemeral: true
     });
@@ -338,23 +343,25 @@ async function handlePlayerModification(
   wldString: string | null,
   adminId: string
 ) {
+  // Defer reply immediately since deck assignments with allgames trigger
+  // full recalculation which can take a long time
+  await interaction.deferReply();
+
   const db = getDatabase();
   const targetUser = await interaction.client.users.fetch(userId).catch(() => null);
   const displayName = targetUser?.displayName || userId;
 
   // Validate inputs
   if (turnOrder !== null && turnOrder !== 0 && !gameId) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Turn order requires a game ID (except when using 0 to remove assignments).',
-      ephemeral: true
     });
     return;
   }
 
   if (gameId && gameId !== 'allgames' && !await gameExists(gameId)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `Game ID "${gameId}" not found.`,
-      ephemeral: true
     });
     return;
   }
@@ -364,9 +371,8 @@ async function handlePlayerModification(
   if (wldString) {
     const wldMatch = wldString.match(/^(\d+)\/(\d+)\/(\d+)$/);
     if (!wldMatch) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'W/L/D format must be "wins/losses/draws" (e.g., "10/5/2").',
-        ephemeral: true
       });
       return;
     }
@@ -407,7 +413,7 @@ async function handlePlayerModification(
     .setColor(0x00AE86)
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
 }
 
 // NEW: Function to remove turn order assignments from all games
@@ -1429,19 +1435,19 @@ async function handleCommanderRatingModification(
   wldString: string | null,
   adminId: string
 ) {
+  await interaction.deferReply();
+
   // Validate commander
   try {
     if (!await validateCommander(commanderName)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `"${commanderName}" is not a valid commander name according to EDHREC.`,
-        ephemeral: true
       });
       return;
     }
   } catch (error) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `Unable to validate commander "${commanderName}".`,
-      ephemeral: true
     });
     return;
   }
@@ -1451,9 +1457,8 @@ async function handleCommanderRatingModification(
   if (wldString) {
     const wldMatch = wldString.match(/^(\d+)\/(\d+)\/(\d+)$/);
     if (!wldMatch) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'W/L/D format must be "wins/losses/draws" (e.g., "10/5/2").',
-        ephemeral: true
       });
       return;
     }
@@ -1472,7 +1477,7 @@ async function handleCommanderRatingModification(
     .setColor(0x00AE86)
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
 }
 
 // Helper functions
