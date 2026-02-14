@@ -7,7 +7,7 @@ import { logger } from './logger.js';
 export function normalizeCommanderName(name: string): string {
   return name.toLowerCase()
     .replace(/[^\w\s-]/g, '') // Remove special characters except hyphens
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/[_\s]+/g, '-') // Replace underscores and spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 }
@@ -36,12 +36,11 @@ export async function validateCommander(commanderName: string): Promise<boolean>
     
   } catch (error) {
     logger.error(`Error validating commander ${commanderName}:`, error);
-    
-    // If there's a network error or other issue, we'll be lenient
-    // and allow the commander name to pass validation
-    // This prevents the bot from breaking due to network issues
-    logger.warn(`EDHREC validation failed for ${commanderName}, allowing anyway`);
-    return true;
+
+    // Throw on network errors so callers can distinguish "EDHREC says invalid"
+    // from "couldn't reach EDHREC". Callers already have try/catch that shows
+    // "Unable to validate commander" messages for this case.
+    throw new Error(`EDHREC validation request failed for ${commanderName}`);
   }
 }
 
@@ -107,17 +106,17 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 export async function validateCommanderCached(commanderName: string): Promise<boolean> {
   const normalizedName = normalizeCommanderName(commanderName);
   const now = Date.now();
-  
+
   // Check cache first
   const cached = validationCache.get(normalizedName);
   if (cached && (now - cached.timestamp) < CACHE_DURATION) {
     return cached.valid;
   }
-  
-  // Validate and cache result
+
+  // Validate and cache result (only cache successful lookups, not network errors)
   const isValid = await validateCommander(commanderName);
   validationCache.set(normalizedName, { valid: isValid, timestamp: now });
-  
+
   // Clean up old cache entries periodically
   if (validationCache.size > 1000) {
     for (const [key, value] of validationCache.entries()) {
@@ -126,6 +125,6 @@ export async function validateCommanderCached(commanderName: string): Promise<bo
       }
     }
   }
-  
+
   return isValid;
 }
