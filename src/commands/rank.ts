@@ -1215,15 +1215,35 @@ for (let i = 0; i < tokens.length; i++) {
       continue;
     }
     
-    // Check if it's a commander name
+    // Check if it's a commander name (supports multi-word names like "Ashling, Flame Dancer")
     if (/^[a-zA-Z][a-zA-Z0-9\-',.]*$/.test(token) && token.length > 1 && !current.commander) {
       // Make sure it's not another user mention coming up
       const nextToken = tokens[i + 1];
       const isFollowedByMention = nextToken && /^<@!?\d+>$/.test(nextToken);
-      
+
       if (!isFollowedByMention) {
-        current.commander = token;
-        current.normalizedCommanderName = normalizeCommanderName(token);
+        // Collect multi-word commander names by looking ahead
+        const commanderParts = [token];
+        let j = i + 1;
+
+        while (j < tokens.length) {
+          const nextT = tokens[j];
+          // Stop if next token is a mention
+          if (/^<@!?\d+>$/.test(nextT)) break;
+          // Stop if next token is a status or turn order
+          if (parseStatusAndTurnOrder(nextT) !== null) break;
+          // Check if it looks like part of a name
+          if (/^[a-zA-Z][a-zA-Z0-9\-',.]*$/.test(nextT) && nextT.length > 1) {
+            commanderParts.push(nextT);
+            j++;
+          } else {
+            break;
+          }
+        }
+
+        current.commander = commanderParts.join(' ');
+        current.normalizedCommanderName = normalizeCommanderName(current.commander);
+        i = j - 1; // Skip past consumed tokens (loop will increment)
       }
     }
     
@@ -1274,22 +1294,32 @@ if (current && current.status) {
   players.push(current);
 }
 
-// Handle commander-before-mention pattern: "atraxa @user w"
-for (let i = 0; i < tokens.length - 1; i++) {
-  const token = tokens[i];
-  const nextToken = tokens[i + 1];
-  
-  if (/^[a-zA-Z][a-zA-Z0-9\-',.]*$/.test(token) && 
-      token.length > 1 && 
-      /^<@!?\d+>$/.test(nextToken)) {
-    
-    // This looks like "commander @user" pattern
-    const userId = nextToken.replace(/\D/g, '');
+// Handle commander-before-mention pattern: "Ashling, Flame Dancer @user w"
+// Look backward from each mention to collect multi-word commander names
+for (let i = 0; i < tokens.length; i++) {
+  if (/^<@!?\d+>$/.test(tokens[i])) {
+    const userId = tokens[i].replace(/\D/g, '');
     const player = players.find(p => p.userId === userId);
-    
+
     if (player && !player.commander) {
-      player.commander = token;
-      player.normalizedCommanderName = normalizeCommanderName(token);
+      // Look backwards for consecutive commander name tokens
+      const commanderParts: string[] = [];
+      for (let j = i - 1; j >= 0; j--) {
+        const prevToken = tokens[j];
+        // Stop at mentions, status/turn-order tokens, or non-name tokens
+        if (/^<@!?\d+>$/.test(prevToken)) break;
+        if (parseStatusAndTurnOrder(prevToken) !== null) break;
+        if (/^[a-zA-Z][a-zA-Z0-9\-',.]*$/.test(prevToken) && prevToken.length > 1) {
+          commanderParts.unshift(prevToken);
+        } else {
+          break;
+        }
+      }
+
+      if (commanderParts.length > 0) {
+        player.commander = commanderParts.join(' ');
+        player.normalizedCommanderName = normalizeCommanderName(player.commander);
+      }
     }
   }
 }

@@ -147,23 +147,34 @@ export async function playerExistsWithGames(userId: string): Promise<boolean> {
  */
 export async function deckExistsWithGames(normalizedName: string): Promise<boolean> {
   const db = getDatabase();
-  
+
   // Check if deck exists in database
   const deck = await db.get(`
-    SELECT normalizedName FROM decks 
+    SELECT normalizedName FROM decks
     WHERE normalizedName = ?
   `, normalizedName);
-  
+
   if (!deck) return false;
-  
+
   // Check if deck has actual match records (been played in games)
   const hasMatches = await db.get(`
-    SELECT 1 FROM deck_matches 
-    WHERE deckNormalizedName = ? 
+    SELECT 1 FROM deck_matches
+    WHERE deckNormalizedName = ?
     LIMIT 1
   `, normalizedName);
-  
-  return !!hasMatches;
+
+  if (hasMatches) return true;
+
+  // Fallback: check if deck was assigned to players in game matches
+  // This catches cases where matches.assignedDeck is set but deck_matches
+  // weren't generated (e.g., after /set without full recalculation)
+  const hasAssignedMatches = await db.get(`
+    SELECT 1 FROM matches
+    WHERE assignedDeck = ?
+    LIMIT 1
+  `, normalizedName);
+
+  return !!hasAssignedMatches;
 }
 
 /**

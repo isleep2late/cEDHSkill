@@ -561,22 +561,34 @@ async function showCommanderStats(interaction: ChatInputCommandInteraction, comm
     const rankText = rank > 0 ? `#${rank}` : 'Unranked';
     const qualified = totalGames >= 5;
 
-    // Get recent games
-    const recentGames = await db.all(`
+    // Get recent games (check deck_matches first, fall back to matches.assignedDeck)
+    let recentGames = await db.all(`
       SELECT dm.status, dm.matchDate, dm.turnOrder, dm.assignedPlayer, dm.gameId
       FROM deck_matches dm
       JOIN games_master gm ON dm.gameId = gm.gameId
       WHERE dm.deckNormalizedName = ? AND gm.active = 1
-      ORDER BY dm.matchDate DESC 
+      ORDER BY dm.matchDate DESC
       LIMIT 10
     `, normalizedName);
+
+    if (recentGames.length === 0) {
+      // Fallback: get recent games from matches.assignedDeck
+      recentGames = await db.all(`
+        SELECT m.status, m.matchDate, m.turnOrder, m.userId as assignedPlayer, m.gameId
+        FROM matches m
+        JOIN games_master gm ON m.gameId = gm.gameId
+        WHERE m.assignedDeck = ? AND gm.active = 1
+        ORDER BY m.matchDate DESC
+        LIMIT 10
+      `, normalizedName);
+    }
 
     // Get turn order stats
     const turnOrderStats = await getDeckTurnOrderStats(normalizedName);
 
-    // Get players who have used this deck
-    const playersUsing = await db.all(`
-      SELECT dm.assignedPlayer, COUNT(*) as games, 
+    // Get players who have used this deck (check deck_matches first, fall back to matches)
+    let playersUsing = await db.all(`
+      SELECT dm.assignedPlayer, COUNT(*) as games,
              SUM(CASE WHEN dm.status = 'w' THEN 1 ELSE 0 END) as wins
       FROM deck_matches dm
       JOIN games_master gm ON dm.gameId = gm.gameId
@@ -585,6 +597,20 @@ async function showCommanderStats(interaction: ChatInputCommandInteraction, comm
       ORDER BY games DESC
       LIMIT 5
     `, normalizedName);
+
+    if (playersUsing.length === 0) {
+      // Fallback: get players from matches.assignedDeck
+      playersUsing = await db.all(`
+        SELECT m.userId as assignedPlayer, COUNT(*) as games,
+               SUM(CASE WHEN m.status = 'w' THEN 1 ELSE 0 END) as wins
+        FROM matches m
+        JOIN games_master gm ON m.gameId = gm.gameId
+        WHERE m.assignedDeck = ? AND gm.active = 1
+        GROUP BY m.userId
+        ORDER BY games DESC
+        LIMIT 5
+      `, normalizedName);
+    }
 
     // Calculate win rate
     const winRate = totalGames > 0 ? ((deck.wins / totalGames) * 100).toFixed(1) : '0.0';

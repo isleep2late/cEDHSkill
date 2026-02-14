@@ -7,7 +7,7 @@ import { logger } from './logger.js';
 export function normalizeCommanderName(name: string): string {
   return name.toLowerCase()
     .replace(/[^\w\s-]/g, '') // Remove special characters except hyphens
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/[_\s]+/g, '-') // Replace underscores and spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 }
