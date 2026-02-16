@@ -104,7 +104,7 @@ Example log output:
 | Command | Description |
 |---------|-------------|
 | `/rank` | Submit game results (player or deck mode) |
-| `/list` | Show top players or decks |
+| `/list` | Show top players or decks (default 100, max 200) |
 | `/view` | View player, deck, game, or league stats |
 | `/predict` | Predict win chances for a game |
 | `/set` | Set default commander or modify ratings (admin) |

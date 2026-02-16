@@ -11,9 +11,9 @@ export const data = new SlashCommandBuilder()
   .setDescription('Show top players or commanders')
   .addIntegerOption(option =>
     option.setName('count')
-      .setDescription('Number of entries to show (1-64)')
+      .setDescription('Number of entries to show (1-200)')
       .setMinValue(1)
-      .setMaxValue(64)
+      .setMaxValue(200)
       .setRequired(false)
   )
   .addStringOption(option =>
@@ -30,7 +30,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer immediately since database queries can take time
   await interaction.deferReply();
 
-  const count = interaction.options.getInteger('count') ?? 10;
+  const count = interaction.options.getInteger('count') ?? 100;
   const type = interaction.options.getString('type') ?? 'players';
 
   if (type === 'decks') {
@@ -85,10 +85,12 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
     let currentRank = 1;
     let previousElo = null;
     let playersAtCurrentRank = 0;
+    const maxDescriptionLength = 4096; // Discord embed description limit
+    let truncated = false;
 
     for (let i = 0; i < topPlayers.length; i++) {
       const player = topPlayers[i];
-      
+
       // Handle ranking with ties
       if (previousElo !== null && player.elo < previousElo) {
         currentRank += playersAtCurrentRank;
@@ -96,28 +98,39 @@ async function showTopPlayers(interaction: ChatInputCommandInteraction, count: n
       } else {
         playersAtCurrentRank++;
       }
-      
-      
+
+
       // Add qualification status like the old list
-      const qualificationStatus = player.qualified 
-        ? '' 
+      const qualificationStatus = player.qualified
+        ? ''
         : ` *(needs ${5 - player.totalGames} more)*`;
-      
-      description += `RANK${currentRank}/POS${i + 1}. <@${player.userId}> - **${player.elo}** Elo${qualificationStatus}\n`;
-      
+
+      const line = `RANK${currentRank}/POS${i + 1}. <@${player.userId}> - **${player.elo}** Elo${qualificationStatus}\n`;
+
+      // Check if adding this line would exceed the character limit
+      if (description.length + line.length > maxDescriptionLength) {
+        truncated = true;
+        break;
+      }
+
+      description += line;
       previousElo = player.elo;
     }
 
     embed.setDescription(description);
-    
+
     const totalQualified = rankedPlayers.filter(p => p.qualified).length;
     const totalPlayers = rankedPlayers.length;
-    const expandedNote = topPlayers.length > count 
-      ? ` (expanded to ${topPlayers.length} due to ties)` 
+    const displayedCount = description.split('\n').filter(line => line.trim()).length;
+    const expandedNote = topPlayers.length > count
+      ? ` (expanded to ${topPlayers.length} due to ties)`
       : '';
-    
-    embed.setFooter({ 
-      text: `Showing ${topPlayers.length} players${expandedNote} • ${totalQualified} qualified of ${totalPlayers} total` 
+    const truncatedNote = truncated
+      ? ' (truncated due to character limit)'
+      : '';
+
+    embed.setFooter({
+      text: `Showing ${displayedCount} players${expandedNote}${truncatedNote} • ${totalQualified} qualified of ${totalPlayers} total`
     });
 
     await interaction.editReply({ embeds: [embed] });
@@ -174,10 +187,12 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
     let currentRank = 1;
     let previousElo = null;
     let decksAtCurrentRank = 0;
+    const maxDescriptionLength = 4096; // Discord embed description limit
+    let truncated = false;
 
     for (let i = 0; i < topDecks.length; i++) {
       const deck = topDecks[i];
-      
+
       // Handle ranking with ties
       if (previousElo !== null && deck.elo < previousElo) {
         currentRank += decksAtCurrentRank;
@@ -185,27 +200,38 @@ async function showTopDecks(interaction: ChatInputCommandInteraction, count: num
       } else {
         decksAtCurrentRank++;
       }
-      
+
       // Add qualification status like the old list
-      const qualificationStatus = deck.qualified 
-        ? '' 
+      const qualificationStatus = deck.qualified
+        ? ''
         : ` *(needs ${5 - deck.totalGames} more)*`;
-      
-      description += `RANK${currentRank}/POS${i + 1}. ${deck.displayName} - **${deck.elo}** Elo${qualificationStatus}\n`;
-      
+
+      const line = `RANK${currentRank}/POS${i + 1}. ${deck.displayName} - **${deck.elo}** Elo${qualificationStatus}\n`;
+
+      // Check if adding this line would exceed the character limit
+      if (description.length + line.length > maxDescriptionLength) {
+        truncated = true;
+        break;
+      }
+
+      description += line;
       previousElo = deck.elo;
     }
 
     embed.setDescription(description);
-    
+
     const totalQualified = rankedDecks.filter(d => d.qualified).length;
     const totalDecks = rankedDecks.length;
-    const expandedNote = topDecks.length > count 
-      ? ` (expanded to ${topDecks.length} due to ties)` 
+    const displayedCount = description.split('\n').filter(line => line.trim()).length;
+    const expandedNote = topDecks.length > count
+      ? ` (expanded to ${topDecks.length} due to ties)`
       : '';
-    
-    embed.setFooter({ 
-      text: `Showing ${topDecks.length} commanders${expandedNote} • ${totalQualified} qualified of ${totalDecks} total` 
+    const truncatedNote = truncated
+      ? ' (truncated due to character limit)'
+      : '';
+
+    embed.setFooter({
+      text: `Showing ${displayedCount} commanders${expandedNote}${truncatedNote} • ${totalQualified} qualified of ${totalDecks} total`
     });
 
     await interaction.editReply({ embeds: [embed] });
