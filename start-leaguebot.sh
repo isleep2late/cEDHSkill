@@ -72,6 +72,16 @@ if [ "$NO_BUILD" = false ]; then
   fi
   echo "=== Build complete ==="
   echo ""
+
+  echo "=== Registering slash commands with Discord... ==="
+  npm run register-commands
+  if [ $? -ne 0 ]; then
+    echo "Command registration failed! Check your .env credentials."
+    pause_if_needed
+    exit 1
+  fi
+  echo "=== Commands registered ==="
+  echo ""
 fi
 
 if [ "$BACKGROUND" = true ]; then
