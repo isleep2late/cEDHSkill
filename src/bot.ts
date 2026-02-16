@@ -437,8 +437,13 @@ async function main() {
     logger.info(`Loaded ${client.commands.size} commands: ${Array.from(client.commands.keys()).join(', ')}`);
     logger.info(`Linear rating decay system active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day after grace period)`);
 
-    // Run initial decay check
-    await applyRatingDecay();
+    // Run initial decay check (with error handling to prevent crash)
+    try {
+      await applyRatingDecay();
+    } catch (error) {
+      logger.error('[DECAY] Error during initial decay check:', error);
+      logger.error('[DECAY] Bot will continue running. Decay will retry on next scheduled run.');
+    }
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
