@@ -48,17 +48,6 @@ if [ "$NO_BUILD" = false ]; then
   fi
   echo "=== Build complete ==="
   echo ""
-
-  echo "=== Registering slash commands with Discord... ==="
-  npm run register-commands
-  if [ $? -ne 0 ]; then
-    echo "Command registration failed! Check your .env credentials."
-    echo "Press any key to exit..."
-    read -n 1
-    exit 1
-  fi
-  echo "=== Commands registered ==="
-  echo ""
 fi
 
 echo "=== Starting cEDH League Bot ==="
