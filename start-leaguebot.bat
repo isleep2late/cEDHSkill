@@ -37,6 +37,16 @@ if "%NO_BUILD%"=="false" (
     )
     echo === Build complete ===
     echo.
+
+    echo === Registering slash commands with Discord... ===
+    call npm run register-commands
+    if errorlevel 1 (
+        echo Command registration failed! Check your .env credentials.
+        pause
+        exit /b 1
+    )
+    echo === Commands registered ===
+    echo.
 )
 
 echo === Starting cEDH League Bot ===
