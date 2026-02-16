@@ -54,7 +54,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       embed.setDescription('**Player Ranking Commands:**')
         .addFields(
           { name: '/rank', value: 'Submit player game results (4 players, w/l/d only). Can include commanders assigned to players. Optional turn order tracking with reactions OR inline specification (e.g., @user w 1 for Turn 1). Also supports deck-only mode when no players are mentioned.' },
-          { name: '/list [count]', value: 'Show top N players (1-64, includes ties). Shows qualification status.' },
+          { name: '/list [count]', value: 'Show top N players (default 100, max 200, includes ties). Shows qualification status.' },
           { name: '/view player:@user', value: 'View detailed player stats: rating, rank, W/L/D record, top 5 decks, and turn order performance.' },
           { name: '/predict [@users...]', value: 'Predict win chances for players/decks using Elo, turn order, and hybrid predictions. Shows overall turn order win% if no input.' },
           { name: '/set deck:commander', value: 'Set your default deck for future games. Use `gameid:ABC123` for specific game, `gameid:allgames` for all games.' }
@@ -65,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       embed.setDescription('**Commander/Deck Ranking Commands:**')
         .addFields(
           { name: '/rank (deck mode)', value: 'When no @users are mentioned, /rank works as deck-only mode - ORDER MATTERS! First mentioned = Turn 1, second = Turn 2, etc. Format: "commander-name w/l/d commander-name w/l/d"' },
-          { name: '/list type:decks [count]', value: 'Show top N commanders (1-64, includes ties). Displays Elo and qualification status.' },
+          { name: '/list type:decks [count]', value: 'Show top N commanders (default 100, max 200, includes ties). Displays Elo and qualification status.' },
           { name: '/view commander:name', value: 'View commander stats: rating, rank, W/L/D record, win rate, and turn order performance.' }
         );
       break;

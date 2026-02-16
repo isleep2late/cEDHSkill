@@ -192,15 +192,20 @@ npm start
 
 #### `/list` - Rankings with Type Selection (using "Olympic" tie display)
 ```bash
-# Show top players (default)
-/list count:20
+# Show top 100 players (default behavior)
+/list
 
-# Show top players explicitly
-/list count:15 type:players
+# Show custom count of top players (1-200)
+/list count:50 type:players
 
-# Show top commanders/decks
-/list count:25 type:decks
+# Show top 100 commanders/decks (default when type is decks)
+/list type:decks
+
+# Show custom count of commanders (1-200)
+/list count:150 type:decks
 ```
+
+**Note:** If the list exceeds Discord's character limit (4096 characters), it will be automatically truncated and a note will appear in the footer.
 
 ### 📈 Enhanced Statistics
 
