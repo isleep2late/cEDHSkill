@@ -549,7 +549,7 @@ async function main() {
   await client.login(config.token);
 }
 
-main().catch(error => {
-  logger.error('[STARTUP] Fatal error during bot startup:', error);
-  process.exit(1);
-});
+// Export main so loader.ts can call it after initializing the database.
+// Do NOT call main() here — command files import from this module,
+// and auto-executing would start the bot without DB initialization.
+export { main };
