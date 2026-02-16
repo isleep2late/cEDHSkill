@@ -18,6 +18,9 @@ logger.info(`[DB] Using database file at: ${dbPath}`);
 
 // Export database instance for other modules
 export function getDatabase() {
+  if (!db) {
+    throw new Error('[DB] Database not initialized! Make sure initDatabase() is called before using getDatabase().');
+  }
   return db;
 }
 
