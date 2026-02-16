@@ -10,7 +10,8 @@ async function startBot() {
     logger.info('[Loader] Database initialized successfully');
 
     // Now start the bot AFTER DB is ready
-    await import('./bot.js');
+    const { main } = await import('./bot.js');
+    await main();
   } catch (error) {
     logger.error('[Loader] Failed to start:', error);
     process.exit(1);
