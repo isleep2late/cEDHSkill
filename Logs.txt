@@ -1,0 +1,1367 @@
+=== Building TypeScript... ===
+
+> cedh-ranking-bot@0.03 build
+> tsc
+
+=== Build complete ===
+
+=== Registering slash commands with Discord... ===
+
+> cedh-ranking-bot@0.03 register-commands
+> node dist/register-commands.js
+
+
+📦 cEDHSkill v0.03 - Command Registration
+Found 16 command files:
+
+✅ Registered: /backup          - Admin/Mod: Download a backup copy of the database file
+✅ Registered: /help            - Show help for cEDHSkill commands
+[2026-02-17T07:12:48.591Z] [INFO] [DB] Using database file at: /home/gyarados/Programming/Games/Discord/cEDHSkill/data/cEDHSkill.db
+✅ Registered: /list            - Show top players or commanders
+✅ Registered: /predict         - Predict game outcomes or view turn order statistics
+✅ Registered: /print           - Admin/Mod: Export league history to a text file with various filtering options
+✅ Registered: /rank            - Submit game results - supports players, commanders, or both!
+✅ Registered: /reanimate       - Allow a previously exempted player to be flagged again for suspicious activity
+✅ Registered: /redo            - Restore the most recently undone operation
+✅ Registered: /restrict        - Restrict a user from participating in ranked games
+✅ Registered: /set             - Set game results, deck assignments, turn order, or ratings (admin only)
+✅ Registered: /snap            - Admin/Mod: delete all unconfirmed game messages (limbo) - includes both player and deck-only games
+✅ Registered: /thanossnap      - Admin: end the season, show qualified top players and decks, and reset all data
+✅ Registered: /timewalk        - Admin only: Simulate time passing for decay testing
+✅ Registered: /undo            - Undo the latest operation (game or /set command)
+✅ Registered: /view            - View league statistics, player stats, commander stats, or game details
+✅ Registered: /vindicate       - Unrestrict a user and clear them of any suspicion
+
+🔄 Clearing old global commands...
+🔄 Clearing old guild commands...
+📝 Registering guild commands for server: 1225118416298315857...
+
+
+🎉 Successfully registered 16 commands for cEDHSkill v0.03!
+✅ Commands registered for your cEDH server only
+💡 Commands update instantly for guild-specific registration
+
+📋 Command Summary:
+
+🎮 Game Management:
+   /rank        - Submit game results (player or deck mode)
+   /set         - Manage settings, deck assignments, and ratings
+
+📊 Statistics & Information:
+   /view        - View league, player, commander, or game stats
+   /list        - Show rankings (players or commanders)
+   /predict     - Prediction system for game outcomes
+   /print       - Export detailed history to text files
+
+👮‍♂️ Player Management:
+   /restrict    - Ban user from ranked games
+   /vindicate   - Unban user and clear suspicion
+   /reanimate   - Remove suspicion exemption
+
+🛠️ System Management:
+   /backup      - Download database backup
+   /snap        - Delete unconfirmed game messages
+   /undo        - Undo latest operation
+   /redo        - Restore undone operation
+   /thanossnap  - End season and reset data (admin only)
+   /timewalk    - Fast-forward decay cycle (admin only)
+   /help        - Show help for commands
+
+✅ All 16 commands registered successfully!
+
+📖 Changes in v0.03:
+   • Linear rating decay: -1 Elo/day after 6 days inactive (stops at 1050)
+   • Participation bonus: +1 Elo for every ranked game played
+   • New /timewalk command: fast-forward decay cycle for testing
+   • New /help command: show help for commands
+
+=== Commands registered ===
+
+=== Starting cEDH League Bot ===
+Log file: /home/gyarados/Programming/Games/Discord/cEDHSkill/logs/bot.log
+Press Ctrl+C to stop
+================================
+
+[2026-02-17T07:12:49.436Z] [INFO] [DB] Using database file at: /home/gyarados/Programming/Games/Discord/cEDHSkill/data/cEDHSkill.db
+[2026-02-17T07:12:49.440Z] [INFO] [Loader] Starting up...
+[2026-02-17T07:12:49.441Z] [INFO] [DB] Initializing database...
+[2026-02-17T07:12:49.443Z] [INFO] [DB] Initializing tables...
+[2026-02-17T07:12:49.444Z] [INFO] [DB] Creating indexes...
+[2026-02-17T07:12:49.461Z] [INFO] [DB] Checking for missing columns...
+[2026-02-17T07:12:49.462Z] [INFO] [DB] Added active index to games_master table
+[2026-02-17T07:12:49.462Z] [INFO] [DB] Added active index to game_ids table
+[2026-02-17T07:12:49.462Z] [INFO] [DB] All tables and indexes initialized successfully
+[2026-02-17T07:12:49.462Z] [INFO] [Loader] Database initialized successfully
+[2026-02-17T07:12:49.684Z] [INFO] Loaded command: backup
+[2026-02-17T07:12:49.686Z] [INFO] Loaded command: help
+[2026-02-17T07:12:49.687Z] [INFO] Loaded command: list
+[2026-02-17T07:12:49.688Z] [INFO] Loaded command: predict
+[2026-02-17T07:12:49.689Z] [INFO] Loaded command: print
+[2026-02-17T07:12:49.761Z] [INFO] Loaded command: rank
+[2026-02-17T07:12:49.762Z] [INFO] Loaded command: reanimate
+[2026-02-17T07:12:49.763Z] [INFO] Loaded command: redo
+[2026-02-17T07:12:49.764Z] [INFO] Loaded command: restrict
+[2026-02-17T07:12:49.766Z] [INFO] Loaded command: set
+[2026-02-17T07:12:49.769Z] [INFO] Loaded command: snap
+[2026-02-17T07:12:49.770Z] [INFO] Loaded command: thanossnap
+[2026-02-17T07:12:49.771Z] [INFO] Loaded command: timewalk
+[2026-02-17T07:12:49.772Z] [INFO] Loaded command: undo
+[2026-02-17T07:12:49.774Z] [INFO] Loaded command: view
+[2026-02-17T07:12:49.774Z] [INFO] Loaded command: vindicate
+[2026-02-17T07:12:50.342Z] [INFO] Bot logged in as cEDH LeagueBot#1176
+[2026-02-17T07:12:50.342Z] [INFO] Database initialized
+[2026-02-17T07:12:50.342Z] [INFO] Loaded 16 commands: backup, help, list, predict, print, rank, reanimate, redo, restrict, set, snap, thanossnap, timewalk, undo, view, vindicate
+[2026-02-17T07:12:50.342Z] [INFO] Sigma-based rating decay active (6 day grace period, -1 Elo/day via sigma increase)
+[2026-02-17T07:12:50.343Z] [INFO] [STARTUP] First run with config tracking — triggering full recalculation to establish baseline...
+[2026-02-17T07:12:50.343Z] [INFO] [RECALC] Starting complete player rating recalculation...
+[2026-02-17T07:12:50.706Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:50.711Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:50.717Z] [INFO] [AUDIT] Logged game rating change for player Player 536968555447451680
+[2026-02-17T07:12:50.723Z] [INFO] [AUDIT] Logged game rating change for player Player 249997412377034762
+[2026-02-17T07:12:50.744Z] [INFO] [AUDIT] Logged game rating change for player Player 551183845337333794
+[2026-02-17T07:12:50.751Z] [INFO] [AUDIT] Logged game rating change for player Player 198448765944725504
+[2026-02-17T07:12:50.756Z] [INFO] [AUDIT] Logged game rating change for player Player 252263530898653185
+[2026-02-17T07:12:50.762Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:50.782Z] [INFO] [AUDIT] Logged game rating change for player Player 252263530898653185
+[2026-02-17T07:12:50.788Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:50.796Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:50.803Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:50.813Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:50.823Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:50.844Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:50.850Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:50.856Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:50.862Z] [INFO] [AUDIT] Logged game rating change for player Player 252263530898653185
+[2026-02-17T07:12:50.870Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:50.894Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:50.899Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:50.905Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:50.911Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:50.929Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:50.934Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:50.940Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:50.945Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:50.954Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:50.976Z] [INFO] [AUDIT] Logged game rating change for player Player 252263530898653185
+[2026-02-17T07:12:50.981Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:50.986Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:50.992Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:51.000Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:51.022Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:51.027Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:51.034Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:51.040Z] [INFO] [AUDIT] Logged game rating change for player Player 252263530898653185
+[2026-02-17T07:12:51.048Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:51.067Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:51.073Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.079Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.084Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:51.094Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.113Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.119Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:51.125Z] [INFO] [AUDIT] Logged game rating change for player Player 462741008715612160
+[2026-02-17T07:12:51.134Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.143Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.153Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:51.174Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.180Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:51.185Z] [INFO] [AUDIT] Logged game rating change for player Player 462741008715612160
+[2026-02-17T07:12:51.191Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.202Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.211Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:51.230Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.237Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:51.242Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.247Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:51.255Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.264Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:51.284Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:51.290Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:51.296Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:51.302Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:51.319Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:51.325Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:51.331Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:51.337Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:51.355Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:51.361Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:51.366Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:51.371Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:51.389Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.394Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:51.400Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.406Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.416Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.438Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.443Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.450Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.456Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:51.466Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.491Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.498Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.504Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:51.511Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.520Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.542Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:51.548Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:51.555Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:51.560Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.569Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:51.587Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:51.592Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.598Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.604Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.612Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:51.620Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.640Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.646Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.652Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:51.658Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.667Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:51.674Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.693Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:51.699Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:51.705Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.711Z] [INFO] [AUDIT] Logged game rating change for player Player 492712096363184128
+[2026-02-17T07:12:51.721Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:51.730Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.751Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:51.756Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:51.762Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.768Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.777Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.799Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:51.805Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:51.815Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:51.822Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.831Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.839Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:51.861Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:51.867Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:51.873Z] [INFO] [AUDIT] Logged game rating change for player Player 425484927606325259
+[2026-02-17T07:12:51.879Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:51.888Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:51.897Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:51.919Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:51.925Z] [INFO] [AUDIT] Logged game rating change for player Player 356025615742140418
+[2026-02-17T07:12:51.933Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:51.940Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:51.951Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:51.977Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:51.985Z] [INFO] [AUDIT] Logged game rating change for player Player 356025615742140418
+[2026-02-17T07:12:51.993Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:52.000Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:52.012Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:52.038Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:52.046Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:52.054Z] [INFO] [AUDIT] Logged game rating change for player Player 425484927606325259
+[2026-02-17T07:12:52.062Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:52.087Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:52.098Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:52.124Z] [INFO] [AUDIT] Logged game rating change for player Player 356025615742140418
+[2026-02-17T07:12:52.131Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.139Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:52.147Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.159Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:52.169Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.196Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.205Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:52.213Z] [INFO] [AUDIT] Logged game rating change for player Player 267051870994825217
+[2026-02-17T07:12:52.220Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:52.242Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:52.250Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:52.257Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.264Z] [INFO] [AUDIT] Logged game rating change for player Player 425484927606325259
+[2026-02-17T07:12:52.274Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.284Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:52.307Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:52.312Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:52.317Z] [INFO] [AUDIT] Logged game rating change for player Player 267051870994825217
+[2026-02-17T07:12:52.323Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.340Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.345Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:52.352Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:52.356Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.366Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:52.375Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.396Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.402Z] [INFO] [AUDIT] Logged game rating change for player Player 524084393149726731
+[2026-02-17T07:12:52.408Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:52.415Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:52.425Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.435Z] [INFO] [AUDIT] Logged game rating change for deck Iron Man, Titan of Innovation
+[2026-02-17T07:12:52.444Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:52.466Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:52.472Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:52.477Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.483Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.491Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:52.501Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.522Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:52.528Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:52.533Z] [INFO] [AUDIT] Logged game rating change for player Player 524084393149726731
+[2026-02-17T07:12:52.538Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:52.547Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:52.557Z] [INFO] [AUDIT] Logged game rating change for deck Iron Man, Titan of Innovation
+[2026-02-17T07:12:52.578Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:52.584Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.589Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:52.594Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.603Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:52.611Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.631Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:52.637Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:52.642Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:52.647Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:52.665Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:52.670Z] [INFO] [AUDIT] Logged game rating change for player Player 567053923458744363
+[2026-02-17T07:12:52.676Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:52.682Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.691Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.713Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.718Z] [INFO] [AUDIT] Logged game rating change for player Player 567053923458744363
+[2026-02-17T07:12:52.724Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:52.731Z] [INFO] [AUDIT] Logged game rating change for player Player 325492464666542081
+[2026-02-17T07:12:52.740Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:52.749Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.771Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:52.777Z] [INFO] [AUDIT] Logged game rating change for player Player 425484927606325259
+[2026-02-17T07:12:52.784Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:52.790Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:52.800Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:52.824Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.830Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:52.836Z] [INFO] [AUDIT] Logged game rating change for player Player 567053923458744363
+[2026-02-17T07:12:52.842Z] [INFO] [AUDIT] Logged game rating change for player Player 325492464666542081
+[2026-02-17T07:12:52.850Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:52.860Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.882Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:52.888Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:52.895Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:52.901Z] [INFO] [AUDIT] Logged game rating change for player Player 221447950532870155
+[2026-02-17T07:12:52.910Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:52.930Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:52.936Z] [INFO] [AUDIT] Logged game rating change for player Player 325492464666542081
+[2026-02-17T07:12:52.943Z] [INFO] [AUDIT] Logged game rating change for player Player 567053923458744363
+[2026-02-17T07:12:52.949Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:52.958Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:52.967Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:52.988Z] [INFO] [AUDIT] Logged game rating change for player Player 221447950532870155
+[2026-02-17T07:12:52.993Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:52.999Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:53.004Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:53.012Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:53.031Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:53.037Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.042Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:53.048Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:53.058Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:53.081Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.086Z] [INFO] [AUDIT] Logged game rating change for player Player 309442245067800576
+[2026-02-17T07:12:53.092Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.097Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.106Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.126Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.132Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.138Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.143Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.152Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.161Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.180Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.186Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.191Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.196Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.205Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.213Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.235Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.241Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:53.248Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.254Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:53.262Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.283Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.291Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.298Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:53.305Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:53.316Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:53.326Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:53.336Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.362Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:53.372Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:53.380Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.388Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.399Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:53.426Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.434Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.441Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.448Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:53.460Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.486Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:53.494Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.502Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:53.509Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.521Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:53.548Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.555Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.563Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.571Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.582Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.609Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.616Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.624Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.632Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.643Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.667Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:53.674Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.680Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.687Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.697Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:53.718Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:53.724Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.730Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:53.736Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:53.745Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:53.764Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.769Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.777Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:53.783Z] [INFO] [AUDIT] Logged game rating change for player Player 567053923458744363
+[2026-02-17T07:12:53.793Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:53.813Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.819Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.825Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:53.830Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:53.848Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.853Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:53.859Z] [INFO] [AUDIT] Logged game rating change for player Player 494395770644987915
+[2026-02-17T07:12:53.864Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:53.881Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:53.886Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:53.893Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:53.899Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.907Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:53.927Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:53.932Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:53.938Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:53.944Z] [INFO] [AUDIT] Logged game rating change for player Player 547974143245680681
+[2026-02-17T07:12:53.965Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:53.972Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:53.979Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:53.987Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:53.998Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.025Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.032Z] [INFO] [AUDIT] Logged game rating change for player Player 536968555447451680
+[2026-02-17T07:12:54.040Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.047Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:54.059Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.070Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:54.097Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:54.105Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.113Z] [INFO] [AUDIT] Logged game rating change for player Player 536968555447451680
+[2026-02-17T07:12:54.121Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.133Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.144Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.174Z] [INFO] [AUDIT] Logged game rating change for player Player 536968555447451680
+[2026-02-17T07:12:54.182Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:54.190Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.198Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.210Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.221Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.248Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:54.257Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:54.266Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:54.274Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:54.285Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:54.312Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:54.320Z] [INFO] [AUDIT] Logged game rating change for player Player 536968555447451680
+[2026-02-17T07:12:54.327Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.335Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.347Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.358Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.384Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:54.390Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:54.397Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:54.403Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:54.413Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.422Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:54.444Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.450Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:54.456Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:54.462Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:54.473Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.482Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:54.491Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:54.499Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:54.521Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:54.527Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:54.533Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:54.539Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:54.549Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:54.561Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:54.570Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:54.580Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:54.602Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:54.608Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:54.615Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:54.621Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:54.631Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:54.640Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:54.664Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:54.670Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:54.677Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:54.684Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:54.696Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:54.706Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:54.734Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:54.741Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:54.749Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:54.757Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:54.769Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:54.796Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:54.804Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:54.812Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.820Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:54.832Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:54.843Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:54.871Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:54.879Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:54.887Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:54.895Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:54.906Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:54.933Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:54.941Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:54.949Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:54.957Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:54.969Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:54.990Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:55.005Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:55.018Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.021Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.024Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:55.028Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:55.032Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:55.042Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:55.045Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:55.048Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.051Z] [INFO] [AUDIT] Logged game rating change for player Player 615444367947202560
+[2026-02-17T07:12:55.055Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:55.059Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:55.069Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:55.072Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:55.074Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.077Z] [INFO] [AUDIT] Logged game rating change for player Player 615444367947202560
+[2026-02-17T07:12:55.081Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:55.085Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:55.095Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:55.098Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:55.100Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:55.103Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:55.107Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:55.117Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:55.119Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:55.122Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:55.124Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:55.128Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:55.137Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.139Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:55.141Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.143Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:55.147Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:55.156Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:55.158Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.161Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.163Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.167Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.175Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.178Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.180Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.182Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:55.186Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.195Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:55.200Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.202Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.204Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.208Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.217Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:55.219Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.222Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.224Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.228Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.231Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.240Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:55.242Z] [INFO] [AUDIT] Logged game rating change for player Player 551183845337333794
+[2026-02-17T07:12:55.245Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.247Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.251Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.260Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.262Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:55.265Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.272Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.279Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.283Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.292Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.295Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.297Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.300Z] [INFO] [AUDIT] Logged game rating change for player Player 551183845337333794
+[2026-02-17T07:12:55.304Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.307Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.316Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.318Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.321Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.323Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:55.327Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.330Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.339Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.342Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.344Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:55.346Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.353Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.357Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.365Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:55.368Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:55.370Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.373Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.376Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.380Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:55.389Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:55.392Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.394Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.397Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.401Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.404Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.414Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.416Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.419Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:55.421Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.425Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.436Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.439Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.441Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.444Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:55.448Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.459Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.461Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:55.464Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.467Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.471Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.481Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.484Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:55.487Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.490Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.494Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.506Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.509Z] [INFO] [AUDIT] Logged game rating change for player Player 202242309927075840
+[2026-02-17T07:12:55.512Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:55.515Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.519Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.529Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:55.532Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:55.535Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:55.538Z] [INFO] [AUDIT] Logged game rating change for player Player 427888042469228544
+[2026-02-17T07:12:55.542Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:55.546Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:55.557Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.559Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:55.562Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.565Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.569Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.579Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.582Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:55.585Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:55.588Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:55.592Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.596Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:55.607Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.609Z] [INFO] [AUDIT] Logged game rating change for player Player 363154303923519489
+[2026-02-17T07:12:55.612Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:55.615Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.624Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:55.627Z] [INFO] [AUDIT] Logged game rating change for player Player 548842932065665025
+[2026-02-17T07:12:55.630Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.633Z] [INFO] [AUDIT] Logged game rating change for player Player 363154303923519489
+[2026-02-17T07:12:55.642Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:55.644Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:55.647Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.650Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.654Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.658Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:55.672Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:55.675Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.677Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.680Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:55.685Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.689Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:55.700Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:55.703Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:55.706Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.709Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.713Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.717Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:55.728Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:55.731Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.734Z] [INFO] [AUDIT] Logged game rating change for player Player 309442245067800576
+[2026-02-17T07:12:55.736Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:55.741Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.745Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:55.756Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.758Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.761Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.764Z] [INFO] [AUDIT] Logged game rating change for player Player 318140811537547265
+[2026-02-17T07:12:55.769Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.780Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.783Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.785Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.788Z] [INFO] [AUDIT] Logged game rating change for player Player 318140811537547265
+[2026-02-17T07:12:55.792Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.803Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.806Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.809Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:55.812Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.816Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.826Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.829Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:55.832Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.834Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.840Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.850Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.852Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.855Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.857Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.861Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.865Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:55.874Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.877Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:55.879Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.882Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:55.886Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.896Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.898Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:55.901Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.903Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.907Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:55.917Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.919Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.922Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.924Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:55.928Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:55.937Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.940Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.942Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.945Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.949Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:55.953Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:55.962Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:55.965Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:55.967Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:55.970Z] [INFO] [AUDIT] Logged game rating change for player Player 626215614834540557
+[2026-02-17T07:12:55.974Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:55.983Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:55.988Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:55.990Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:55.993Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:55.997Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.000Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:56.010Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:56.013Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:56.015Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:56.018Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:56.026Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.029Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.031Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.034Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.038Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.048Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.050Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.052Z] [INFO] [AUDIT] Logged game rating change for player Player 639979660217679912
+[2026-02-17T07:12:56.055Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:56.063Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.066Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.068Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.071Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.074Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.084Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.087Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.089Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:56.092Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:56.095Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:56.105Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:56.108Z] [INFO] [AUDIT] Logged game rating change for player Player 306927603506216963
+[2026-02-17T07:12:56.110Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.113Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.117Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:56.127Z] [INFO] [AUDIT] Logged game rating change for player Player 306927603506216963
+[2026-02-17T07:12:56.129Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:56.132Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.134Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.138Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:56.151Z] [INFO] [AUDIT] Logged game rating change for player Player 548842932065665025
+[2026-02-17T07:12:56.154Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:56.157Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.160Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.164Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:56.175Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.178Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.181Z] [INFO] [AUDIT] Logged game rating change for player Player 595631856796565524
+[2026-02-17T07:12:56.184Z] [INFO] [AUDIT] Logged game rating change for player Player 548842932065665025
+[2026-02-17T07:12:56.193Z] [INFO] [AUDIT] Logged game rating change for player Player 595631856796565524
+[2026-02-17T07:12:56.196Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.199Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.202Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:56.212Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.215Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.218Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.221Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:56.225Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.236Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:56.239Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:56.242Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.245Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:56.249Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.261Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.264Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:56.267Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:56.269Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:56.274Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.285Z] [INFO] [AUDIT] Logged game rating change for player Player 548842932065665025
+[2026-02-17T07:12:56.288Z] [INFO] [AUDIT] Logged game rating change for player Player 231584492597411840
+[2026-02-17T07:12:56.290Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.293Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:56.298Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.309Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.312Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.314Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:56.319Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:56.324Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.335Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.338Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.341Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:56.344Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:56.349Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.360Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.363Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.366Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:56.369Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.373Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:56.378Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.389Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.392Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:56.395Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.406Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.413Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.418Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:56.429Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:56.432Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.434Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:56.437Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:56.441Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.445Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:56.455Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:56.458Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:56.460Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.463Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:56.467Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.471Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:56.481Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.484Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:56.488Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:56.491Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:56.495Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.499Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:56.508Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:56.510Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:56.512Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:56.515Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:56.518Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:56.527Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.529Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.532Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.534Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:56.538Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.547Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.549Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.551Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.554Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:56.557Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.566Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.568Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.571Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.573Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:56.577Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.585Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.588Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.590Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.592Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:56.596Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.600Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.609Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.611Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.614Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:56.617Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.621Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.624Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.636Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.638Z] [INFO] [AUDIT] Logged game rating change for player Player 198448765944725504
+[2026-02-17T07:12:56.640Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:56.643Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:56.646Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:56.655Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.657Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.660Z] [INFO] [AUDIT] Logged game rating change for player Player 159819485400924161
+[2026-02-17T07:12:56.662Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.666Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.669Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.678Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.681Z] [INFO] [AUDIT] Logged game rating change for player Player 159819485400924161
+[2026-02-17T07:12:56.683Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.685Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.689Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.692Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.701Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.704Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.706Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.708Z] [INFO] [AUDIT] Logged game rating change for player Player 159819485400924161
+[2026-02-17T07:12:56.712Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.716Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.725Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:56.727Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.729Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:56.732Z] [INFO] [AUDIT] Logged game rating change for player Player 198448765944725504
+[2026-02-17T07:12:56.735Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:56.744Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.747Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.749Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.751Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.755Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.764Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.766Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:56.769Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:56.771Z] [INFO] [AUDIT] Logged game rating change for player Player 395715137178173446
+[2026-02-17T07:12:56.778Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.781Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:56.785Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:56.794Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.796Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:56.799Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.801Z] [INFO] [AUDIT] Logged game rating change for player Player 297781555466862592
+[2026-02-17T07:12:56.805Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:56.814Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.816Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:56.819Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:56.821Z] [INFO] [AUDIT] Logged game rating change for player Player 395715137178173446
+[2026-02-17T07:12:56.825Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:56.829Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.837Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.840Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.842Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.845Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.848Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.857Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.860Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.862Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.865Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.869Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.878Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.880Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:56.883Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.885Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.889Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.898Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.901Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.904Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.906Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.910Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.914Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.925Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:56.928Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:56.931Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.933Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.937Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:56.941Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:56.951Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.954Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.957Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.959Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:56.963Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:56.974Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:56.976Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:56.979Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:56.982Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:56.991Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:56.994Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:56.997Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:56.999Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.004Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:57.015Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:57.018Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.021Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:57.024Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:57.033Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.036Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.039Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.042Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.047Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.051Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.055Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.065Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:57.068Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.071Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.074Z] [INFO] [AUDIT] Logged game rating change for player Player 159819485400924161
+[2026-02-17T07:12:57.078Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.082Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.094Z] [INFO] [AUDIT] Logged game rating change for player Player 159819485400924161
+[2026-02-17T07:12:57.096Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.099Z] [INFO] [AUDIT] Logged game rating change for player Player 165203271009435648
+[2026-02-17T07:12:57.101Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.105Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.109Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.118Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.121Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.123Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.126Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.129Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.139Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.141Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.144Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.146Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.150Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.159Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:57.162Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.165Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.167Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.171Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.175Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:57.184Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.187Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.189Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:57.192Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.196Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.205Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.208Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.210Z] [INFO] [AUDIT] Logged game rating change for player Player 670782214044385291
+[2026-02-17T07:12:57.213Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.217Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.226Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.229Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.231Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.234Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.240Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.250Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.252Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.255Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.257Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.261Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.270Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.273Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.275Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.278Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:57.281Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.285Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.295Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.297Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.300Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.302Z] [INFO] [AUDIT] Logged game rating change for player Player 209455570653151232
+[2026-02-17T07:12:57.306Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.316Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.318Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.321Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:57.323Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.327Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.330Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.340Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.343Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:57.345Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.348Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.352Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.355Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.365Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.368Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.370Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:57.372Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.376Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.385Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.390Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.393Z] [INFO] [AUDIT] Logged game rating change for player Player 275287780618141697
+[2026-02-17T07:12:57.395Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.399Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.409Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.411Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.414Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:57.416Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.420Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.428Z] [INFO] [AUDIT] Logged game rating change for player Player 840408810199056405
+[2026-02-17T07:12:57.430Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.431Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.433Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.435Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.441Z] [INFO] [AUDIT] Logged game rating change for player Player 90503027961651200
+[2026-02-17T07:12:57.442Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.444Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.446Z] [INFO] [AUDIT] Logged game rating change for player Player 179364186252509186
+[2026-02-17T07:12:57.448Z] [INFO] [AUDIT] Logged game rating change for deck Vivi Ornitier
+[2026-02-17T07:12:57.449Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.456Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.457Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.459Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.460Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.463Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.464Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:57.470Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.472Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.473Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.475Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.477Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:57.479Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.486Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.487Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.488Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:57.490Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.492Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.494Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.496Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:57.501Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.503Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.505Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.506Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.509Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.511Z] [INFO] [AUDIT] Logged game rating change for deck Najeela, the Blade-Blossom
+[2026-02-17T07:12:57.517Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.518Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:57.519Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.521Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.523Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:57.525Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.527Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.536Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.537Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.539Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.540Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.543Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.546Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:57.552Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.554Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.555Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.557Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.560Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.561Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:57.567Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:57.568Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.570Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.571Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.574Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:57.576Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.578Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.585Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.587Z] [INFO] [AUDIT] Logged game rating change for player Player 132853151480020993
+[2026-02-17T07:12:57.589Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.590Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.593Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.595Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:57.602Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.604Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.606Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.607Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.617Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.623Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.626Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.627Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.628Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.630Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.634Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:57.635Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.637Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.638Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.640Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:57.642Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:57.647Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:57.648Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.650Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.651Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.653Z] [INFO] [AUDIT] Logged game rating change for deck rograkh-son-of-rohgahh-thrasios-triton-hero
+[2026-02-17T07:12:57.655Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.656Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:57.661Z] [INFO] [AUDIT] Logged game rating change for player Player 524084393149726731
+[2026-02-17T07:12:57.662Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:57.664Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.665Z] [INFO] [AUDIT] Logged game rating change for player Player 465499286587703316
+[2026-02-17T07:12:57.671Z] [INFO] [AUDIT] Logged game rating change for deck Iron Man, Titan of Innovation
+[2026-02-17T07:12:57.676Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.677Z] [INFO] [AUDIT] Logged game rating change for player Player 388390803904659466
+[2026-02-17T07:12:57.679Z] [INFO] [AUDIT] Logged game rating change for player Player 249352155931082765
+[2026-02-17T07:12:57.680Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.682Z] [INFO] [AUDIT] Logged game rating change for deck Yeva-Nature's-Herald
+[2026-02-17T07:12:57.684Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.689Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.690Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:57.691Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:57.693Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.695Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.697Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.701Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.702Z] [INFO] [AUDIT] Logged game rating change for player Player 429392224740966414
+[2026-02-17T07:12:57.704Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:57.705Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.707Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.708Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.713Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.714Z] [INFO] [AUDIT] Logged game rating change for player Player 314206269554556939
+[2026-02-17T07:12:57.716Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.717Z] [INFO] [AUDIT] Logged game rating change for player Player 228562888858664962
+[2026-02-17T07:12:57.719Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.721Z] [INFO] [AUDIT] Logged game rating change for deck Celes-rune-knight
+[2026-02-17T07:12:57.726Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.727Z] [INFO] [AUDIT] Logged game rating change for player Player 309442245067800576
+[2026-02-17T07:12:57.729Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:57.730Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.732Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.737Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.739Z] [INFO] [AUDIT] Logged game rating change for player Player 309442245067800576
+[2026-02-17T07:12:57.740Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:57.741Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.743Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.748Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.750Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.751Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:57.752Z] [INFO] [AUDIT] Logged game rating change for player Player 309442245067800576
+[2026-02-17T07:12:57.754Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.759Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.761Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.762Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.764Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.766Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.768Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.774Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.775Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.776Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.778Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.780Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.782Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.787Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.789Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.790Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.791Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.796Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.798Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.803Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.805Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.806Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.807Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.810Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.811Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.817Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:57.818Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.819Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.820Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.822Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.824Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.830Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.831Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.832Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.834Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:57.836Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.838Z] [INFO] [AUDIT] Logged game rating change for deck kefka-court-mage
+[2026-02-17T07:12:57.840Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.845Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.847Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.848Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:57.850Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.852Z] [INFO] [AUDIT] Logged game rating change for deck Rograkh-Son-of-Rohgahh-Silas-Renn-Seeker-Adept
+[2026-02-17T07:12:57.854Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.859Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.861Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.862Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.863Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:57.865Z] [INFO] [AUDIT] Logged game rating change for deck Rograkh-Son-of-Rohgahh-Silas-Renn-Seeker-Adept
+[2026-02-17T07:12:57.867Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:57.869Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.875Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.876Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-02-17T07:12:57.877Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-02-17T07:12:57.879Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.881Z] [INFO] [AUDIT] Logged game rating change for deck Rograkh-Son-of-Rohgahh-Silas-Renn-Seeker-Adept
+[2026-02-17T07:12:57.883Z] [INFO] [AUDIT] Logged game rating change for deck Tayam Luminous Enigma
+[2026-02-17T07:12:57.885Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.891Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.892Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.893Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.895Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:57.897Z] [INFO] [AUDIT] Logged game rating change for deck Rograkh-Son-of-Rohgahh-Silas-Renn-Seeker-Adept
+[2026-02-17T07:12:57.899Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.905Z] [INFO] [AUDIT] Logged game rating change for player Player 456908377386123264
+[2026-02-17T07:12:57.906Z] [INFO] [AUDIT] Logged game rating change for player Player 231892276974977025
+[2026-02-17T07:12:57.907Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-02-17T07:12:57.909Z] [INFO] [AUDIT] Logged game rating change for player Player 373531871604244482
+[2026-02-17T07:12:57.911Z] [INFO] [AUDIT] Logged game rating change for deck Rograkh-Son-of-Rohgahh-Silas-Renn-Seeker-Adept
+[2026-02-17T07:12:57.913Z] [INFO] [AUDIT] Logged game rating change for deck Terra, Magical Adept
+[2026-02-17T07:12:57.918Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.922Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:57.923Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.925Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:57.927Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:57.929Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.931Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.933Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:57.938Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.939Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:57.941Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.942Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:57.945Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:57.946Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:57.949Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.951Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.956Z] [INFO] [AUDIT] Logged game rating change for player Player 665647492716691506
+[2026-02-17T07:12:57.957Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:57.959Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.960Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-02-17T07:12:57.963Z] [INFO] [AUDIT] Logged game rating change for deck toph-hardheaded-teacher
+[2026-02-17T07:12:57.965Z] [INFO] [AUDIT] Logged game rating change for deck Oswald Fiddlebender
+[2026-02-17T07:12:57.967Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.969Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:57.975Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.976Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:57.977Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:57.979Z] [INFO] [AUDIT] Logged game rating change for player Player 1302723150550925385
+[2026-02-17T07:12:57.981Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:57.983Z] [INFO] [AUDIT] Logged game rating change for deck etali-primal-conqueror
+[2026-02-17T07:12:57.989Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:57.990Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:57.991Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:57.993Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:57.995Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:57.997Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:58.003Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:58.004Z] [INFO] [AUDIT] Logged game rating change for player Player 981212813840240642
+[2026-02-17T07:12:58.005Z] [INFO] [AUDIT] Logged game rating change for player Player 685689113617235997
+[2026-02-17T07:12:58.007Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:58.009Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:58.015Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:58.017Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:58.018Z] [INFO] [AUDIT] Logged game rating change for player Player 832881030985416724
+[2026-02-17T07:12:58.020Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:58.022Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:58.025Z] [INFO] [AUDIT] Logged game rating change for deck Lumra, Bellow of the Woods
+[2026-02-17T07:12:58.030Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:58.031Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:58.033Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:58.034Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:58.036Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:58.042Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:58.043Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:58.045Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:58.046Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:58.049Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:58.051Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:58.057Z] [INFO] [AUDIT] Logged game rating change for player Player 341274257302749185
+[2026-02-17T07:12:58.058Z] [INFO] [AUDIT] Logged game rating change for player Player 1109093144919806072
+[2026-02-17T07:12:58.060Z] [INFO] [AUDIT] Logged game rating change for player Player 546008919823351818
+[2026-02-17T07:12:58.061Z] [INFO] [AUDIT] Logged game rating change for player Player 417730152466743304
+[2026-02-17T07:12:58.063Z] [INFO] [AUDIT] Logged game rating change for deck akiri-line-slinger-thrasios-triton-hero
+[2026-02-17T07:12:58.069Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-02-17T07:12:58.070Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-02-17T07:12:58.072Z] [INFO] [AUDIT] Logged game rating change for player Player 516339326657888256
+[2026-02-17T07:12:58.073Z] [INFO] [AUDIT] Logged game rating change for player Player 845714152487780404
+[2026-02-17T07:12:58.076Z] [INFO] [AUDIT] Logged game rating change for deck ashling-flame-dancer
+[2026-02-17T07:12:58.077Z] [INFO] [AUDIT] Logged game rating change for deck Elsha of the Infinite
+[2026-02-17T07:12:58.081Z] [INFO] [RECALC] Completed recalculation of 230 player games (with interleaved decay)
+[2026-02-17T07:12:58.081Z] [INFO] [STARTUP] Full recalculation complete with grace period of 6 days
+[2026-02-17T07:13:36.732Z] [CMD] /view | User: tirelessgolem (773348623773335573) | Guild: 1225118416298315857 | Options: {"player":"@keensoccer (462741008715612160)"}
+[2026-02-17T07:13:37.560Z] [CMD-DONE] /view | User: 773348623773335573 | 827ms | success
+
+
