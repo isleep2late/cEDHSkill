@@ -54,6 +54,19 @@ client.limboGames = new Map();
 //
 // Each +0.25 sigma = -1 Elo (since sigma penalty = (sigma - 8.333) * 4).
 // =============================================
+/**
+ * Parse a datetime string as UTC, even if it lacks timezone info.
+ * SQLite's CURRENT_TIMESTAMP produces bare datetimes like '2026-02-09 05:53:34'
+ * (no T, no Z). JavaScript's new Date() treats these as local time on non-UTC
+ * servers. This normalizes to ISO 8601 UTC format before parsing.
+ */
+function parseDateAsUTC(dateStr: string): Date {
+  if (dateStr.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) {
+    return new Date(dateStr);
+  }
+  return new Date(dateStr.replace(' ', 'T') + 'Z');
+}
+
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1 day
 const GRACE_DAYS = config.decayStartDays || 6; // Default 6 days grace period
 const GRACE_PERIOD_MS = RUN_INTERVAL_MS * GRACE_DAYS;
@@ -260,7 +273,7 @@ export async function applyRatingDecay(
       daysSinceLast = newInactivity; // For logging
     } else {
       // Cron job: use actual time since lastPlayed
-      const msSinceLast = now - new Date(p.lastPlayed).getTime();
+      const msSinceLast = now - parseDateAsUTC(p.lastPlayed).getTime();
       daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
       daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);
     }
@@ -268,15 +281,20 @@ export async function applyRatingDecay(
     // Skip if no decay needed (either within grace period OR no new days to decay for timewalk)
     if (daysPastGrace <= 0) continue;
 
-    // Calculate current Elo
-    const currentElo = calculateElo(p.mu, p.sigma);
+    // Calculate the pre-decay Elo using base sigma (mu is never changed by decay)
+    const originalElo = calculateElo(p.mu, 8.333);
 
-    // Skip players who are already at or below the cutoff
-    if (currentElo <= ELO_CUTOFF) continue;
+    // Skip players whose original Elo is at or below the cutoff
+    if (originalElo <= ELO_CUTOFF) continue;
 
-    // Calculate total decay: -1 Elo per day past grace period (daysPastGrace already calculated above)
+    // Calculate total decay from ORIGINAL Elo: -1 Elo per day past grace period
+    // This ensures linear decay (not compounding) across multiple cron runs
     const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
-    const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
+    const targetElo = Math.max(originalElo - totalDecay, ELO_CUTOFF);
+
+    // Skip if player is already at or below the target (from a prior decay run)
+    const currentElo = calculateElo(p.mu, p.sigma);
+    if (targetElo >= currentElo) continue;
 
     // Decay by increasing sigma (uncertainty) only — mu (skill) stays unchanged.
     // Solve for the sigma that produces targetElo with the player's current mu.
@@ -387,7 +405,7 @@ export async function applyDecayForPlayers(
     if (!player.lastPlayed) continue;
 
     // Calculate days between lastPlayed and the reference date (the upcoming game)
-    const msSinceLast = referenceDate.getTime() - new Date(player.lastPlayed).getTime();
+    const msSinceLast = referenceDate.getTime() - parseDateAsUTC(player.lastPlayed).getTime();
     if (msSinceLast <= 0) continue; // Game is before or at lastPlayed - no gap
 
     const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
@@ -395,13 +413,18 @@ export async function applyDecayForPlayers(
 
     if (daysPastGrace <= 0) continue;
 
-    const currentElo = calculateElo(player.mu, player.sigma);
-    if (currentElo <= ELO_CUTOFF) continue;
+    // Calculate the pre-decay Elo using base sigma (mu is never changed by decay)
+    const originalElo = calculateElo(player.mu, 8.333);
+    if (originalElo <= ELO_CUTOFF) continue;
 
-    // Apply decay: -1 Elo per day past grace, floored at cutoff
+    // Apply decay from ORIGINAL Elo: -1 Elo per day past grace, floored at cutoff
     // Decay increases sigma only — mu (skill) is preserved
     const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
-    const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
+    const targetElo = Math.max(originalElo - totalDecay, ELO_CUTOFF);
+
+    // Skip if player is already at or below the target
+    const currentElo = calculateElo(player.mu, player.sigma);
+    if (targetElo >= currentElo) continue;
 
     const newSigma = sigmaFromElo(targetElo, player.mu);
     const newMu = player.mu; // Skill estimate is preserved
