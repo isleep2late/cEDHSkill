@@ -451,7 +451,7 @@ async function updateMatchesWithSequence(gameId: string, gameSequence: number, g
 }
 
 // Function to recalculate ALL player ratings from scratch in chronological order
-async function recalculateAllPlayersFromScratch(): Promise<void> {
+export async function recalculateAllPlayersFromScratch(): Promise<void> {
   logger.info('[RECALC] Starting complete player rating recalculation...');
 
   const { getDatabase } = await import('../db/init.js');

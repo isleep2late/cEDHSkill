@@ -180,7 +180,16 @@ Inactivity decay reduces a player's displayed Elo by increasing **sigma** (uncer
 
 The grace period is configurable via the `DECAY_START_DAYS` environment variable.
 
-**Decay during recalculation:** When games are replayed (via `/set` modifications or `/rank` injection), decay is interleaved chronologically between games. Timewalk events (`/timewalk`) are also replayed in order, ensuring ratings stay consistent after any recalculation.
+**Decay during recalculation:** When games are replayed, decay is interleaved chronologically between games. Timewalk events (`/timewalk`) are also replayed in order, ensuring ratings stay consistent after any recalculation.
+
+**When does a full recalculation happen?** A full recalculation resets all ratings and replays every game from scratch in chronological order (with decay interleaved). This is triggered by:
+
+- **Game injection** — `/rank` with the `aftergame` parameter (inserting a historical game into the timeline)
+- **Game modification** — `/set gameid:<ID>` when changing `active` status, `results`, or deck assignments for a specific game or all games
+- **Undo/Redo** — `/undo` or `/redo` of a game modification or deck assignment
+- **Bot startup** — Automatically on the first startup, and whenever `DECAY_START_DAYS` has changed since the last run. This ensures decay is retroactively reapplied with the updated grace period.
+
+Normal `/rank` games (no `aftergame`) and `/set deck:<name>` without a `gameid` (setting a default) do **not** trigger a full recalculation.
 
 ## Credits
 
