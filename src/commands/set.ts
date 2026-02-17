@@ -688,6 +688,14 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
     }
   }
 
+  // Apply current-day decay after replaying all games — interleaved decay only covers
+  // gaps between games, not from the last game to today. Without this, inactive players
+  // who haven't played since their last game won't have decay applied.
+  const decayCount = await applyRatingDecay('cron', undefined, 0, true);
+  if (decayCount > 0) {
+    logger.info(`[SET] Applied post-recalculation decay to ${decayCount} player(s)`);
+  }
+
   logger.info(`[SET] Completed recalculation of ${gameCount} active player games and ${timewalkCount} timewalk events (with interleaved decay)`);
 }
 
