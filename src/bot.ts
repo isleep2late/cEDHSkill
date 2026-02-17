@@ -478,11 +478,17 @@ async function main() {
       const storedGraceDays = await getBotConfig('graceDays');
       const currentGraceDays = String(GRACE_DAYS);
 
-      if (storedGraceDays !== null && storedGraceDays !== currentGraceDays) {
-        logger.info(`[STARTUP] Grace days changed from ${storedGraceDays} to ${currentGraceDays} — triggering full recalculation...`);
+      if (storedGraceDays !== currentGraceDays) {
+        // First run (null) or config changed — full recalculation ensures
+        // decay is correctly applied with the current grace period
+        if (storedGraceDays === null) {
+          logger.info(`[STARTUP] First run with config tracking — triggering full recalculation to establish baseline...`);
+        } else {
+          logger.info(`[STARTUP] Grace days changed from ${storedGraceDays} to ${currentGraceDays} — triggering full recalculation...`);
+        }
         const { recalculateAllPlayersFromScratch } = await import('./commands/rank.js');
         await recalculateAllPlayersFromScratch();
-        logger.info(`[STARTUP] Full recalculation complete with new grace period of ${currentGraceDays} days`);
+        logger.info(`[STARTUP] Full recalculation complete with grace period of ${currentGraceDays} days`);
       } else {
         // No config change — just run normal decay catch-up
         await applyRatingDecay();
