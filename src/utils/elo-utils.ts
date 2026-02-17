@@ -16,9 +16,23 @@ export function muFromElo(targetElo: number, sigma: number): number {
 }
 
 /**
+ * Calculate the sigma value needed to achieve a target Elo given a fixed mu.
+ * Used by the decay system: decay increases sigma (uncertainty) rather than
+ * decreasing mu (skill), so a player's actual skill estimate is preserved
+ * while their displayed Elo drops due to increased uncertainty.
+ *
+ * Elo = 1000 + (mu - 25) * 12 - (sigma - 8.333) * 4
+ * Solving for sigma: sigma = 8.333 + (1000 + (mu - 25) * 12 - Elo) / 4
+ */
+export function sigmaFromElo(targetElo: number, mu: number): number {
+  const eloFromMu = (mu - 25) * 12;
+  return 8.333 + (1000 + eloFromMu - targetElo) / 4;
+}
+
+/**
  * Calculate mu and sigma adjustments to achieve exactly a target Elo change.
  * Returns new mu/sigma values that result in the desired Elo change.
- * For small changes, we primarily adjust mu since sigma changes have larger effects.
+ * Adjusts mu while keeping sigma stable (used for participation bonuses).
  */
 export function adjustRatingForEloChange(
   currentMu: number,
@@ -28,9 +42,6 @@ export function adjustRatingForEloChange(
   const currentElo = calculateElo(currentMu, currentSigma);
   const targetElo = currentElo + eloChange;
 
-  // For decay/bonus, we adjust mu while keeping sigma relatively stable
-  // but slightly increasing sigma for decay (more uncertainty)
-  // or keeping it same for bonus
   const newMu = muFromElo(targetElo, currentSigma);
 
   return { mu: newMu, sigma: currentSigma };

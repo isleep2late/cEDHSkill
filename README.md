@@ -7,7 +7,7 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 - **Dual Rating Systems** - Separate rankings for players and commanders/decks
 - **OpenSkill-Based Elo** - `Elo = 1000 + (mu - 25) * 12 - (sigma - 8.333) * 4`
 - **Participation Bonus** - +1 Elo for every ranked game played
-- **Rating Decay** - Inactivity decay after a configurable grace period
+- **Rating Decay** - Sigma-based inactivity decay (increases uncertainty, preserves skill)
 - **Turn Order Tracking** - Track performance by seat position
 - **Game Injection** - Insert historical games at any point in the timeline
 - **Undo/Redo** - Full operation history with decay timer preservation
@@ -150,6 +150,37 @@ Multiple players can use the same commander in one game. The system handles dupl
 - `/undo gameid:ABC123` - Revert a specific game
 - `/redo` - Reapply the most recently undone operation
 - Decay timers are preserved - undoing yesterday's game won't reset the decay clock.
+
+### Rating Decay
+
+Inactivity decay reduces a player's displayed Elo by increasing **sigma** (uncertainty) rather than decreasing **mu** (skill). This follows the philosophy used by most competitive games: being inactive means we're less confident in your rating, not that you've gotten worse.
+
+**How it works:**
+- After a configurable grace period (default: 6 days), inactive players lose **-1 Elo per day**
+- Decay is achieved by increasing sigma by **+0.25 per day** (since each sigma point = 4 Elo penalty in the formula)
+- **Mu (skill) is never touched by decay** — only sigma (uncertainty) increases
+- Decay stops when a player's Elo reaches the floor of **1050**
+- Playing a game resets the decay timer
+
+**Why sigma-based decay?**
+- A player's estimated skill level (mu) is preserved through inactivity
+- When they return, their higher sigma causes OpenSkill to weight new game results more heavily
+- This means ratings reconverge quickly after returning — a few games and you're back to a confident rating
+- It's a more accurate model: not playing doesn't make you worse, it just makes us less sure of where you stand
+
+**Example:** A player with 1066 Elo (mu=27.5, sigma=4.0) stops playing.
+| Day | Sigma | Elo | Notes |
+|-----|-------|-----|-------|
+| 1–6 | 4.00 | 1066 | Grace period — no decay |
+| 7 | 4.25 | 1065 | First day of decay |
+| 8 | 4.50 | 1064 | |
+| 9 | 4.75 | 1063 | |
+| ... | ... | ... | Continues -1/day |
+| 22 | 8.00 | 1050 | Floor reached — decay stops |
+
+The grace period is configurable via the `DECAY_START_DAYS` environment variable.
+
+**Decay during recalculation:** When games are replayed (via `/set` modifications or `/rank` injection), decay is interleaved chronologically between games. Timewalk events (`/timewalk`) are also replayed in order, ensuring ratings stay consistent after any recalculation.
 
 ## Credits
 

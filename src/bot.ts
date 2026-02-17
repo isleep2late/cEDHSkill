@@ -13,7 +13,7 @@ import {
 import { config } from './config.js';
 import { setAlertOptIn } from './utils/suspicion-utils.js';
 import { getAllPlayers, updatePlayerRatingForDecay, getOrCreatePlayer } from './db/player-utils.js';
-import { calculateElo, muFromElo } from './utils/elo-utils.js';
+import { calculateElo, sigmaFromElo } from './utils/elo-utils.js';
 import cron from 'node-cron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,14 +44,21 @@ client.commands = new Collection();
 client.limboGames = new Map();
 
 // =============================================
-// Rating Decay System (Linear -1 Elo/day)
+// Rating Decay System (Sigma-based, -1 Elo/day)
+//
+// Decay increases sigma (uncertainty) rather than decreasing mu (skill).
+// This means inactivity reduces confidence in a player's rating, not
+// their estimated skill level. When they play again, the higher sigma
+// causes OpenSkill to weight new results more heavily, allowing their
+// rating to quickly reconverge.
+//
+// Each +0.25 sigma = -1 Elo (since sigma penalty = (sigma - 8.333) * 4).
 // =============================================
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1 day
 const GRACE_DAYS = config.decayStartDays || 6; // Default 6 days grace period
 const GRACE_PERIOD_MS = RUN_INTERVAL_MS * GRACE_DAYS;
 const ELO_CUTOFF = 1050; // Stop decay at this Elo
-const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day
-const SIGMA_INCREMENT_PER_DECAY = 0.01; // Small sigma increase per decay (uncertainty grows)
+const DECAY_ELO_PER_DAY = 1; // Linear decay: exactly -1 Elo per day via sigma increase
 
 // Timewalk: Simple virtual clock
 // - cumulativeTimewalkDays = the current position of the virtual clock
@@ -192,16 +199,21 @@ export async function getMinDaysForNextDecay(): Promise<number> {
 }
 
 /**
- * Linear Rating Decay System
+ * Sigma-Based Rating Decay System
  *
  * After GRACE_DAYS days of not playing:
  * - Players with Elo > ELO_CUTOFF lose exactly DECAY_ELO_PER_DAY Elo per day
+ * - Decay is applied by increasing sigma (uncertainty), NOT by decreasing mu (skill)
+ * - Each +0.25 sigma = -1 Elo (since sigma penalty = (sigma - 8.333) * 4)
+ * - Mu (estimated skill) is preserved — only confidence decreases
+ * - When the player returns, their higher sigma causes OpenSkill to weight
+ *   new game results more heavily, allowing ratings to reconverge quickly
  * - Decay continues until Elo reaches ELO_CUTOFF, then stops
  * - Playing a game resets the decay counter
- * - Decay happens to anyone who has played at least 1 game
  *
- * Example: John has 1066 Elo on day 1. After 6 days of not playing:
- * Day 7: 1065, Day 8: 1064, Day 9: 1063... until 1050 (then stops)
+ * Example: John has 1066 Elo (mu=27.5, sigma=4.0) on day 1. After 6 days of not playing:
+ * Day 7: 1065 (sigma=4.25), Day 8: 1064 (sigma=4.50), Day 9: 1063 (sigma=4.75)...
+ * until Elo reaches 1050, then stops.
  *
  * @param triggeredBy - 'cron' for scheduled decay, 'timewalk' for manual trigger
  * @param adminUserId - Admin user ID if triggered by timewalk
@@ -215,7 +227,7 @@ export async function applyRatingDecay(
   skipSnapshot: boolean = false,
   timewalkEventId?: number
 ): Promise<number> {
-  logger.info('[DECAY] Starting linear rating decay process...');
+  logger.info('[DECAY] Starting sigma-based rating decay process...');
 
   const isTimewalk = triggeredBy === 'timewalk';
   const now = Date.now();
@@ -266,11 +278,10 @@ export async function applyRatingDecay(
     const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
     const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
 
-    // Calculate new mu to achieve the target Elo (sigma increases slightly with decay)
-    // Sigma increment scales with days of decay
-    const sigmaIncrement = Math.min(daysPastGrace * SIGMA_INCREMENT_PER_DECAY, 2); // Cap total sigma increase
-    const newSigma = Math.min(p.sigma + sigmaIncrement, 10); // Cap sigma at 10
-    const newMu = muFromElo(targetElo, newSigma);
+    // Decay by increasing sigma (uncertainty) only — mu (skill) stays unchanged.
+    // Solve for the sigma that produces targetElo with the player's current mu.
+    const newSigma = sigmaFromElo(targetElo, p.mu);
+    const newMu = p.mu; // Skill estimate is preserved
 
     const newElo = calculateElo(newMu, newSigma);
     const actualDecay = currentElo - newElo;
@@ -350,7 +361,7 @@ export async function applyRatingDecay(
     logger.info(`[DECAY] Saved decay snapshot for ${decayedPlayers.length} players (undoable)`);
   }
 
-  logger.info(`[DECAY] Applied linear decay to ${decayedPlayers.length} players`);
+  logger.info(`[DECAY] Applied sigma-based decay to ${decayedPlayers.length} players`);
   return decayedPlayers.length;
 }
 
@@ -360,6 +371,7 @@ export async function applyRatingDecay(
  *
  * Only applies decay to the specified player IDs, using their current
  * lastPlayed date and the game's date to calculate the inactivity gap.
+ * Decay increases sigma (uncertainty) only — mu (skill) is preserved.
  * No snapshot or audit logging (this is part of a larger recalculation).
  */
 export async function applyDecayForPlayers(
@@ -387,12 +399,12 @@ export async function applyDecayForPlayers(
     if (currentElo <= ELO_CUTOFF) continue;
 
     // Apply decay: -1 Elo per day past grace, floored at cutoff
+    // Decay increases sigma only — mu (skill) is preserved
     const totalDecay = daysPastGrace * DECAY_ELO_PER_DAY;
     const targetElo = Math.max(currentElo - totalDecay, ELO_CUTOFF);
 
-    const sigmaIncrement = Math.min(daysPastGrace * SIGMA_INCREMENT_PER_DECAY, 2);
-    const newSigma = Math.min(player.sigma + sigmaIncrement, 10);
-    const newMu = muFromElo(targetElo, newSigma);
+    const newSigma = sigmaFromElo(targetElo, player.mu);
+    const newMu = player.mu; // Skill estimate is preserved
 
     await updatePlayerRatingForDecay(userId, newMu, newSigma, player.wins, player.losses, player.draws);
     decayCount++;
@@ -435,7 +447,7 @@ async function main() {
     logger.info(`Bot logged in as ${client.user?.tag}`);
     logger.info(`Database initialized`);
     logger.info(`Loaded ${client.commands.size} commands: ${Array.from(client.commands.keys()).join(', ')}`);
-    logger.info(`Linear rating decay system active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day after grace period)`);
+    logger.info(`Sigma-based rating decay active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day via sigma increase)`);
 
     // Run initial decay check (with error handling to prevent crash)
     try {
