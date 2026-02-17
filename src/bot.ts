@@ -472,12 +472,27 @@ async function main() {
     logger.info(`Loaded ${client.commands.size} commands: ${Array.from(client.commands.keys()).join(', ')}`);
     logger.info(`Sigma-based rating decay active (${GRACE_DAYS} day grace period, -${DECAY_ELO_PER_DAY} Elo/day via sigma increase)`);
 
-    // Run initial decay check (with error handling to prevent crash)
+    // Check if grace days config changed since last run — if so, full recalculation needed
     try {
-      await applyRatingDecay();
+      const { getBotConfig, setBotConfig } = await import('./db/database-utils.js');
+      const storedGraceDays = await getBotConfig('graceDays');
+      const currentGraceDays = String(GRACE_DAYS);
+
+      if (storedGraceDays !== null && storedGraceDays !== currentGraceDays) {
+        logger.info(`[STARTUP] Grace days changed from ${storedGraceDays} to ${currentGraceDays} — triggering full recalculation...`);
+        const { recalculateAllPlayersFromScratch } = await import('./commands/rank.js');
+        await recalculateAllPlayersFromScratch();
+        logger.info(`[STARTUP] Full recalculation complete with new grace period of ${currentGraceDays} days`);
+      } else {
+        // No config change — just run normal decay catch-up
+        await applyRatingDecay();
+      }
+
+      // Persist the current grace days value for next startup comparison
+      await setBotConfig('graceDays', currentGraceDays);
     } catch (error) {
-      logger.error('[DECAY] Error during initial decay check:', error);
-      logger.error('[DECAY] Bot will continue running. Decay will retry on next scheduled run.');
+      logger.error('[STARTUP] Error during initial decay/recalculation check:', error);
+      logger.error('[STARTUP] Bot will continue running. Decay will retry on next scheduled run.');
     }
   });
 

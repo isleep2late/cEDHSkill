@@ -214,3 +214,23 @@ export async function getDeckMatchesByGameId(gameId: string): Promise<any[]> {
   const db = getDatabase();
   return await db.all('SELECT * FROM deck_matches WHERE gameId = ? ORDER BY matchDate DESC', gameId);
 }
+
+/**
+ * Get a value from the bot_config table
+ */
+export async function getBotConfig(key: string): Promise<string | null> {
+  const db = getDatabase();
+  const row = await db.get('SELECT value FROM bot_config WHERE key = ?', key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+/**
+ * Set a value in the bot_config table (upsert)
+ */
+export async function setBotConfig(key: string, value: string): Promise<void> {
+  const db = getDatabase();
+  await db.run(
+    'INSERT INTO bot_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
+    key, value, value
+  );
+}
