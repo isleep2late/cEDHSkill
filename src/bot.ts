@@ -68,6 +68,22 @@ function parseDateAsUTC(dateStr: string): Date {
 }
 
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1 day
+
+/**
+ * Calculate the number of UTC calendar days between two dates.
+ * Truncates both dates to their UTC date component (midnight) before
+ * computing the difference. This prevents decay miscounts when the
+ * lastPlayed time-of-day differs from the cron schedule time.
+ *
+ * Example: lastPlayed at 05:53 UTC, cron at 05:00 UTC the next calendar day
+ * → exact difference is only 23h07m (< 1 full 24h period, Math.floor → 0)
+ * → but calendar day difference is correctly 1.
+ */
+function utcCalendarDaysBetween(earlier: Date, later: Date): number {
+  const earlierMidnight = Date.UTC(earlier.getUTCFullYear(), earlier.getUTCMonth(), earlier.getUTCDate());
+  const laterMidnight = Date.UTC(later.getUTCFullYear(), later.getUTCMonth(), later.getUTCDate());
+  return Math.round((laterMidnight - earlierMidnight) / RUN_INTERVAL_MS);
+}
 const GRACE_DAYS = config.decayStartDays || 6; // Default 6 days grace period
 const GRACE_PERIOD_MS = RUN_INTERVAL_MS * GRACE_DAYS;
 const ELO_CUTOFF = 1050; // Stop decay at this Elo
@@ -272,9 +288,11 @@ export async function applyRatingDecay(
 
       daysSinceLast = newInactivity; // For logging
     } else {
-      // Cron job: use actual time since lastPlayed
-      const msSinceLast = now - parseDateAsUTC(p.lastPlayed).getTime();
-      daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+      // Cron job: use UTC calendar days since lastPlayed.
+      // Calendar days (not exact 24h periods) prevent off-by-one errors when
+      // the cron execution time is earlier in the day than the lastPlayed time.
+      const lastPlayedDate = parseDateAsUTC(p.lastPlayed);
+      daysSinceLast = utcCalendarDaysBetween(lastPlayedDate, new Date(now));
       daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);
     }
 
@@ -404,11 +422,11 @@ export async function applyDecayForPlayers(
     // Skip players who haven't played any games yet (no lastPlayed)
     if (!player.lastPlayed) continue;
 
-    // Calculate days between lastPlayed and the reference date (the upcoming game)
-    const msSinceLast = referenceDate.getTime() - parseDateAsUTC(player.lastPlayed).getTime();
-    if (msSinceLast <= 0) continue; // Game is before or at lastPlayed - no gap
+    // Calculate UTC calendar days between lastPlayed and the reference date (the upcoming game)
+    const lastPlayedDate = parseDateAsUTC(player.lastPlayed);
+    if (referenceDate.getTime() <= lastPlayedDate.getTime()) continue; // Game is before or at lastPlayed - no gap
 
-    const daysSinceLast = Math.floor(msSinceLast / RUN_INTERVAL_MS);
+    const daysSinceLast = utcCalendarDaysBetween(lastPlayedDate, referenceDate);
     const daysPastGrace = Math.max(0, daysSinceLast - GRACE_DAYS);
 
     if (daysPastGrace <= 0) continue;
