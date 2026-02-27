@@ -150,6 +150,7 @@ Multiple players can use the same commander in one game. The system handles dupl
 - `/undo gameid:ABC123` - Revert a specific game
 - `/redo` - Reapply the most recently undone operation
 - Decay timers are preserved - undoing yesterday's game won't reset the decay clock.
+- The undo/redo history is kept in memory and capped at **100 operations** to prevent unbounded memory growth. When the 101st operation is recorded, the oldest entry is automatically evicted. This means only the most recent 100 operations are undoable at any given time.
 
 ### Rating Decay
 
