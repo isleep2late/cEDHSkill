@@ -420,8 +420,9 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
     // Get top performing decks
     const topDecks = await getTopPlayerDecks(userId);
 
-    // Calculate win rate
+    // Calculate win rate and draw rate
     const winRate = totalGames > 0 ? ((player.wins / totalGames) * 100).toFixed(1) : '0.0';
+    const drawRate = totalGames > 0 ? ((player.draws / totalGames) * 100).toFixed(1) : '0.0';
 
     const embed = new EmbedBuilder()
       .setTitle(`📊 Player Statistics: ${displayName}`)
@@ -437,7 +438,7 @@ async function showPlayerStats(interaction: ChatInputCommandInteraction, targetU
 
     embed.addFields({
       name: '📈 Record',
-      value: `**W/L/D:** ${player.wins}/${player.losses}/${player.draws}\n**Win Rate:** ${winRate}%\n**Games:** ${totalGames}`,
+      value: `**W/L/D:** ${player.wins}/${player.losses}/${player.draws}\n**Win Rate:** ${winRate}%\n**Draw Rate:** ${drawRate}%\n**Games:** ${totalGames}`,
       inline: true
     });
 
