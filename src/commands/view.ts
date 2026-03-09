@@ -241,6 +241,17 @@ async function showLeagueStats(interaction: ChatInputCommandInteraction) {
       return `Turn ${stat.turnOrder}: ${winRate}% (${stat.wins}/${stat.totalGames})`;
     }).join('\n');
     
+    // Get number of games that ended in a draw
+    const drawGamesResult = await db.get(`
+      SELECT COUNT(DISTINCT m.gameId) as count
+      FROM matches m
+      JOIN games_master g ON m.gameId = g.gameId
+      WHERE m.status = 'd' AND g.status = 'confirmed' AND g.active = 1
+    `);
+    const drawRate = totalGames > 0
+      ? ((drawGamesResult.count / totalGames) * 100).toFixed(1)
+      : '0.0';
+
     // Get most played commanders
     const topCommandersResult = await db.all(`
       SELECT deckDisplayName, COUNT(*) as games
@@ -302,6 +313,7 @@ async function showLeagueStats(interaction: ChatInputCommandInteraction) {
       name: '🎮 Game Activity',
       value: 
         `**Total Games:** ${totalGames}\n` +
+        `**Draw Rate:** ${drawRate}% (${drawGamesResult.count} games)\n` +
         `**Player Games:** ${playerGamesResult.count}\n` +
         `**Deck Games:** ${deckGamesResult.count}\n` +
         `**Weekly Games:** ${weeklyGamesResult.count}\n` +
