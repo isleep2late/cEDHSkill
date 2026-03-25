@@ -24,7 +24,8 @@ export const data = new SlashCommandBuilder()
         { name: 'League Stats (default)', value: 'league' },
         { name: 'Player', value: 'player' },
         { name: 'Commander', value: 'commander' },
-        { name: 'Game', value: 'game' }
+        { name: 'Game', value: 'game' },
+        { name: 'Win %', value: 'winpct' }
       )
   )
   .addUserOption(option =>
@@ -41,6 +42,13 @@ export const data = new SlashCommandBuilder()
     option.setName('gameid')
       .setDescription('Game ID to view (for game type)')
       .setRequired(false)
+  )
+  .addIntegerOption(option =>
+    option.setName('count')
+      .setDescription('Number of players to show (for Win % type, default 10)')
+      .setRequired(false)
+      .setMinValue(1)
+      .setMaxValue(50)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -110,6 +118,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     await showGameDetails(interaction, gameId);
+  } else if (type === 'winpct') {
+    const count = interaction.options.getInteger('count') ?? 10;
+    await showWinPercentage(interaction, count);
   }
 }
 
@@ -923,4 +934,56 @@ async function getTopPlayerDecks(userId: string) {
   }
 
   return decks;
+}
+
+async function showWinPercentage(interaction: ChatInputCommandInteraction, count: number) {
+  try {
+    const allPlayers = await getAllPlayers();
+    const restrictedPlayers = await getRestrictedPlayers();
+    const restrictedPlayerIds = new Set(restrictedPlayers);
+
+    // Filter to players with at least 1 game, exclude restricted
+    const playersWithGames = allPlayers
+      .filter(p => !restrictedPlayerIds.has(p.userId))
+      .filter(p => (p.wins + p.losses + p.draws) > 0)
+      .map(p => {
+        const totalGames = p.wins + p.losses + p.draws;
+        const winPct = (p.wins / totalGames) * 100;
+        return {
+          userId: p.userId,
+          wins: p.wins,
+          losses: p.losses,
+          draws: p.draws,
+          totalGames,
+          winPct,
+        };
+      })
+      .sort((a, b) => b.winPct - a.winPct || b.totalGames - a.totalGames)
+      .slice(0, count);
+
+    if (playersWithGames.length === 0) {
+      await interaction.editReply({ content: 'No players with games found.' });
+      return;
+    }
+
+    const lines = playersWithGames.map((p, i) => {
+      const pct = p.winPct.toFixed(1);
+      return `**${i + 1}.** <@${p.userId}> — **${pct}%** (${p.wins}W/${p.losses}L/${p.draws}D, ${p.totalGames} games)`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🏆 Top ${playersWithGames.length} Players by Win %`)
+      .setColor(0x00AE86)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: 'Win % does not reflect Elo or skill rating' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error) {
+    logger.error('Error generating win percentage stats:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while generating win percentage statistics.'
+    });
+  }
 }
