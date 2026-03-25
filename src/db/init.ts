@@ -486,5 +486,32 @@ export async function initDatabase() {
     }
   }
 
+  // Add preDecaySigma column to players table — stores the sigma from the player's
+  // last game result (before any decay was applied). Used by decay calculations to
+  // compute the correct "original Elo" starting point. Previously the code used
+  // hardcoded base sigma 8.333, which caused massive Elo drops for players with
+  // low sigma from playing many games.
+  try {
+    await db.exec(`ALTER TABLE players ADD COLUMN preDecaySigma REAL NOT NULL DEFAULT 8.333`);
+    logger.info('[DB] Added preDecaySigma column to players table');
+
+    // Populate preDecaySigma for existing players from their last match record
+    // This gives us each player's sigma after their most recent game
+    await db.exec(`
+      UPDATE players SET preDecaySigma = COALESCE(
+        (SELECT m.sigma FROM matches m
+         JOIN games_master gm ON m.gameId = gm.gameId
+         WHERE m.userId = players.userId
+           AND gm.status = 'confirmed' AND gm.active = 1
+         ORDER BY gm.gameSequence DESC
+         LIMIT 1),
+        8.333
+      )
+    `);
+    logger.info('[DB] Populated preDecaySigma from last match records for existing players');
+  } catch (error) {
+    // Column already exists, ignore
+  }
+
   logger.info('[DB] All tables and indexes initialized successfully');
 }

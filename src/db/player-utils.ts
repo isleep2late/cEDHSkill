@@ -38,7 +38,7 @@ export async function getOrCreatePlayer(userId: string) {
   const db = getDatabase();
   
   const selectStmt = await db.prepare(`
-    SELECT mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed 
+    SELECT mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed, preDecaySigma
     FROM players WHERE userId = ?
   `);
   const row = await selectStmt.get(userId) as any;
@@ -53,6 +53,7 @@ export async function getOrCreatePlayer(userId: string) {
       draws: row.draws ?? 0,
       gamesPlayed: row.gamesPlayed ?? 0,
       lastPlayed: row.lastPlayed ?? null,
+      preDecaySigma: row.preDecaySigma ?? 8.333,
     };
   } else {
     const mu = 25.0;
@@ -68,7 +69,7 @@ export async function getOrCreatePlayer(userId: string) {
     `);
     await insertStmt.run(userId, mu, sigma, wins, losses, draws, 0, null);
     
-    return { userId, mu, sigma, wins, losses, draws, gamesPlayed: 0, lastPlayed: null };
+    return { userId, mu, sigma, wins, losses, draws, gamesPlayed: 0, lastPlayed: null, preDecaySigma: sigma };
   }
 }
 
@@ -84,10 +85,10 @@ export async function updatePlayerRating(
   const stmt = await db.prepare(`
     UPDATE players
     SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
-        gamesPlayed = ?, lastPlayed = ?
+        gamesPlayed = ?, lastPlayed = ?, preDecaySigma = ?
     WHERE userId = ?
   `);
-  await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, new Date().toISOString(), userId);
+  await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, new Date().toISOString(), sigma, userId);
 }
 
 export async function updatePlayerRatingForDecay(
@@ -111,7 +112,7 @@ export async function updatePlayerRatingForDecay(
 export async function getAllPlayers() {
   const db = getDatabase();
   const stmt = await db.prepare(`
-    SELECT userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed 
+    SELECT userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed, preDecaySigma
     FROM players
   `);
   return await stmt.all();

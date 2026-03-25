@@ -52,7 +52,8 @@ client.limboGames = new Map();
 // causes OpenSkill to weight new results more heavily, allowing their
 // rating to quickly reconverge.
 //
-// Each +0.25 sigma = -1 Elo (since sigma penalty = (sigma - 8.333) * 4).
+// Each +0.25 sigma ≈ -1 Elo (since sigma penalty = (sigma - 8.333) * 4).
+// Pre-decay Elo uses the player's preDecaySigma (sigma from last game), not base 8.333.
 // =============================================
 /**
  * Parse a datetime string as UTC, even if it lacks timezone info.
@@ -302,8 +303,11 @@ export async function applyRatingDecay(
     // Skip if no decay needed (either within grace period OR no new days to decay for timewalk)
     if (daysPastGrace <= 0) continue;
 
-    // Calculate the pre-decay Elo using base sigma (mu is never changed by decay)
-    const originalElo = calculateElo(p.mu, 8.333);
+    // Calculate the pre-decay Elo using the player's sigma from their last game
+    // (not base sigma 8.333 — players with low sigma from many games have an Elo
+    // bonus that must be preserved as the decay starting point)
+    const gameBaseSigma = p.preDecaySigma ?? 8.333;
+    const originalElo = calculateElo(p.mu, gameBaseSigma);
 
     // Skip players whose original Elo is at or below the cutoff
     if (originalElo <= ELO_CUTOFF) continue;
@@ -434,8 +438,11 @@ export async function applyDecayForPlayers(
 
     if (daysPastGrace <= 0) continue;
 
-    // Calculate the pre-decay Elo using base sigma (mu is never changed by decay)
-    const originalElo = calculateElo(player.mu, 8.333);
+    // Calculate the pre-decay Elo using the player's sigma from their last game
+    // (not base sigma 8.333 — players with low sigma from many games have an Elo
+    // bonus that must be preserved as the decay starting point)
+    const gameBaseSigma = player.preDecaySigma ?? 8.333;
+    const originalElo = calculateElo(player.mu, gameBaseSigma);
     if (originalElo <= ELO_CUTOFF) continue;
 
     // Apply decay from ORIGINAL Elo: -1 Elo per day past grace, floored at cutoff
