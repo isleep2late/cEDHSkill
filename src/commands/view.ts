@@ -24,7 +24,9 @@ export const data = new SlashCommandBuilder()
         { name: 'League Stats (default)', value: 'league' },
         { name: 'Player', value: 'player' },
         { name: 'Commander', value: 'commander' },
-        { name: 'Game', value: 'game' }
+        { name: 'Game', value: 'game' },
+        { name: 'Win % (Players)', value: 'winpct_players' },
+        { name: 'Win % (Commanders)', value: 'winpct_commanders' }
       )
   )
   .addUserOption(option =>
@@ -41,6 +43,13 @@ export const data = new SlashCommandBuilder()
     option.setName('gameid')
       .setDescription('Game ID to view (for game type)')
       .setRequired(false)
+  )
+  .addIntegerOption(option =>
+    option.setName('count')
+      .setDescription('Number of entries to show (for Win % types, default 100)')
+      .setRequired(false)
+      .setMinValue(1)
+      .setMaxValue(200)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -110,6 +119,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     await showGameDetails(interaction, gameId);
+  } else if (type === 'winpct_players') {
+    const count = interaction.options.getInteger('count') ?? 100;
+    await showPlayerWinPercentage(interaction, count);
+  } else if (type === 'winpct_commanders') {
+    const count = interaction.options.getInteger('count') ?? 100;
+    await showCommanderWinPercentage(interaction, count);
   }
 }
 
@@ -923,4 +938,124 @@ async function getTopPlayerDecks(userId: string) {
   }
 
   return decks;
+}
+
+async function showPlayerWinPercentage(interaction: ChatInputCommandInteraction, count: number) {
+  try {
+    const allPlayers = await getAllPlayers();
+    const restrictedPlayerIds = new Set(await getRestrictedPlayers());
+
+    const ranked = allPlayers
+      .filter(p => !restrictedPlayerIds.has(p.userId))
+      .filter(p => (p.wins + p.losses + p.draws) > 0)
+      .map(p => {
+        const totalGames = p.wins + p.losses + p.draws;
+        return {
+          userId: p.userId,
+          wins: p.wins,
+          losses: p.losses,
+          draws: p.draws,
+          totalGames,
+          winPct: (p.wins / totalGames) * 100,
+        };
+      })
+      .sort((a, b) => b.winPct - a.winPct || b.totalGames - a.totalGames)
+      .slice(0, count);
+
+    if (ranked.length === 0) {
+      await interaction.editReply({ content: 'No players with games found.' });
+      return;
+    }
+
+    const maxDescriptionLength = 4096;
+    let description = '';
+    let truncated = false;
+
+    for (let i = 0; i < ranked.length; i++) {
+      const p = ranked[i];
+      const line = `**${i + 1}.** <@${p.userId}> — **${p.winPct.toFixed(1)}%** (${p.wins}W/${p.losses}L/${p.draws}D, ${p.totalGames} games)\n`;
+      if (description.length + line.length > maxDescriptionLength) {
+        truncated = true;
+        break;
+      }
+      description += line;
+    }
+
+    const displayedCount = description.split('\n').filter(l => l.trim()).length;
+    const truncatedNote = truncated ? ' (truncated due to character limit)' : '';
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Top ${displayedCount} Players by Win %`)
+      .setColor(0x00AE86)
+      .setDescription(description)
+      .setFooter({ text: `This is NOT the season ranking — win % does not reflect Elo or skill rating${truncatedNote}` })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error) {
+    logger.error('Error generating player win percentage stats:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while generating player win percentage statistics.'
+    });
+  }
+}
+
+async function showCommanderWinPercentage(interaction: ChatInputCommandInteraction, count: number) {
+  try {
+    const allDecks = await getAllDecks();
+
+    const ranked = allDecks
+      .filter(d => (d.wins + d.losses + d.draws) > 0)
+      .map(d => {
+        const totalGames = d.wins + d.losses + d.draws;
+        return {
+          displayName: d.displayName,
+          wins: d.wins,
+          losses: d.losses,
+          draws: d.draws,
+          totalGames,
+          winPct: (d.wins / totalGames) * 100,
+        };
+      })
+      .sort((a, b) => b.winPct - a.winPct || b.totalGames - a.totalGames)
+      .slice(0, count);
+
+    if (ranked.length === 0) {
+      await interaction.editReply({ content: 'No commanders with games found.' });
+      return;
+    }
+
+    const maxDescriptionLength = 4096;
+    let description = '';
+    let truncated = false;
+
+    for (let i = 0; i < ranked.length; i++) {
+      const d = ranked[i];
+      const line = `**${i + 1}.** ${d.displayName} — **${d.winPct.toFixed(1)}%** (${d.wins}W/${d.losses}L/${d.draws}D, ${d.totalGames} games)\n`;
+      if (description.length + line.length > maxDescriptionLength) {
+        truncated = true;
+        break;
+      }
+      description += line;
+    }
+
+    const displayedCount = description.split('\n').filter(l => l.trim()).length;
+    const truncatedNote = truncated ? ' (truncated due to character limit)' : '';
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Top ${displayedCount} Commanders by Win %`)
+      .setColor(0x9B59B6)
+      .setDescription(description)
+      .setFooter({ text: `This is NOT the season ranking — win % does not reflect Elo or skill rating${truncatedNote}` })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error) {
+    logger.error('Error generating commander win percentage stats:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while generating commander win percentage statistics.'
+    });
+  }
 }

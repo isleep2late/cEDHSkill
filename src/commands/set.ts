@@ -71,6 +71,11 @@ export const data = new SlashCommandBuilder()
     option.setName('results')
       .setDescription('(Admin only) Set game results: "@user1 w @user2 l" or "commander1 w commander2 l"')
       .setRequired(false)
+  )
+  .addBooleanOption(option =>
+    option.setName('recalculate')
+      .setDescription('(Admin only) Recalculate all player and deck ratings from scratch')
+      .setRequired(false)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -85,11 +90,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const wldString = interaction.options.getString('wld');
   const active = interaction.options.getBoolean('active');
   const results = interaction.options.getString('results');
-  
+  const recalculate = interaction.options.getBoolean('recalculate');
+
   const isAdmin = config.admins.includes(requesterId);
 
   // Check for admin-only parameters first
-  const adminOnlyParams = [mu, sigma, elo, wldString, active, results].some(param => param !== null);
+  const adminOnlyParams = [mu, sigma, elo, wldString, active, results, recalculate].some(param => param !== null);
   const targetingOtherUser = target && target.match(/<@!?(\d+)>/) && target.replace(/\D/g, '') !== interaction.user.id;
   const hasAdminOnlyTarget = target && (await isGameId(target) || (!target.match(/<@!?(\d+)>/) && (mu !== null || sigma !== null || elo !== null || wldString)));
 
@@ -102,7 +108,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Input validation
-  if (!target && !deckName && !gameId && turnOrder === null && mu === null && sigma === null && elo === null && !wldString && active === null && !results) {
+  if (!target && !deckName && !gameId && turnOrder === null && mu === null && sigma === null && elo === null && !wldString && active === null && !results && recalculate === null) {
     await interaction.reply({
       content: 'You must specify at least one parameter to set.',
       ephemeral: true
@@ -112,7 +118,23 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   try {
     // Determine the operation type based on parameters
-    
+
+    // Handle standalone recalculate (admin only)
+    if (recalculate === true) {
+      await interaction.deferReply();
+      logger.info(`[SET] Admin ${requesterId} triggered manual recalculation`);
+      await interaction.editReply('🔄 Recalculating all player ratings from scratch...');
+      await recalculateAllPlayersFromScratch();
+      await interaction.editReply('🔄 Recalculating all deck ratings from scratch...');
+      const { playerCleanup, deckCleanup } = await recalculateAllDecksFromScratch();
+      let summary = '✅ Complete recalculation finished.';
+      if (playerCleanup.cleanedPlayers > 0 || deckCleanup.cleanedDecks > 0) {
+        summary += `\nCleaned up ${playerCleanup.cleanedPlayers} player(s) and ${deckCleanup.cleanedDecks} deck(s) with no remaining games.`;
+      }
+      await interaction.editReply(summary);
+      return;
+    }
+
     // Check if this is a game modification (admin only)
     if ((target && await isGameId(target)) || results || (gameId && (active !== null || results))) {
       if (!isAdmin) {
