@@ -5,8 +5,8 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 ## Features
 
 - **Dual Rating Systems** - Separate rankings for players and commanders/decks
-- **OpenSkill-Based Elo** - `Elo = 1000 + (mu - 25) * 12 - (sigma - 8.333) * 4`
-- **Participation Bonus** - +1 Elo for every ranked game played
+- **OpenSkill-Based Elo** - `Elo = 1000 + 25 * (mu - 3 * sigma)`
+- **Participation Bonus** - +1 Elo for every ranked game played (max 5 per day)
 - **Rating Decay** - Sigma-based inactivity decay (increases uncertainty, preserves skill)
 - **Turn Order Tracking** - Track performance by seat position
 - **Game Injection** - Insert historical games at any point in the timeline

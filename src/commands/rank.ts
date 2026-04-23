@@ -9,7 +9,7 @@ import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
 import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
-import { recordMatch, getRecentMatches, updateMatchTurnOrder, getOpponentsByGameIds } from '../db/match-utils.js';
+import { recordMatch, getRecentMatches, updateMatchTurnOrder, getOpponentsByGameIds, getPlayerGamesOnDateBefore, getDeckGamesOnDateBefore } from '../db/match-utils.js';
 import { 
   getOrCreateDeck, 
   updateDeckRating, 
@@ -19,8 +19,9 @@ import {
 import { saveMatchSnapshot } from '../utils/snapshot-utils.js';
 import { calculateElo, muFromElo } from '../utils/elo-utils.js';
 
-// Participation bonus: +1 Elo for playing a ranked game
+// Participation bonus: +1 Elo for playing a ranked game (max 5 per day)
 const PARTICIPATION_BONUS_ELO = 1;
+const MAX_DAILY_PARTICIPATION_BONUS = 5;
 import { generateUniqueGameId, recordGameId } from '../utils/game-id-utils.js';
 import { config } from '../config.js';
 import crypto from 'crypto';
@@ -612,8 +613,10 @@ export async function replayPlayerGame(gameId: string): Promise<void> {
     const oldRating = playerRatings[match.userId];
     let adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    adjustedRating = applyParticipationBonus(adjustedRating);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const matchDate = new Date(match.matchDate);
+    const gamesAlreadyToday = await getPlayerGamesOnDateBefore(match.userId, matchDate, gameId);
+    adjustedRating = applyParticipationBonus(adjustedRating, gamesAlreadyToday);
 
     // Update win/loss/draw counts
     const stats = playerStats[match.userId];
@@ -787,8 +790,11 @@ export async function replayDeckGame(gameId: string): Promise<void> {
       aggregatedRating = { mu: avgMu, sigma: minSigma };
     }
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusedRating = applyParticipationBonus(aggregatedRating);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const firstDeckMatch = matches.find((m: any) => m.deckNormalizedName === deckName);
+    const deckMatchDate = new Date(firstDeckMatch?.matchDate || new Date());
+    const deckGamesToday = await getDeckGamesOnDateBefore(deckName, deckMatchDate, gameId);
+    const bonusedRating = applyParticipationBonus(aggregatedRating, deckGamesToday);
 
     // Count total wins/losses/draws for this deck in this game
     for (const status of changes.statusUpdates) {
@@ -979,16 +985,14 @@ function ensureMinimumRatingChange(oldRating: Rating, newRating: Rating, status:
     // Winners must gain at least 2 points, always
     if (actualChange < 2) {
       const targetElo = oldElo + 2;
-      // Convert back to mu (approximate)
-      const targetMu = 25 + (targetElo - 1000 + (newRating.sigma - 8.333) * 4) / 12;
+      const targetMu = muFromElo(targetElo, newRating.sigma);
       return { mu: targetMu, sigma: newRating.sigma };
     }
   } else if (status === 'l') {
     // Losers must lose at least 2 points, always
     if (actualChange > -2) {
       const targetElo = oldElo - 2;
-      // Convert back to mu (approximate)
-      const targetMu = 25 + (targetElo - 1000 + (newRating.sigma - 8.333) * 4) / 12;
+      const targetMu = muFromElo(targetElo, newRating.sigma);
       return { mu: targetMu, sigma: newRating.sigma };
     }
   }
@@ -1000,8 +1004,13 @@ function ensureMinimumRatingChange(oldRating: Rating, newRating: Rating, status:
 /**
  * Apply participation bonus (+1 Elo) to a rating.
  * This is applied AFTER all other calculations as a reward for playing ranked.
+ * Limited to MAX_DAILY_PARTICIPATION_BONUS games per day per entity.
+ * @param gamesAlreadyToday - number of games already played today before this game
  */
-function applyParticipationBonus(rating: Rating): Rating {
+function applyParticipationBonus(rating: Rating, gamesAlreadyToday: number = 0): Rating {
+  if (gamesAlreadyToday >= MAX_DAILY_PARTICIPATION_BONUS) {
+    return rating;
+  }
   const currentElo = calculateElo(rating.mu, rating.sigma);
   const bonusElo = currentElo + PARTICIPATION_BONUS_ELO;
   const newMu = muFromElo(bonusElo, rating.sigma);
@@ -2703,8 +2712,9 @@ for (const player of players) {
       ratingChange = preBonusElo - oldElo;
       changeSign = ratingChange >= 0 ? '+' : '';
 
-      // Step 2: Apply participation bonus (+1 Elo for playing ranked)
-      newR = applyParticipationBonus(newR);
+      // Step 2: Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+      const gamesAlreadyToday = await getPlayerGamesOnDateBefore(p.userId, gameDate, gameId);
+      newR = applyParticipationBonus(newR, gamesAlreadyToday);
 
       // Track final rating for snapshot
       finalRatings[p.userId] = newR;
@@ -2768,9 +2778,11 @@ for (const player of players) {
     }
 
     const commanderInfo = p.commander ? ` [${p.commander}]` : '';
+    const bonusApplied = finalElo !== preBonusElo;
+    const bonusText = bonusApplied ? ` + 1 (participation)` : ` + 0 (daily bonus limit reached)`;
     results.push(
       `${userNames[p.userId]}${p.team ? ` (${p.team})` : ''}${p.turnOrder ? ` [Turn ${p.turnOrder}]` : ''}${commanderInfo}\n` +
-        `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange}) + 1 (participation) = **${finalElo}**\n` +
+        `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange})${bonusText} = **${finalElo}**\n` +
         `Mu: ${oldR.mu.toFixed(2)} → ${newR.mu.toFixed(2)} | Sigma: ${oldR.sigma.toFixed(2)} → ${newR.sigma.toFixed(2)}\n` +
         `W/L/D: ${records[p.userId].wins}/${records[p.userId].losses}/${records[p.userId].draws}`
     );
@@ -3013,8 +3025,10 @@ export async function processCommanderRatingsEnhanced(
       aggregatedRating = { mu: avgMu, sigma: minSigma };
     }
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    const finalRating = applyParticipationBonus(aggregatedRating);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const effectiveDate = matchDate || new Date();
+    const deckGamesToday = await getDeckGamesOnDateBefore(normalizedName, effectiveDate, gameId);
+    const finalRating = applyParticipationBonus(aggregatedRating, deckGamesToday);
 
     // Update win/loss/draw counts
     rec.wins += update.winCount;
@@ -3190,8 +3204,9 @@ async function processDeckResults(
     const ratingChange = preBonusElo - oldElo;
     const changeSign = ratingChange >= 0 ? '+' : '';
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    newR = applyParticipationBonus(newR);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const deckGamesToday = await getDeckGamesOnDateBefore(normalizedName, effectiveDate, gameId);
+    newR = applyParticipationBonus(newR, deckGamesToday);
 
     // Calculate final Elo for display
     const finalElo = calculateElo(newR.mu, newR.sigma);
@@ -3263,7 +3278,7 @@ async function processDeckResults(
     results.push(
       `**${displayName}${duplicateNote}**\n` +
       `Instances: ${instanceResults}\n` +
-      `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange}) + 1 (participation) = **${finalElo}**\n` +
+      `Elo: ${oldElo} → ${preBonusElo} (${changeSign}${ratingChange})${finalElo !== preBonusElo ? ' + 1 (participation)' : ' + 0 (daily bonus limit reached)'} = **${finalElo}**\n` +
       `Mu: ${oldR.mu.toFixed(2)} → ${newR.mu.toFixed(2)} | Sigma: ${oldR.sigma.toFixed(2)} → ${newR.sigma.toFixed(2)}\n` +
       `W/L/D: ${rec.wins}/${rec.losses}/${rec.draws}`
     );
