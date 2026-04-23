@@ -8,14 +8,15 @@ import { getOrCreatePlayer, updatePlayerRating, getAllPlayers } from '../db/play
 import { getOrCreateDeck, updateDeckRating, getAllDecks } from '../db/deck-utils.js';
 import { calculateElo, muFromElo } from '../utils/elo-utils.js';
 import { config } from '../config.js';
-import { getDatabase } from '../db/init.js'; 
-import { logRatingChange } from '../utils/rating-audit-utils.js'; 
+import { getDatabase } from '../db/init.js';
+import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
 import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers, addTimewalkDays, getActiveTimewalkEvents } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 import { logger } from '../utils/logger.js';
+import { getPlayerGamesOnDateBefore, getDeckGamesOnDateBefore } from '../db/match-utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -1206,8 +1207,10 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
     const oldRating = playerRatings[match.userId];
     let adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    adjustedRating = applyParticipationBonus(adjustedRating);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const matchDate = new Date(match.matchDate);
+    const gamesAlreadyToday = await getPlayerGamesOnDateBefore(match.userId, matchDate, gameId);
+    adjustedRating = applyParticipationBonus(adjustedRating, gamesAlreadyToday);
 
     // Update stats based on ORIGINAL outcome
     const stats = playerStats[match.userId];
@@ -1310,8 +1313,11 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
       aggregatedRating = { mu: avgMu, sigma: minSigma };
     }
 
-    // Apply participation bonus (+1 Elo for playing ranked)
-    const bonusRating = applyParticipationBonus(aggregatedRating);
+    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
+    const firstMatch = originalMatches.find(m => m.deckNormalizedName === deckName);
+    const deckMatchDate = new Date(firstMatch?.matchDate || new Date());
+    const deckGamesToday = await getDeckGamesOnDateBefore(deckName, deckMatchDate, gameId);
+    const bonusRating = applyParticipationBonus(aggregatedRating, deckGamesToday);
 
     // Update stats based on ORIGINAL outcomes
     for (const status of changes.statusUpdates) {
@@ -1432,11 +1438,11 @@ function ensureMinimumRatingChange(oldRating: any, newRating: any, status: strin
   
   if (status === 'w' && actualChange < 2) {
     const targetElo = oldElo + 2;
-    const targetMu = 25 + (targetElo - 1000 + (newRating.sigma - 8.333) * 4) / 12;
+    const targetMu = muFromElo(targetElo, newRating.sigma);
     return { mu: targetMu, sigma: newRating.sigma };
   } else if (status === 'l' && actualChange > -2) {
     const targetElo = oldElo - 2;
-    const targetMu = 25 + (targetElo - 1000 + (newRating.sigma - 8.333) * 4) / 12;
+    const targetMu = muFromElo(targetElo, newRating.sigma);
     return { mu: targetMu, sigma: newRating.sigma };
   }
   
@@ -1444,12 +1450,18 @@ function ensureMinimumRatingChange(oldRating: any, newRating: any, status: strin
 }
 
 const PARTICIPATION_BONUS_ELO = 1;
+const MAX_DAILY_PARTICIPATION_BONUS = 5;
 
 /**
  * Apply participation bonus (+1 Elo) to a rating during re-execution.
  * Adjusts mu to achieve +1 Elo while keeping sigma unchanged.
+ * Limited to MAX_DAILY_PARTICIPATION_BONUS games per day per entity.
+ * @param gamesAlreadyToday - number of games already played today before this game
  */
-function applyParticipationBonus(rating: { mu: number; sigma: number }): { mu: number; sigma: number } {
+function applyParticipationBonus(rating: { mu: number; sigma: number }, gamesAlreadyToday: number = 0): { mu: number; sigma: number } {
+  if (gamesAlreadyToday >= MAX_DAILY_PARTICIPATION_BONUS) {
+    return rating;
+  }
   const currentElo = calculateElo(rating.mu, rating.sigma);
   const bonusElo = currentElo + PARTICIPATION_BONUS_ELO;
   const newMu = muFromElo(bonusElo, rating.sigma);

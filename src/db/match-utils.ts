@@ -104,3 +104,45 @@ export async function getTotalMatches(): Promise<number> {
   const result = await stmt.get() as { count: number };
   return result.count;
 }
+
+/**
+ * Count how many active games a player has played on the same calendar day (UTC)
+ * before the specified game (by gameSequence). Used for daily participation bonus limit.
+ */
+export async function getPlayerGamesOnDateBefore(userId: string, matchDate: Date, currentGameId: string): Promise<number> {
+  const db = getDatabase();
+  const dateStr = matchDate.toISOString().split('T')[0];
+
+  const result = await db.get(`
+    SELECT COUNT(DISTINCT m.gameId) as count
+    FROM matches m
+    JOIN games_master gm ON m.gameId = gm.gameId
+    WHERE m.userId = ?
+    AND DATE(m.matchDate) = ?
+    AND gm.active = 1
+    AND gm.gameSequence < (SELECT gameSequence FROM games_master WHERE gameId = ?)
+  `, [userId, dateStr, currentGameId]) as { count: number } | undefined;
+
+  return result?.count ?? 0;
+}
+
+/**
+ * Count how many active games a deck has played on the same calendar day (UTC)
+ * before the specified game (by gameSequence). Used for daily participation bonus limit.
+ */
+export async function getDeckGamesOnDateBefore(deckNormalizedName: string, matchDate: Date, currentGameId: string): Promise<number> {
+  const db = getDatabase();
+  const dateStr = matchDate.toISOString().split('T')[0];
+
+  const result = await db.get(`
+    SELECT COUNT(DISTINCT dm.gameId) as count
+    FROM deck_matches dm
+    JOIN games_master gm ON dm.gameId = gm.gameId
+    WHERE dm.deckNormalizedName = ?
+    AND DATE(dm.matchDate) = ?
+    AND gm.active = 1
+    AND gm.gameSequence < (SELECT gameSequence FROM games_master WHERE gameId = ?)
+  `, [deckNormalizedName, dateStr, currentGameId]) as { count: number } | undefined;
+
+  return result?.count ?? 0;
+}

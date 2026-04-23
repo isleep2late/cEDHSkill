@@ -40,12 +40,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .setDescription('**cEDHSkill** is our enhanced OpenSkill-based rating system.')
         .addFields(
           { name: 'Mu & Sigma', value: 'Mu represents skill. Sigma is confidence in the rating.' },
-          { name: 'Elo Conversion', value: '`Elo = 1000 + (mu-25)*12 - (sigma-8.333)*4`' },
+          { name: 'Elo Conversion', value: '`Elo = 1000 + 25 * (mu - 3 * sigma)`' },
           { name: 'Turn Order Tracking', value: 'Optional feature to track performance by turn position.' },
           { name: 'Dual Systems', value: 'Separate ranking systems for players and commanders/decks.' },
           { name: 'Qualification', value: 'Minimum 5 games required to appear in official rankings.' },
           { name: 'Game Modes', value: 'Supports 4 player games with win/loss/draw results only. (3-player games disabled by default)' },
-          { name: 'Participation Bonus', value: 'All players receive +1 Elo for every ranked game played.' },
+          { name: 'Participation Bonus', value: 'All players receive +1 Elo for every ranked game played (max 5 per day).' },
           { name: 'Rating Decay', value: `After ${config.decayStartDays} days of inactivity, players lose -1 Elo per day (stops at 1050 Elo). Decay only applies to players who have played at least 1 ranked game.` }
         );
       break;

@@ -52,7 +52,7 @@ client.limboGames = new Map();
 // causes OpenSkill to weight new results more heavily, allowing their
 // rating to quickly reconverge.
 //
-// Each +0.25 sigma ≈ -1 Elo (since sigma penalty = (sigma - 8.333) * 4).
+// With Elo = 1000 + 25 * (mu - 3 * sigma), each +1/75 sigma ≈ -1 Elo.
 // Pre-decay Elo uses the player's preDecaySigma (sigma from last game), not base 8.333.
 // =============================================
 /**
@@ -237,7 +237,7 @@ export async function getMinDaysForNextDecay(): Promise<number> {
  * After GRACE_DAYS days of not playing:
  * - Players with Elo > ELO_CUTOFF lose exactly DECAY_ELO_PER_DAY Elo per day
  * - Decay is applied by increasing sigma (uncertainty), NOT by decreasing mu (skill)
- * - Each +0.25 sigma = -1 Elo (since sigma penalty = (sigma - 8.333) * 4)
+ * - Each +1/75 sigma = -1 Elo (since Elo = 1000 + 25 * (mu - 3 * sigma))
  * - Mu (estimated skill) is preserved — only confidence decreases
  * - When the player returns, their higher sigma causes OpenSkill to weight
  *   new game results more heavily, allowing ratings to reconverge quickly
