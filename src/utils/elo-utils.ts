@@ -8,7 +8,7 @@ export function calculateElo(mu: number, sigma: number): number {
  * Solving for mu: mu = (Elo - 1000) / 25 + 3 * sigma
  */
 export function muFromElo(targetElo: number, sigma: number): number {
-  return (targetElo - 1000) / 25 + 3 * sigma;
+  return 3 * sigma + targetElo / 25 - 40;
 }
 
 /**
@@ -21,7 +21,7 @@ export function muFromElo(targetElo: number, sigma: number): number {
  * Solving for sigma: sigma = (1000 + 25 * mu - Elo) / 75
  */
 export function sigmaFromElo(targetElo: number, mu: number): number {
-  return (1000 + 25 * mu - targetElo) / 75;
+  return ((mu + 40) - (targetElo / 25)) / 3;
 }
 
 /**
