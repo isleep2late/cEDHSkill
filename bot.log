@@ -1,0 +1,1014 @@
+[2026-05-03T09:07:18.011Z] [INFO] [DB] Using database file at: /home/gyarados/Programming/Games/Discord/cEDHSkill/data/cEDHSkill.db
+[2026-05-03T09:07:18.865Z] [INFO] [DB] Using database file at: /home/gyarados/Programming/Games/Discord/cEDHSkill/data/cEDHSkill.db
+[2026-05-03T09:07:18.869Z] [INFO] [Loader] Starting up...
+[2026-05-03T09:07:18.869Z] [INFO] [DB] Initializing database...
+[2026-05-03T09:07:18.899Z] [INFO] [DB] Initializing tables...
+[2026-05-03T09:07:18.944Z] [INFO] [DB] Creating indexes...
+[2026-05-03T09:07:19.039Z] [INFO] [DB] Checking for missing columns...
+[2026-05-03T09:07:19.044Z] [INFO] [DB] Added active column to games_master table
+[2026-05-03T09:07:19.047Z] [INFO] [DB] Added active column to game_ids table
+[2026-05-03T09:07:19.050Z] [INFO] [DB] Added active index to games_master table
+[2026-05-03T09:07:19.054Z] [INFO] [DB] Added active index to game_ids table
+[2026-05-03T09:07:19.058Z] [INFO] [DB] Added preDecaySigma column to players table
+[2026-05-03T09:07:19.060Z] [INFO] [DB] Populated preDecaySigma from last match records for existing players
+[2026-05-03T09:07:19.060Z] [INFO] [DB] All tables and indexes initialized successfully
+[2026-05-03T09:07:19.060Z] [INFO] [Loader] Database initialized successfully
+[2026-05-03T09:07:19.273Z] [INFO] Loaded command: backup
+[2026-05-03T09:07:19.275Z] [INFO] Loaded command: help
+[2026-05-03T09:07:19.277Z] [INFO] Loaded command: list
+[2026-05-03T09:07:19.278Z] [INFO] Loaded command: predict
+[2026-05-03T09:07:19.279Z] [INFO] Loaded command: print
+[2026-05-03T09:07:19.357Z] [INFO] Loaded command: rank
+[2026-05-03T09:07:19.358Z] [INFO] Loaded command: reanimate
+[2026-05-03T09:07:19.359Z] [INFO] Loaded command: redo
+[2026-05-03T09:07:19.360Z] [INFO] Loaded command: restrict
+[2026-05-03T09:07:19.362Z] [INFO] Loaded command: set
+[2026-05-03T09:07:19.363Z] [INFO] Loaded command: snap
+[2026-05-03T09:07:19.364Z] [INFO] Loaded command: thanossnap
+[2026-05-03T09:07:19.365Z] [INFO] Loaded command: timewalk
+[2026-05-03T09:07:19.367Z] [INFO] Loaded command: undo
+[2026-05-03T09:07:19.368Z] [INFO] Loaded command: view
+[2026-05-03T09:07:19.369Z] [INFO] Loaded command: vindicate
+[2026-05-03T09:07:20.004Z] [INFO] Bot logged in as cEDH LeagueBot#1176
+[2026-05-03T09:07:20.005Z] [INFO] Database initialized
+[2026-05-03T09:07:20.005Z] [INFO] Loaded 16 commands: backup, help, list, predict, print, rank, reanimate, redo, restrict, set, snap, thanossnap, timewalk, undo, view, vindicate
+[2026-05-03T09:07:20.005Z] [INFO] Sigma-based rating decay active (6 day grace period, -1 Elo/day via sigma increase)
+[2026-05-03T09:07:20.007Z] [INFO] [STARTUP] First run with config tracking — triggering full recalculation to establish baseline...
+[2026-05-03T09:07:20.008Z] [INFO] [RECALC] Starting complete player rating recalculation...
+[2026-05-03T09:07:20.009Z] [INFO] [DECAY] Starting sigma-based rating decay process...
+[2026-05-03T09:07:20.009Z] [INFO] [DECAY] Applied sigma-based decay to 0 players
+[2026-05-03T09:07:20.009Z] [INFO] [RECALC] Completed recalculation of 0 player games (with interleaved decay)
+[2026-05-03T09:07:20.009Z] [INFO] [STARTUP] Full recalculation complete with grace period of 6 days
+[2026-05-03T16:04:08.112Z] [CMD] /view | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857
+[2026-05-03T16:04:08.689Z] [CMD-DONE] /view | User: 226715073031176193 | 577ms | success
+[2026-05-03T16:13:16.377Z] [CMD] /set | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"deck":"ashling-flame-dancer"}
+[2026-05-03T16:13:17.012Z] [INFO] [SNAPSHOT] Saved set_command operation to stack (1 total)
+[2026-05-03T16:13:17.626Z] [CMD-DONE] /set | User: 235137514355163147 | 1248ms | success
+[2026-05-03T16:16:37.554Z] [CMD] /set | User: annastolfo (1176390566725046359) | Guild: 1225118416298315857 | Options: {"deck":"Sisay, Weatherlight Captain"}
+[2026-05-03T16:16:39.097Z] [INFO] [SNAPSHOT] Saved set_command operation to stack (2 total)
+[2026-05-03T16:16:39.321Z] [CMD-DONE] /set | User: 1176390566725046359 | 1767ms | success
+[2026-05-03T16:17:32.632Z] [CMD] /set | User: syrtiff (456908377386123264) | Guild: 1225118416298315857 | Options: {"deck":"Terra, Magical Adept"}
+[2026-05-03T16:17:33.289Z] [INFO] [SNAPSHOT] Saved set_command operation to stack (3 total)
+[2026-05-03T16:17:33.637Z] [CMD-DONE] /set | User: 456908377386123264 | 1005ms | success
+[2026-05-03T16:19:37.551Z] [CMD] /set | User: .britenite (694633164764610622) | Guild: 1225118416298315857 | Options: {"deck":"Rograkh, Son of Rograk/Ishai, DragonOUtsispeaker"}
+[2026-05-03T16:19:38.521Z] [ERROR] Error in /set command: "Rograkh, Son of Rograk/Ishai, DragonOUtsispeaker" is not a valid commander name according to EDHREC.
+Error: "Rograkh, Son of Rograk/Ishai, DragonOUtsispeaker" is not a valid commander name according to EDHREC.
+    at handleDeckAssignment (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/set.js:1388:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async handlePlayerModification (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/set.js:334:28)
+    at async Module.execute (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/set.js:168:13)
+    at async Client.<anonymous> (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/bot.js:477:13)
+[2026-05-03T16:19:38.827Z] [CMD-DONE] /set | User: 694633164764610622 | 1276ms | success
+[2026-05-03T16:52:17.491Z] [CMD] /rank | User: annastolfo (1176390566725046359) | Guild: 1225118416298315857 | Options: {"results":"<@1176390566725046359> W <@235137514355163147> L <@339297636811276288> L <@694633164764610622> L"}
+[2026-05-03T16:52:17.791Z] [INFO] Input tokens: [
+  "<@1176390566725046359>",
+  "W",
+  "<@235137514355163147>",
+  "L",
+  "<@339297636811276288>",
+  "L",
+  "<@694633164764610622>",
+  "L"
+]
+[2026-05-03T16:52:17.791Z] [INFO] Parsed players: [
+  {
+    "userId": "1176390566725046359",
+    "status": "w"
+  },
+  {
+    "userId": "235137514355163147",
+    "status": "l"
+  },
+  {
+    "userId": "339297636811276288",
+    "status": "l"
+  },
+  {
+    "userId": "694633164764610622",
+    "status": "l"
+  }
+]
+[2026-05-03T16:52:20.991Z] [CMD-DONE] /rank | User: 1176390566725046359 | 3500ms | success
+[2026-05-03T16:52:39.153Z] [ERROR] Failed to remove old turn order reaction: Missing Permissions
+DiscordAPIError[50013]: Missing Permissions
+    at handleErrors (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SequentialHandler.runRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1163:23)
+    at async SequentialHandler.queueRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:994:14)
+    at async _REST.request (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ReactionUserManager.remove (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/discord.js/src/managers/ReactionUserManager.js:73:5)
+    at async ReactionCollector.<anonymous> (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/rank.js:1884:29)
+[2026-05-03T16:53:02.927Z] [INFO] [AUDIT] Logged game rating change for player @annastolfo
+[2026-05-03T16:53:02.940Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T16:53:02.952Z] [INFO] [AUDIT] Logged game rating change for player @chavezgozu
+[2026-05-03T16:53:02.965Z] [INFO] [AUDIT] Logged game rating change for player @.britenite
+[2026-05-03T16:53:02.974Z] [INFO] [SNAPSHOT] Saved player game 5D992D to stack (4 total)
+[2026-05-03T16:54:51.120Z] [CMD] /list | User: annastolfo (1176390566725046359) | Guild: 1225118416298315857
+[2026-05-03T16:54:51.786Z] [CMD-DONE] /list | User: 1176390566725046359 | 666ms | success
+[2026-05-03T17:13:08.768Z] [CMD] /rank | User: gravy229 (249587557384454144) | Guild: 1225118416298315857 | Options: {"results":"<@249587557384454144> 1 l <@139801747022413824> 2 w <@478952611735666707> 3 l <@235137514355163147> 4 l"}
+[2026-05-03T17:13:09.099Z] [INFO] Input tokens: [
+  "<@249587557384454144>",
+  "1",
+  "l",
+  "<@139801747022413824>",
+  "2",
+  "w",
+  "<@478952611735666707>",
+  "3",
+  "l",
+  "<@235137514355163147>",
+  "4",
+  "l"
+]
+[2026-05-03T17:13:09.100Z] [INFO] Parsed players: [
+  {
+    "userId": "249587557384454144",
+    "status": "l",
+    "turnOrder": 1
+  },
+  {
+    "userId": "139801747022413824",
+    "status": "w",
+    "turnOrder": 2
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l",
+    "turnOrder": 3
+  },
+  {
+    "userId": "235137514355163147",
+    "status": "l",
+    "turnOrder": 4
+  }
+]
+[2026-05-03T17:13:10.522Z] [CMD-DONE] /rank | User: 249587557384454144 | 1754ms | success
+[2026-05-03T17:14:43.369Z] [INFO] [AUDIT] Logged game rating change for player @gravy229
+[2026-05-03T17:14:43.383Z] [INFO] [AUDIT] Logged game rating change for player @happynap
+[2026-05-03T17:14:43.396Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T17:14:43.407Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T17:14:43.413Z] [INFO] [SNAPSHOT] Saved player game D93238 to stack (5 total)
+[2026-05-03T17:20:22.352Z] [CMD] /view | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857 | Options: {"player":"@onetrickraven (235137514355163147)"}
+[2026-05-03T17:20:23.075Z] [CMD-DONE] /view | User: 226715073031176193 | 723ms | success
+[2026-05-03T17:25:09.947Z] [CMD] /backup | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857
+[2026-05-03T17:25:11.932Z] [CMD-DONE] /backup | User: 226715073031176193 | 1985ms | success
+[2026-05-03T17:28:41.535Z] [CMD] /view | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857 | Options: {"commander":"ashling-flame-dancer"}
+[2026-05-03T17:28:41.996Z] [CMD-DONE] /view | User: 226715073031176193 | 461ms | success
+[2026-05-03T18:10:40.251Z] [CMD] /set | User: theytookawaymyzalgo (108158138330447872) | Guild: 1225118416298315857 | Options: {"deck":"the-wandering-minstrel"}
+[2026-05-03T18:10:40.793Z] [INFO] [SNAPSHOT] Saved set_command operation to stack (6 total)
+[2026-05-03T18:10:41.060Z] [CMD-DONE] /set | User: 108158138330447872 | 809ms | success
+[2026-05-03T18:19:06.290Z] [CMD] /set | User: felimath (161566837056864256) | Guild: 1225118416298315857 | Options: {"deck":"kefka-court-mage","gameid":"allgames"}
+[2026-05-03T18:19:06.766Z] [INFO] [SET] Starting complete player rating recalculation...
+[2026-05-03T18:19:06.837Z] [INFO] [AUDIT] Logged game rating change for player Player 1176390566725046359
+[2026-05-03T18:19:06.846Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-05-03T18:19:06.855Z] [INFO] [AUDIT] Logged game rating change for player Player 339297636811276288
+[2026-05-03T18:19:06.863Z] [INFO] [AUDIT] Logged game rating change for player Player 694633164764610622
+[2026-05-03T18:19:06.889Z] [INFO] [AUDIT] Logged game rating change for player Player 249587557384454144
+[2026-05-03T18:19:06.897Z] [INFO] [AUDIT] Logged game rating change for player Player 139801747022413824
+[2026-05-03T18:19:06.906Z] [INFO] [AUDIT] Logged game rating change for player Player 478952611735666707
+[2026-05-03T18:19:06.914Z] [INFO] [AUDIT] Logged game rating change for player Player 235137514355163147
+[2026-05-03T18:19:06.929Z] [INFO] [DECAY] Starting sigma-based rating decay process...
+[2026-05-03T18:19:06.930Z] [INFO] [DECAY] Applied sigma-based decay to 0 players
+[2026-05-03T18:19:06.930Z] [INFO] [SET] Completed recalculation of 2 active player games and 0 timewalk events (with interleaved decay)
+[2026-05-03T18:19:06.930Z] [INFO] [SET] Starting complete deck rating recalculation...
+[2026-05-03T18:19:06.947Z] [INFO] [SET] Completed recalculation of 0 active pure deck games
+[2026-05-03T18:19:06.947Z] [INFO] [DECAY] Starting sigma-based rating decay process...
+[2026-05-03T18:19:06.948Z] [INFO] [DECAY] Applied sigma-based decay to 0 players
+[2026-05-03T18:19:06.948Z] [INFO] [CLEANUP] Found 5 decks with no active games
+[2026-05-03T18:19:06.970Z] [INFO] [CLEANUP] Successfully removed 5 decks with no active games
+[2026-05-03T18:19:06.970Z] [INFO] [SET] Cleaned up 0 player(s) and 5 deck(s) with no remaining games
+[2026-05-03T18:19:06.970Z] [INFO] [SNAPSHOT] Saved set_command operation to stack (7 total)
+[2026-05-03T18:19:07.230Z] [CMD-DONE] /set | User: 161566837056864256 | 940ms | success
+[2026-05-03T18:21:01.458Z] [CMD] /rank | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> w <@478952611735666707> l <@249587557384454144> l <@139801747022413824> l"}
+[2026-05-03T18:21:01.699Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "w",
+  "<@478952611735666707>",
+  "l",
+  "<@249587557384454144>",
+  "l",
+  "<@139801747022413824>",
+  "l"
+]
+[2026-05-03T18:21:01.699Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "w"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l"
+  },
+  {
+    "userId": "249587557384454144",
+    "status": "l"
+  },
+  {
+    "userId": "139801747022413824",
+    "status": "l"
+  }
+]
+[2026-05-03T18:21:05.246Z] [CMD-DONE] /rank | User: 235137514355163147 | 3787ms | success
+[2026-05-03T18:24:40.450Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T18:24:40.463Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T18:24:40.475Z] [INFO] [AUDIT] Logged game rating change for player @gravy229
+[2026-05-03T18:24:40.487Z] [INFO] [AUDIT] Logged game rating change for player @happynap
+[2026-05-03T18:24:40.495Z] [INFO] [SNAPSHOT] Saved player game 7B5FE8 to stack (8 total)
+[2026-05-03T18:26:11.804Z] [CMD] /list | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"count":20}
+[2026-05-03T18:26:12.445Z] [CMD-DONE] /list | User: 235137514355163147 | 641ms | success
+[2026-05-03T18:41:47.798Z] [CMD] /list | User: .britenite (694633164764610622) | Guild: 1225118416298315857
+[2026-05-03T18:41:48.270Z] [CMD-DONE] /list | User: 694633164764610622 | 472ms | success
+[2026-05-03T18:43:16.065Z] [CMD] /rank | User: karador (442450315288117258) | Guild: 1225118416298315857 | Options: {"results":"w"}
+[2026-05-03T18:43:16.528Z] [CMD-DONE] /rank | User: 442450315288117258 | 462ms | success
+[2026-05-03T18:43:37.647Z] [CMD] /list | User: .britenite (694633164764610622) | Guild: 1225118416298315857
+[2026-05-03T18:43:38.245Z] [CMD-DONE] /list | User: 694633164764610622 | 598ms | success
+[2026-05-03T18:45:58.220Z] [CMD] /rank | User: karador (442450315288117258) | Guild: 1225118416298315857 | Options: {"results":"w <@442450315288117258> l <@233899364240719872> l <@92108477148704768> l <@339297636811276288>"}
+[2026-05-03T18:45:58.532Z] [INFO] Input tokens: [
+  "w",
+  "<@442450315288117258>",
+  "l",
+  "<@233899364240719872>",
+  "l",
+  "<@92108477148704768>",
+  "l",
+  "<@339297636811276288>"
+]
+[2026-05-03T18:45:58.532Z] [INFO] Parsed players: [
+  {
+    "userId": "442450315288117258",
+    "status": "l"
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l"
+  },
+  {
+    "userId": "92108477148704768",
+    "status": "l"
+  }
+]
+[2026-05-03T18:45:58.693Z] [CMD-DONE] /rank | User: 442450315288117258 | 473ms | success
+[2026-05-03T18:47:29.366Z] [CMD] /rank | User: karador (442450315288117258) | Guild: 1225118416298315857 | Options: {"results":"w <@442450315288117258> l <@339297636811276288> l <@92108477148704768> l <@233899364240719872>"}
+[2026-05-03T18:47:30.033Z] [INFO] Input tokens: [
+  "w",
+  "<@442450315288117258>",
+  "l",
+  "<@339297636811276288>",
+  "l",
+  "<@92108477148704768>",
+  "l",
+  "<@233899364240719872>"
+]
+[2026-05-03T18:47:30.033Z] [INFO] Parsed players: [
+  {
+    "userId": "442450315288117258",
+    "status": "l"
+  },
+  {
+    "userId": "339297636811276288",
+    "status": "l"
+  },
+  {
+    "userId": "92108477148704768",
+    "status": "l"
+  }
+]
+[2026-05-03T18:47:30.519Z] [CMD-DONE] /rank | User: 442450315288117258 | 1152ms | success
+[2026-05-03T18:47:51.523Z] [CMD] /rank | User: konas (233899364240719872) | Guild: 1225118416298315857 | Options: {"results":"<@442450315288117258> w <@339297636811276288> l <@92108477148704768> l <@233899364240719872> l"}
+[2026-05-03T18:47:51.800Z] [INFO] Input tokens: [
+  "<@442450315288117258>",
+  "w",
+  "<@339297636811276288>",
+  "l",
+  "<@92108477148704768>",
+  "l",
+  "<@233899364240719872>",
+  "l"
+]
+[2026-05-03T18:47:51.801Z] [INFO] Parsed players: [
+  {
+    "userId": "442450315288117258",
+    "status": "w"
+  },
+  {
+    "userId": "339297636811276288",
+    "status": "l"
+  },
+  {
+    "userId": "92108477148704768",
+    "status": "l"
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l"
+  }
+]
+[2026-05-03T18:47:55.067Z] [CMD-DONE] /rank | User: 233899364240719872 | 3544ms | success
+[2026-05-03T18:50:41.346Z] [CMD] /view | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857 | Options: {"commander":"ashling-flame-dancer"}
+[2026-05-03T18:50:41.758Z] [CMD-DONE] /view | User: 226715073031176193 | 411ms | success
+[2026-05-03T18:53:24.992Z] [CMD] /backup | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857
+[2026-05-03T18:53:28.384Z] [CMD-DONE] /backup | User: 226715073031176193 | 3392ms | success
+[2026-05-03T18:56:14.402Z] [CMD] /rank | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> w <@249587557384454144> l <@233899364240719872> l <@465499286587703316> l"}
+[2026-05-03T18:56:14.663Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "w",
+  "<@249587557384454144>",
+  "l",
+  "<@233899364240719872>",
+  "l",
+  "<@465499286587703316>",
+  "l"
+]
+[2026-05-03T18:56:14.664Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "w"
+  },
+  {
+    "userId": "249587557384454144",
+    "status": "l"
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l"
+  },
+  {
+    "userId": "465499286587703316",
+    "status": "l"
+  }
+]
+[2026-05-03T18:56:15.008Z] [CMD-DONE] /rank | User: 235137514355163147 | 606ms | success
+[2026-05-03T18:56:57.422Z] [INFO] [AUDIT] Logged game rating change for player @karador
+[2026-05-03T18:56:57.435Z] [INFO] [AUDIT] Logged game rating change for player @chavezgozu
+[2026-05-03T18:56:57.447Z] [INFO] [AUDIT] Logged game rating change for player @scyche
+[2026-05-03T18:56:57.460Z] [INFO] [AUDIT] Logged game rating change for player @konas
+[2026-05-03T18:56:57.468Z] [INFO] [SNAPSHOT] Saved player game 4E0601 to stack (9 total)
+[2026-05-03T18:57:26.955Z] [CMD] /rank | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> w <@249587557384454144> l <@233899364240719872> l <@465499286587703316> l"}
+[2026-05-03T18:57:27.203Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "w",
+  "<@249587557384454144>",
+  "l",
+  "<@233899364240719872>",
+  "l",
+  "<@465499286587703316>",
+  "l"
+]
+[2026-05-03T18:57:27.203Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "w"
+  },
+  {
+    "userId": "249587557384454144",
+    "status": "l"
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l"
+  },
+  {
+    "userId": "465499286587703316",
+    "status": "l"
+  }
+]
+[2026-05-03T18:57:30.888Z] [CMD-DONE] /rank | User: 235137514355163147 | 3932ms | success
+[2026-05-03T18:57:36.176Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T18:57:36.188Z] [INFO] [AUDIT] Logged game rating change for player @gravy229
+[2026-05-03T18:57:36.201Z] [INFO] [AUDIT] Logged game rating change for player @konas
+[2026-05-03T18:57:36.213Z] [INFO] [AUDIT] Logged game rating change for player @legallyabyssal
+[2026-05-03T18:57:36.221Z] [INFO] [SNAPSHOT] Saved player game 2B1A7B to stack (10 total)
+[2026-05-03T19:12:14.219Z] [CMD] /list | User: karador (442450315288117258) | Guild: 1225118416298315857
+[2026-05-03T19:12:14.824Z] [CMD-DONE] /list | User: 442450315288117258 | 605ms | success
+[2026-05-03T19:22:01.338Z] [CMD] /rank | User: theytookawaymyzalgo (108158138330447872) | Guild: 1225118416298315857 | Options: {"results":"<@108158138330447872> w 4 <@725857842627870880> l 1 <@478952611735666707> l 2 <@334851654891601931> l 3"}
+[2026-05-03T19:22:01.646Z] [INFO] Input tokens: [
+  "<@108158138330447872>",
+  "w",
+  "4",
+  "<@725857842627870880>",
+  "l",
+  "1",
+  "<@478952611735666707>",
+  "l",
+  "2",
+  "<@334851654891601931>",
+  "l",
+  "3"
+]
+[2026-05-03T19:22:01.647Z] [INFO] Parsed players: [
+  {
+    "userId": "108158138330447872",
+    "status": "w",
+    "turnOrder": 4
+  },
+  {
+    "userId": "725857842627870880",
+    "status": "l",
+    "turnOrder": 1
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l",
+    "turnOrder": 2
+  },
+  {
+    "userId": "334851654891601931",
+    "status": "l",
+    "turnOrder": 3
+  }
+]
+[2026-05-03T19:22:02.902Z] [CMD-DONE] /rank | User: 108158138330447872 | 1564ms | success
+[2026-05-03T19:22:20.768Z] [INFO] [AUDIT] Logged game rating change for player @theytookawaymyzalgo
+[2026-05-03T19:22:20.782Z] [INFO] [AUDIT] Logged game rating change for player @nick1moment
+[2026-05-03T19:22:20.793Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T19:22:20.803Z] [INFO] [AUDIT] Logged game rating change for player @zephyr6715
+[2026-05-03T19:22:20.809Z] [INFO] [SNAPSHOT] Saved player game 675A6F to stack (11 total)
+[2026-05-03T19:32:50.059Z] [CMD] /list | User: .britenite (694633164764610622) | Guild: 1225118416298315857
+[2026-05-03T19:32:50.772Z] [CMD-DONE] /list | User: 694633164764610622 | 713ms | success
+[2026-05-03T19:49:39.030Z] [CMD] /rank | User: gravy229 (249587557384454144) | Guild: 1225118416298315857 | Options: {"results":"<@249587557384454144> 3 w <@235137514355163147> 1 l <@465499286587703316> 4 l <@233899364240719872> 2 l"}
+[2026-05-03T19:49:39.311Z] [INFO] Input tokens: [
+  "<@249587557384454144>",
+  "3",
+  "w",
+  "<@235137514355163147>",
+  "1",
+  "l",
+  "<@465499286587703316>",
+  "4",
+  "l",
+  "<@233899364240719872>",
+  "2",
+  "l"
+]
+[2026-05-03T19:49:39.311Z] [INFO] Parsed players: [
+  {
+    "userId": "249587557384454144",
+    "status": "w",
+    "turnOrder": 3
+  },
+  {
+    "userId": "235137514355163147",
+    "status": "l",
+    "turnOrder": 1
+  },
+  {
+    "userId": "465499286587703316",
+    "status": "l",
+    "turnOrder": 4
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l",
+    "turnOrder": 2
+  }
+]
+[2026-05-03T19:49:40.460Z] [CMD-DONE] /rank | User: 249587557384454144 | 1429ms | success
+[2026-05-03T19:50:26.499Z] [INFO] [AUDIT] Logged game rating change for player @gravy229
+[2026-05-03T19:50:26.514Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T19:50:26.526Z] [INFO] [AUDIT] Logged game rating change for player @legallyabyssal
+[2026-05-03T19:50:26.536Z] [INFO] [AUDIT] Logged game rating change for player @konas
+[2026-05-03T19:50:26.543Z] [INFO] [SNAPSHOT] Saved player game 4EDE09 to stack (12 total)
+[2026-05-03T20:00:59.433Z] [CMD] /rank | User: eragon123451 (132853151480020993) | Guild: 1225118416298315857 | Options: {"results":"<@92108477148704768> W 1 <@455766202573389825> l 2 <@339297636811276288> l 3 <@132853151480020993> 4 l"}
+[2026-05-03T20:00:59.700Z] [INFO] Input tokens: [
+  "<@92108477148704768>",
+  "W",
+  "1",
+  "<@455766202573389825>",
+  "l",
+  "2",
+  "<@339297636811276288>",
+  "l",
+  "3",
+  "<@132853151480020993>",
+  "4",
+  "l"
+]
+[2026-05-03T20:00:59.700Z] [INFO] Parsed players: [
+  {
+    "userId": "92108477148704768",
+    "status": "w",
+    "turnOrder": 1
+  },
+  {
+    "userId": "455766202573389825",
+    "status": "l",
+    "turnOrder": 2
+  },
+  {
+    "userId": "339297636811276288",
+    "status": "l",
+    "turnOrder": 3
+  },
+  {
+    "userId": "132853151480020993",
+    "status": "l",
+    "turnOrder": 4
+  }
+]
+[2026-05-03T20:01:00.775Z] [CMD-DONE] /rank | User: 132853151480020993 | 1342ms | success
+[2026-05-03T20:01:01.042Z] [CMD] /rank | User: lordglittersparkles (478952611735666707) | Guild: 1225118416298315857 | Options: {"results":"<@1176390566725046359> L <@478952611735666707> W <@548842932065665025> L <@334851654891601931> L"}
+[2026-05-03T20:01:01.351Z] [INFO] Input tokens: [
+  "<@1176390566725046359>",
+  "L",
+  "<@478952611735666707>",
+  "W",
+  "<@548842932065665025>",
+  "L",
+  "<@334851654891601931>",
+  "L"
+]
+[2026-05-03T20:01:01.351Z] [INFO] Parsed players: [
+  {
+    "userId": "1176390566725046359",
+    "status": "l"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "w"
+  },
+  {
+    "userId": "548842932065665025",
+    "status": "l"
+  },
+  {
+    "userId": "334851654891601931",
+    "status": "l"
+  }
+]
+[2026-05-03T20:01:04.847Z] [CMD-DONE] /rank | User: 478952611735666707 | 3805ms | success
+[2026-05-03T20:02:36.786Z] [INFO] [AUDIT] Logged game rating change for player @scyche
+[2026-05-03T20:02:36.800Z] [INFO] [AUDIT] Logged game rating change for player @quickscoped85
+[2026-05-03T20:02:36.814Z] [INFO] [AUDIT] Logged game rating change for player @chavezgozu
+[2026-05-03T20:02:36.826Z] [INFO] [AUDIT] Logged game rating change for player @eragon123451
+[2026-05-03T20:02:36.834Z] [INFO] [SNAPSHOT] Saved player game 5FADFF to stack (13 total)
+[2026-05-03T20:02:41.184Z] [INFO] [AUDIT] Logged game rating change for player @annastolfo
+[2026-05-03T20:02:41.198Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T20:02:41.210Z] [INFO] [AUDIT] Logged game rating change for player @coolguyo
+[2026-05-03T20:02:41.223Z] [INFO] [AUDIT] Logged game rating change for player @zephyr6715
+[2026-05-03T20:02:41.230Z] [INFO] [SNAPSHOT] Saved player game 3F3B3C to stack (14 total)
+[2026-05-03T20:04:41.106Z] [CMD] /rank | User: h0bb1t42 (546008919823351818) | Guild: 1225118416298315857 | Options: {"results":"<@546008919823351818> 3l <@1176390566725046359> 2l <@427888042469228544> 4l <@161566837056864256> 1w"}
+[2026-05-03T20:04:41.591Z] [INFO] Input tokens: [
+  "<@546008919823351818>",
+  "3l",
+  "<@1176390566725046359>",
+  "2l",
+  "<@427888042469228544>",
+  "4l",
+  "<@161566837056864256>",
+  "1w"
+]
+[2026-05-03T20:04:41.592Z] [INFO] Parsed players: [
+  {
+    "userId": "546008919823351818",
+    "status": "l",
+    "turnOrder": 3
+  },
+  {
+    "userId": "1176390566725046359",
+    "status": "l",
+    "turnOrder": 2
+  },
+  {
+    "userId": "427888042469228544",
+    "status": "l",
+    "turnOrder": 4
+  },
+  {
+    "userId": "161566837056864256",
+    "status": "w",
+    "turnOrder": 1
+  }
+]
+[2026-05-03T20:04:42.653Z] [CMD-DONE] /rank | User: 546008919823351818 | 1547ms | success
+[2026-05-03T20:06:27.643Z] [CMD] /rank | User: andentg (427888042469228544) | Guild: 1225118416298315857 | Options: {"results":"<@1176390566725046359> l <@546008919823351818>l <@161566837056864256> w <@427888042469228544> l"}
+[2026-05-03T20:06:27.920Z] [INFO] Input tokens: [
+  "<@1176390566725046359>",
+  "l",
+  "<@546008919823351818>l",
+  "<@161566837056864256>",
+  "w",
+  "<@427888042469228544>",
+  "l"
+]
+[2026-05-03T20:06:27.920Z] [INFO] Parsed players: [
+  {
+    "userId": "1176390566725046359",
+    "status": "l"
+  },
+  {
+    "userId": "161566837056864256",
+    "status": "w"
+  },
+  {
+    "userId": "427888042469228544",
+    "status": "l"
+  }
+]
+[2026-05-03T20:06:28.212Z] [CMD-DONE] /rank | User: 427888042469228544 | 569ms | success
+[2026-05-03T20:06:53.847Z] [CMD] /rank | User: andentg (427888042469228544) | Guild: 1225118416298315857 | Options: {"results":"<@546008919823351818> l <@1176390566725046359> l <@161566837056864256> w <@427888042469228544> l"}
+[2026-05-03T20:06:54.186Z] [INFO] Input tokens: [
+  "<@546008919823351818>",
+  "l",
+  "<@1176390566725046359>",
+  "l",
+  "<@161566837056864256>",
+  "w",
+  "<@427888042469228544>",
+  "l"
+]
+[2026-05-03T20:06:54.186Z] [INFO] Parsed players: [
+  {
+    "userId": "546008919823351818",
+    "status": "l"
+  },
+  {
+    "userId": "1176390566725046359",
+    "status": "l"
+  },
+  {
+    "userId": "161566837056864256",
+    "status": "w"
+  },
+  {
+    "userId": "427888042469228544",
+    "status": "l"
+  }
+]
+[2026-05-03T20:06:54.730Z] [CMD-DONE] /rank | User: 427888042469228544 | 882ms | success
+[2026-05-03T20:08:36.315Z] [INFO] [AUDIT] Logged game rating change for player @h0bb1t42
+[2026-05-03T20:08:36.329Z] [INFO] [AUDIT] Logged game rating change for player @annastolfo
+[2026-05-03T20:08:36.341Z] [INFO] [AUDIT] Logged game rating change for player @andentg
+[2026-05-03T20:08:36.353Z] [INFO] [AUDIT] Logged game rating change for player @felimath
+[2026-05-03T20:08:36.371Z] [INFO] [SNAPSHOT] Saved player game F80F69 to stack (15 total)
+[2026-05-03T20:17:32.571Z] [CMD] /list | User: happynap (139801747022413824) | Guild: 1225118416298315857
+[2026-05-03T20:17:33.200Z] [CMD-DONE] /list | User: 139801747022413824 | 629ms | success
+[2026-05-03T20:33:58.939Z] [CMD] /rank | User: zephyr6715 (334851654891601931) | Guild: 1225118416298315857 | Options: {"results":"<@334851654891601931> w <@1176390566725046359>  l <@548842932065665025> l <@478952611735666707> l"}
+[2026-05-03T20:33:59.230Z] [INFO] Input tokens: [
+  "<@334851654891601931>",
+  "w",
+  "<@1176390566725046359>",
+  "l",
+  "<@548842932065665025>",
+  "l",
+  "<@478952611735666707>",
+  "l"
+]
+[2026-05-03T20:33:59.230Z] [INFO] Parsed players: [
+  {
+    "userId": "334851654891601931",
+    "status": "w"
+  },
+  {
+    "userId": "1176390566725046359",
+    "status": "l"
+  },
+  {
+    "userId": "548842932065665025",
+    "status": "l"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l"
+  }
+]
+[2026-05-03T20:34:02.373Z] [CMD-DONE] /rank | User: 334851654891601931 | 3434ms | success
+[2026-05-03T20:35:11.046Z] [INFO] [AUDIT] Logged game rating change for player @zephyr6715
+[2026-05-03T20:35:11.061Z] [INFO] [AUDIT] Logged game rating change for player @annastolfo
+[2026-05-03T20:35:11.073Z] [INFO] [AUDIT] Logged game rating change for player @coolguyo
+[2026-05-03T20:35:11.086Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T20:35:11.094Z] [INFO] [SNAPSHOT] Saved player game 6CEFB6 to stack (16 total)
+[2026-05-03T20:37:29.235Z] [CMD] /list | User: shoggothromance (426772075319918603) | Guild: 1225118416298315857 | Options: {"count":100,"type":"players"}
+[2026-05-03T20:37:29.709Z] [CMD-DONE] /list | User: 426772075319918603 | 474ms | success
+[2026-05-03T20:42:17.167Z] [CMD] /list | User: .britenite (694633164764610622) | Guild: 1225118416298315857
+[2026-05-03T20:42:17.932Z] [CMD-DONE] /list | User: 694633164764610622 | 765ms | success
+[2026-05-03T20:56:00.136Z] [CMD] /rank | User: h0bb1t42 (546008919823351818) | Guild: 1225118416298315857 | Options: {"results":"<@546008919823351818> 4w <@233899364240719872> 2l <@442450315288117258> 3l <@524084393149726731> 1l"}
+[2026-05-03T20:56:00.462Z] [INFO] Input tokens: [
+  "<@546008919823351818>",
+  "4w",
+  "<@233899364240719872>",
+  "2l",
+  "<@442450315288117258>",
+  "3l",
+  "<@524084393149726731>",
+  "1l"
+]
+[2026-05-03T20:56:00.463Z] [INFO] Parsed players: [
+  {
+    "userId": "546008919823351818",
+    "status": "w",
+    "turnOrder": 4
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "l",
+    "turnOrder": 2
+  },
+  {
+    "userId": "442450315288117258",
+    "status": "l",
+    "turnOrder": 3
+  },
+  {
+    "userId": "524084393149726731",
+    "status": "l",
+    "turnOrder": 1
+  }
+]
+[2026-05-03T20:56:01.669Z] [CMD-DONE] /rank | User: 546008919823351818 | 1533ms | success
+[2026-05-03T20:57:17.668Z] [INFO] [AUDIT] Logged game rating change for player @h0bb1t42
+[2026-05-03T20:57:17.682Z] [INFO] [AUDIT] Logged game rating change for player @konas
+[2026-05-03T20:57:17.694Z] [INFO] [AUDIT] Logged game rating change for player @karador
+[2026-05-03T20:57:17.706Z] [INFO] [AUDIT] Logged game rating change for player @alucardwilliams
+[2026-05-03T20:57:17.715Z] [INFO] [SNAPSHOT] Saved player game CBA468 to stack (17 total)
+[2026-05-03T20:58:34.099Z] [CMD] /rank | User: coolguyo (548842932065665025) | Guild: 1225118416298315857 | Options: {"results":"<@548842932065665025> W <@478952611735666707> L <@395715137178173446> L <@234163892362674178> L"}
+[2026-05-03T20:58:34.426Z] [INFO] Input tokens: [
+  "<@548842932065665025>",
+  "W",
+  "<@478952611735666707>",
+  "L",
+  "<@395715137178173446>",
+  "L",
+  "<@234163892362674178>",
+  "L"
+]
+[2026-05-03T20:58:34.426Z] [INFO] Parsed players: [
+  {
+    "userId": "548842932065665025",
+    "status": "w"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l"
+  },
+  {
+    "userId": "395715137178173446",
+    "status": "l"
+  },
+  {
+    "userId": "234163892362674178",
+    "status": "l"
+  }
+]
+[2026-05-03T20:58:37.424Z] [CMD-DONE] /rank | User: 548842932065665025 | 3325ms | success
+[2026-05-03T20:58:52.027Z] [ERROR] Failed to remove old turn order reaction: Missing Permissions
+DiscordAPIError[50013]: Missing Permissions
+    at handleErrors (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SequentialHandler.runRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1163:23)
+    at async SequentialHandler.queueRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:994:14)
+    at async _REST.request (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ReactionUserManager.remove (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/discord.js/src/managers/ReactionUserManager.js:73:5)
+    at async ReactionCollector.<anonymous> (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/rank.js:1884:29)
+[2026-05-03T20:58:57.320Z] [INFO] [AUDIT] Logged game rating change for player @coolguyo
+[2026-05-03T20:58:57.333Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T20:58:57.345Z] [INFO] [AUDIT] Logged game rating change for player @zarbibilbitruk
+[2026-05-03T20:58:57.358Z] [INFO] [AUDIT] Logged game rating change for player @joed.mama
+[2026-05-03T20:58:57.364Z] [INFO] [SNAPSHOT] Saved player game 5B6155 to stack (18 total)
+[2026-05-03T21:03:25.299Z] [CMD] /backup | User: aetheriumslinky (226715073031176193) | Guild: 1225118416298315857
+[2026-05-03T21:03:26.800Z] [CMD-DONE] /backup | User: 226715073031176193 | 1501ms | success
+[2026-05-03T21:04:06.513Z] [CMD] /rank | User: eragon123451 (132853151480020993) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> 1 d <@132853151480020993> 2 d <@455766202573389825> 3 d <@92108477148704768> 4 d"}
+[2026-05-03T21:04:06.769Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "1",
+  "d",
+  "<@132853151480020993>",
+  "2",
+  "d",
+  "<@455766202573389825>",
+  "3",
+  "d",
+  "<@92108477148704768>",
+  "4",
+  "d"
+]
+[2026-05-03T21:04:06.769Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "d",
+    "turnOrder": 1
+  },
+  {
+    "userId": "132853151480020993",
+    "status": "d",
+    "turnOrder": 2
+  },
+  {
+    "userId": "455766202573389825",
+    "status": "d",
+    "turnOrder": 3
+  },
+  {
+    "userId": "92108477148704768",
+    "status": "d",
+    "turnOrder": 4
+  }
+]
+[2026-05-03T21:04:08.018Z] [CMD-DONE] /rank | User: 132853151480020993 | 1505ms | success
+[2026-05-03T21:14:15.728Z] [CMD] /view | User: shoggothromance (426772075319918603) | Guild: 1225118416298315857 | Options: {"type":"league"}
+[2026-05-03T21:14:16.277Z] [CMD-DONE] /view | User: 426772075319918603 | 549ms | success
+[2026-05-03T21:14:17.007Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T21:14:17.020Z] [INFO] [AUDIT] Logged game rating change for player @eragon123451
+[2026-05-03T21:14:17.032Z] [INFO] [AUDIT] Logged game rating change for player @quickscoped85
+[2026-05-03T21:14:17.045Z] [INFO] [AUDIT] Logged game rating change for player @scyche
+[2026-05-03T21:14:17.053Z] [INFO] [SNAPSHOT] Saved player game 5FBDD8 to stack (19 total)
+[2026-05-03T21:19:18.054Z] [CMD] /list | User: lordglittersparkles (478952611735666707) | Guild: 1225118416298315857
+[2026-05-03T21:19:18.709Z] [CMD-DONE] /list | User: 478952611735666707 | 655ms | success
+[2026-05-03T21:20:41.054Z] [CMD] /rank | User: coolguyo (548842932065665025) | Guild: 1225118416298315857 | Options: {"results":"<@548842932065665025> W <@478952611735666707> L <@395715137178173446> L <@234163892362674178> L"}
+[2026-05-03T21:20:41.394Z] [INFO] Input tokens: [
+  "<@548842932065665025>",
+  "W",
+  "<@478952611735666707>",
+  "L",
+  "<@395715137178173446>",
+  "L",
+  "<@234163892362674178>",
+  "L"
+]
+[2026-05-03T21:20:41.394Z] [INFO] Parsed players: [
+  {
+    "userId": "548842932065665025",
+    "status": "w"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l"
+  },
+  {
+    "userId": "395715137178173446",
+    "status": "l"
+  },
+  {
+    "userId": "234163892362674178",
+    "status": "l"
+  }
+]
+[2026-05-03T21:20:45.390Z] [CMD-DONE] /rank | User: 548842932065665025 | 4336ms | success
+[2026-05-03T21:20:50.038Z] [ERROR] Failed to remove old turn order reaction: Missing Permissions
+DiscordAPIError[50013]: Missing Permissions
+    at handleErrors (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SequentialHandler.runRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1163:23)
+    at async SequentialHandler.queueRequest (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:994:14)
+    at async _REST.request (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ReactionUserManager.remove (/home/gyarados/Programming/Games/Discord/cEDHSkill/node_modules/discord.js/src/managers/ReactionUserManager.js:73:5)
+    at async ReactionCollector.<anonymous> (file:///home/gyarados/Programming/Games/Discord/cEDHSkill/dist/commands/rank.js:1884:29)
+[2026-05-03T21:20:53.388Z] [INFO] [AUDIT] Logged game rating change for player @coolguyo
+[2026-05-03T21:20:53.402Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T21:20:53.414Z] [INFO] [AUDIT] Logged game rating change for player @zarbibilbitruk
+[2026-05-03T21:20:53.426Z] [INFO] [AUDIT] Logged game rating change for player @joed.mama
+[2026-05-03T21:20:53.434Z] [INFO] [SNAPSHOT] Saved player game D5481B to stack (20 total)
+[2026-05-03T21:21:52.401Z] [CMD] /list | User: coolguyo (548842932065665025) | Guild: 1225118416298315857
+[2026-05-03T21:21:53.253Z] [CMD-DONE] /list | User: 548842932065665025 | 852ms | success
+[2026-05-03T21:26:00.455Z] [CMD] /rank | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> w <@132853151480020993> l <@334851654891601931> l <@417730152466743304> l"}
+[2026-05-03T21:26:00.735Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "w",
+  "<@132853151480020993>",
+  "l",
+  "<@334851654891601931>",
+  "l",
+  "<@417730152466743304>",
+  "l"
+]
+[2026-05-03T21:26:00.735Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "w"
+  },
+  {
+    "userId": "132853151480020993",
+    "status": "l"
+  },
+  {
+    "userId": "334851654891601931",
+    "status": "l"
+  },
+  {
+    "userId": "417730152466743304",
+    "status": "l"
+  }
+]
+[2026-05-03T21:26:04.228Z] [CMD-DONE] /rank | User: 235137514355163147 | 3773ms | success
+[2026-05-03T21:27:33.801Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T21:27:33.813Z] [INFO] [AUDIT] Logged game rating change for player @eragon123451
+[2026-05-03T21:27:33.826Z] [INFO] [AUDIT] Logged game rating change for player @zephyr6715
+[2026-05-03T21:27:33.838Z] [INFO] [AUDIT] Logged game rating change for player @tuukka4815
+[2026-05-03T21:27:33.846Z] [INFO] [SNAPSHOT] Saved player game 7B8D3D to stack (21 total)
+[2026-05-03T21:28:59.547Z] [CMD] /view | User: onetrickraven (235137514355163147) | Guild: 1225118416298315857
+[2026-05-03T21:29:00.275Z] [CMD-DONE] /view | User: 235137514355163147 | 727ms | success
+[2026-05-03T21:46:32.206Z] [CMD] /list | User: h0bb1t42 (546008919823351818) | Guild: 1225118416298315857 | Options: {"count":20}
+[2026-05-03T21:46:32.844Z] [CMD-DONE] /list | User: 546008919823351818 | 637ms | success
+[2026-05-03T21:52:25.527Z] [CMD] /rank | User: scyche (92108477148704768) | Guild: 1225118416298315857 | Options: {"results":"<@92108477148704768> w <@595631856796565524> l <@478952611735666707> l <@234163892362674178> l"}
+[2026-05-03T21:52:25.799Z] [INFO] Input tokens: [
+  "<@92108477148704768>",
+  "w",
+  "<@595631856796565524>",
+  "l",
+  "<@478952611735666707>",
+  "l",
+  "<@234163892362674178>",
+  "l"
+]
+[2026-05-03T21:52:25.799Z] [INFO] Parsed players: [
+  {
+    "userId": "92108477148704768",
+    "status": "w"
+  },
+  {
+    "userId": "595631856796565524",
+    "status": "l"
+  },
+  {
+    "userId": "478952611735666707",
+    "status": "l"
+  },
+  {
+    "userId": "234163892362674178",
+    "status": "l"
+  }
+]
+[2026-05-03T21:52:32.029Z] [CMD-DONE] /rank | User: 92108477148704768 | 6501ms | success
+[2026-05-03T22:06:56.580Z] [CMD] /rank | User: eragon123451 (132853151480020993) | Guild: 1225118416298315857 | Options: {"results":"<@235137514355163147> 1 l <@334851654891601931> 2 l <@417730152466743304> 4 l <@132853151480020993> 3 W"}
+[2026-05-03T22:06:56.806Z] [INFO] Input tokens: [
+  "<@235137514355163147>",
+  "1",
+  "l",
+  "<@334851654891601931>",
+  "2",
+  "l",
+  "<@417730152466743304>",
+  "4",
+  "l",
+  "<@132853151480020993>",
+  "3",
+  "W"
+]
+[2026-05-03T22:06:56.806Z] [INFO] Parsed players: [
+  {
+    "userId": "235137514355163147",
+    "status": "l",
+    "turnOrder": 1
+  },
+  {
+    "userId": "334851654891601931",
+    "status": "l",
+    "turnOrder": 2
+  },
+  {
+    "userId": "417730152466743304",
+    "status": "l",
+    "turnOrder": 4
+  },
+  {
+    "userId": "132853151480020993",
+    "status": "w",
+    "turnOrder": 3
+  }
+]
+[2026-05-03T22:06:57.850Z] [CMD-DONE] /rank | User: 132853151480020993 | 1269ms | success
+[2026-05-03T22:07:11.538Z] [INFO] [AUDIT] Logged game rating change for player @onetrickraven
+[2026-05-03T22:07:11.550Z] [INFO] [AUDIT] Logged game rating change for player @zephyr6715
+[2026-05-03T22:07:11.562Z] [INFO] [AUDIT] Logged game rating change for player @tuukka4815
+[2026-05-03T22:07:11.574Z] [INFO] [AUDIT] Logged game rating change for player @eragon123451
+[2026-05-03T22:07:11.579Z] [INFO] [SNAPSHOT] Saved player game B67846 to stack (22 total)
+[2026-05-03T22:09:38.163Z] [INFO] [AUDIT] Logged game rating change for player @scyche
+[2026-05-03T22:09:38.176Z] [INFO] [AUDIT] Logged game rating change for player @graphdyko
+[2026-05-03T22:09:38.185Z] [INFO] [AUDIT] Logged game rating change for player @lordglittersparkles
+[2026-05-03T22:09:38.192Z] [INFO] [AUDIT] Logged game rating change for player @joed.mama
+[2026-05-03T22:09:38.198Z] [INFO] [SNAPSHOT] Saved player game 630E52 to stack (23 total)
+[2026-05-03T22:27:56.475Z] [CMD] /view | User: shoggothromance (426772075319918603) | Guild: 1225118416298315857 | Options: {"type":"league"}
+[2026-05-03T22:27:56.983Z] [CMD-DONE] /view | User: 426772075319918603 | 507ms | success
+[2026-05-03T22:28:29.968Z] [CMD] /rank | User: h0bb1t42 (546008919823351818) | Guild: 1225118416298315857 | Options: {"results":"<@524084393149726731> 1l <@233899364240719872> 2w <@546008919823351818> 3l <@442450315288117258> 4l"}
+[2026-05-03T22:28:30.213Z] [INFO] Input tokens: [
+  "<@524084393149726731>",
+  "1l",
+  "<@233899364240719872>",
+  "2w",
+  "<@546008919823351818>",
+  "3l",
+  "<@442450315288117258>",
+  "4l"
+]
+[2026-05-03T22:28:30.213Z] [INFO] Parsed players: [
+  {
+    "userId": "524084393149726731",
+    "status": "l",
+    "turnOrder": 1
+  },
+  {
+    "userId": "233899364240719872",
+    "status": "w",
+    "turnOrder": 2
+  },
+  {
+    "userId": "546008919823351818",
+    "status": "l",
+    "turnOrder": 3
+  },
+  {
+    "userId": "442450315288117258",
+    "status": "l",
+    "turnOrder": 4
+  }
+]
+[2026-05-03T22:28:31.304Z] [CMD-DONE] /rank | User: 546008919823351818 | 1336ms | success
