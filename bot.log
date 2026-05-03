@@ -1012,3 +1012,10 @@ DiscordAPIError[50013]: Missing Permissions
   }
 ]
 [2026-05-03T22:28:31.304Z] [CMD-DONE] /rank | User: 546008919823351818 | 1336ms | success
+[2026-05-03T22:31:37.805Z] [INFO] [AUDIT] Logged game rating change for player @alucardwilliams
+[2026-05-03T22:31:37.820Z] [INFO] [AUDIT] Logged game rating change for player @konas
+[2026-05-03T22:31:37.831Z] [INFO] [AUDIT] Logged game rating change for player @h0bb1t42
+[2026-05-03T22:31:37.841Z] [INFO] [AUDIT] Logged game rating change for player @karador
+[2026-05-03T22:31:37.847Z] [INFO] [SNAPSHOT] Saved player game 40B455 to stack (24 total)
+[2026-05-03T22:32:01.094Z] [CMD] /list | User: karador (442450315288117258) | Guild: 1225118416298315857
+[2026-05-03T22:32:01.661Z] [CMD-DONE] /list | User: 442450315288117258 | 566ms | success
