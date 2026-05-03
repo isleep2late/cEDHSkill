@@ -2660,14 +2660,15 @@ for (const player of players) {
     // Do NOT auto-apply for existing games (replays, recalculations, etc.)
     if (!existingMatch) {
       const playerData = await db.get('SELECT defaultDeck FROM players WHERE userId = ?', player.userId);
-      
+
       if (playerData?.defaultDeck) {
-        // Get the display name for the default deck
         const deckData = await getOrCreateDeck(playerData.defaultDeck, playerData.defaultDeck);
         player.commander = deckData.displayName;
         player.normalizedCommanderName = playerData.defaultDeck;
-        
+
         logger.info(`[AUTO-ASSIGN] Applied default deck ${player.commander} to ${player.userId} for new game ${gameId}`);
+      } else {
+        logger.info(`[AUTO-ASSIGN] No default deck found for ${player.userId} (playerData: ${JSON.stringify(playerData)})`);
       }
     } else if (existingMatch.assignedDeck) {
       // This is an existing game - use whatever deck was ALREADY assigned

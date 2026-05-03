@@ -1730,6 +1730,9 @@ async function handleDeckAssignment(
   const db = getDatabase();
   const displayName = targetUser?.displayName || targetUserId;
 
+  // Ensure player record exists before updating defaultDeck
+  await getOrCreatePlayer(targetUserId);
+
   // VALIDATION: Check EDHREC for non-removal deck assignments
   if (deckName !== 'nocommander') {
     try {
