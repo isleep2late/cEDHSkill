@@ -1937,6 +1937,21 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
     embeds: [nonAdminEmbed]
   });
 
+  // Discord does not fire notifications for editReply edits, so the mentions
+  // above only highlight names without pinging. Send a followUp containing the
+  // mentions to trigger the notification, then delete it (ghost ping) so the
+  // channel stays clean and the main reply remains the source of truth for
+  // reactions and the collector below.
+  try {
+    const ghostPing = await interaction.followUp({
+      content: pinged,
+      allowedMentions: { users: players.map(p => p.userId) }
+    });
+    await ghostPing.delete().catch(() => {});
+  } catch (error) {
+    logger.error('Failed to send ghost ping followUp:', error);
+  }
+
   const matchId = crypto.randomUUID();
     // Non-admin: wait for confirmations with enhanced reaction system
     const pending = new Set(players.map(p => p.userId));
