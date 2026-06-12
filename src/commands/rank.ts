@@ -341,7 +341,10 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
     const db = getDatabase();
 
     if (!afterGameId) {
-      const result = await db.get('SELECT MAX(gameSequence) as maxSeq FROM games_master WHERE status = "confirmed" AND active = 1');
+      // Include 'pending' games so two games awaiting confirmation at the same time
+      // each reserve a distinct sequence number (a pending game that is later swept
+      // simply leaves a harmless gap).
+      const result = await db.get('SELECT MAX(gameSequence) as maxSeq FROM games_master WHERE status IN ("confirmed", "pending") AND active = 1');
       return { sequence: (result?.maxSeq || 0) + 1.0, injectedTimestamp: null };
     }
 
@@ -409,15 +412,19 @@ async function storeGameInMaster(gameId: string, gameSequence: number, submitted
   const { getDatabase } = await import('../db/init.js');
   const db = getDatabase();
 
+  // NOTE: games are inserted as 'pending'. They are only flipped to 'confirmed' in
+  // updateMatchesWithSequence() AFTER their match rows have actually been written.
+  // This prevents "ghost" games (a confirmed registry row with no results) when the
+  // bot restarts or crashes while a game is still awaiting player confirmation.
   if (createdAt) {
     await db.run(`
       INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active, createdAt)
-      VALUES (?, ?, ?, ?, ?, 'confirmed', 1, ?)
+      VALUES (?, ?, ?, ?, ?, 'pending', 1, ?)
     `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0, createdAt.toISOString()]);
   } else {
     await db.run(`
       INSERT INTO games_master (gameId, gameSequence, gameType, submittedBy, submittedByAdmin, status, active)
-      VALUES (?, ?, ?, ?, ?, 'confirmed', 1)
+      VALUES (?, ?, ?, ?, ?, 'pending', 1)
     `, [gameId, gameSequence, gameType, submittedBy, submittedByAdmin ? 1 : 0]);
   }
 }
@@ -449,6 +456,10 @@ async function updateMatchesWithSequence(gameId: string, gameSequence: number, g
     await db.run('UPDATE deck_matches SET gameSequence = ? WHERE gameId = ?', [gameSequence, gameId]);
   }
   await db.run('UPDATE game_ids SET gameSequence = ?, status = "confirmed" WHERE gameId = ?', [gameSequence, gameId]);
+
+  // Now that the match rows exist, promote the game from 'pending' to 'confirmed'.
+  // Until this point the game is invisible to every ratings/leaderboard query.
+  await db.run('UPDATE games_master SET status = "confirmed" WHERE gameId = ?', [gameId]);
 }
 
 // Function to recalculate ALL player ratings from scratch in chronological order
@@ -1639,7 +1650,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   const adminEmbed = new EmbedBuilder()
     .setTitle(`⚔️ Game Results Auto Confirmed`)
     .setDescription(
-      `✅ **Results submitted by admin. Ratings have been updated immediately.**\n\n` +
+      `✅ **Results submitted by admin. Ratings updated immediately — see the "Results are now final!" message below for each player's before → after change.**\n\n` +
       `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
       'An optional turn order tracking message will appear below for 30 minutes if players want to contribute turn order data.'
     )
@@ -1655,6 +1666,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
             `Result: ${p.status?.toUpperCase() ?? '❓'}\n` +
             (p.commander ? `Commander: ${p.commander}\n` : '') +
             (p.turnOrder ? `Turn Order: ${p.turnOrder}\n` : '') +
+            `Rating BEFORE this game (updated values below ⬇️)\n` +
             `Elo: ${calculateElo(r.mu, r.sigma)}\n` +
             `Mu: ${r.mu.toFixed(2)}\n` +
             `Sigma: ${r.sigma.toFixed(2)}\n` +
@@ -1663,7 +1675,8 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
         };
       })
     )
-    .setColor(0x00AE86);
+    .setColor(0x00AE86)
+    .setFooter({ text: 'Figures above are each player’s rating BEFORE this game. Updated before → after values appear in the "Results are now final!" message.' });
 
   const replyMsg = await interaction.editReply({
     content: `📢 Game results submitted.`,

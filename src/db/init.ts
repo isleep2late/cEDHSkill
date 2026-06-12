@@ -24,6 +24,27 @@ export function getDatabase() {
   return db;
 }
 
+/**
+ * Cleanly close the database on shutdown.
+ *
+ * The bot runs SQLite in WAL mode, so writes accumulate in cEDHSkill.db-wal and
+ * are only merged into the main .db at checkpoints. If the process dies without
+ * closing the connection (the original outage), the WAL is left un-checkpointed
+ * and anything reading the .db alone sees stale ratings. Checkpointing with
+ * TRUNCATE here folds all pending writes back into the main file and empties the
+ * WAL, so a clean stop always leaves a self-contained, up-to-date database.
+ */
+export async function closeDatabase(): Promise<void> {
+  if (!db) return;
+  try {
+    await db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    await db.close();
+    logger.info('[DB] Database checkpointed and closed cleanly.');
+  } catch (error) {
+    logger.error('[DB] Error during clean database shutdown:', error);
+  }
+}
+
 export async function initDatabase() {
   logger.info('[DB] Initializing database...');
 
@@ -511,6 +532,113 @@ export async function initDatabase() {
     logger.info('[DB] Populated preDecaySigma from last match records for existing players');
   } catch (error) {
     // Column already exists, ignore
+  }
+
+  // Migration: allow 'pending' status on games_master.
+  // A game now stays 'pending' from submission until its match rows are written, at
+  // which point it is promoted to 'confirmed'. SQLite can't ALTER a CHECK constraint,
+  // so we recreate the table (mirrors the rating_changes migration above).
+  try {
+    const gmSchema = await db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name='games_master'`);
+    if (gmSchema?.sql && !gmSchema.sql.includes("'pending'")) {
+      logger.info('[DB] Migrating games_master to support pending status...');
+
+      await db.exec(`BEGIN TRANSACTION`);
+
+      await db.exec(`
+        CREATE TABLE games_master_new (
+          gameId TEXT PRIMARY KEY,
+          gameSequence REAL NOT NULL,
+          gameType TEXT NOT NULL CHECK (gameType IN ('player', 'deck')),
+          createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+          submittedBy TEXT,
+          submittedByAdmin INTEGER DEFAULT 0,
+          status TEXT DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'undone', 'pending')),
+          active INTEGER DEFAULT 1
+        )
+      `);
+
+      // Explicit column list so ordering is unambiguous
+      await db.exec(`
+        INSERT INTO games_master_new
+          (gameId, gameSequence, gameType, createdAt, submittedBy, submittedByAdmin, status, active)
+        SELECT gameId, gameSequence, gameType, createdAt, submittedBy, submittedByAdmin, status, active
+        FROM games_master
+      `);
+
+      await db.exec(`DROP TABLE games_master`);
+      await db.exec(`ALTER TABLE games_master_new RENAME TO games_master`);
+
+      // Recreate indexes (they were dropped with the old table)
+      await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_sequence ON games_master(gameSequence)`);
+      await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_type ON games_master(gameType)`);
+      await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_status ON games_master(status)`);
+      await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_submitted_by_admin ON games_master(submittedByAdmin)`);
+      await db.exec(`CREATE INDEX IF NOT EXISTS idx_games_master_active ON games_master(active)`);
+
+      await db.exec(`COMMIT`);
+      logger.info('[DB] Successfully migrated games_master table (pending status enabled)');
+    }
+  } catch (error) {
+    logger.error('[DB] games_master pending-status migration failed:', error);
+    try { await db.exec(`ROLLBACK`); } catch { /* no transaction to roll back */ }
+  }
+
+  // Startup reconciliation: archive + remove "ghost" games — registry rows that have
+  // no results attached. Two cases are cleaned up:
+  //   (a) 'pending' games orphaned by a restart/crash before confirmation completed.
+  //   (b) legacy 'confirmed' games (created before the pending fix) that never had
+  //       match rows written.
+  // Real games always have rows in matches/deck_matches, so this cannot touch them.
+  // Everything removed is copied to ghost_games_archive first, so it is recoverable.
+  try {
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS ghost_games_archive (
+        gameId TEXT,
+        gameSequence REAL,
+        gameType TEXT,
+        status TEXT,
+        active INTEGER,
+        createdAt TEXT,
+        submittedBy TEXT,
+        submittedByAdmin INTEGER,
+        reason TEXT,
+        archivedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const ghosts = await db.all(`
+      SELECT gameId, gameSequence, gameType, createdAt, submittedBy, submittedByAdmin, status, active
+      FROM games_master gm
+      WHERE
+        gm.status = 'pending'
+        OR (
+          gm.status = 'confirmed' AND gm.active = 1
+          AND (
+            (gm.gameType = 'player' AND NOT EXISTS (SELECT 1 FROM matches m WHERE m.gameId = gm.gameId))
+            OR (gm.gameType = 'deck' AND NOT EXISTS (SELECT 1 FROM deck_matches d WHERE d.gameId = gm.gameId))
+          )
+        )
+    `);
+
+    if (ghosts.length > 0) {
+      for (const g of ghosts) {
+        await db.run(
+          `INSERT INTO ghost_games_archive
+             (gameId, gameSequence, gameType, status, active, createdAt, submittedBy, submittedByAdmin, reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [g.gameId, g.gameSequence, g.gameType, g.status, g.active, g.createdAt, g.submittedBy, g.submittedByAdmin,
+           g.status === 'pending' ? 'orphaned-pending' : 'confirmed-without-matches']
+        );
+        await db.run(`DELETE FROM games_master WHERE gameId = ?`, g.gameId);
+        await db.run(`DELETE FROM game_ids WHERE gameId = ?`, g.gameId);
+        await db.run(`DELETE FROM matches WHERE gameId = ?`, g.gameId);
+        await db.run(`DELETE FROM deck_matches WHERE gameId = ?`, g.gameId);
+      }
+      logger.info(`[DB] Reconciliation: archived and removed ${ghosts.length} ghost game(s) with no results (see ghost_games_archive).`);
+    }
+  } catch (error) {
+    logger.error('[DB] Ghost-game reconciliation failed:', error);
   }
 
   logger.info('[DB] All tables and indexes initialized successfully');
