@@ -33,8 +33,21 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.DirectMessages,
+    // REQUIRED for game confirmations. Game results are confirmed via
+    // replyMsg.createReactionCollector(...) in commands/rank.ts; reaction
+    // collectors only receive events when this intent is enabled. It was
+    // removed in 6307cf3 to cut event-flooding, which silently broke all
+    // player 👍 confirmations (admin auto-submit still worked because that's
+    // an interaction, not a reaction). Do NOT remove this again.
+    //
+    // GuildMessages/MessageContent stay OUT on purpose: they were the real
+    // flood source in the 15k-member server and the bot doesn't use them
+    // (messageCreate only handles DMs, which don't require those intents).
+    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.Channel],
+  // Message/Reaction partials let the collector still receive reactions if the
+  // confirmation message is evicted from cache during its 1-hour window.
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 }) as ExtendedClient;
 
 client.commands = new Collection();
