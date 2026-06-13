@@ -1,6 +1,15 @@
-# cEDHSkill v0.03 Beta
+# cEDHSkill v0.04 Beta
 
 A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](https://github.com/philihp/openskill.js) (Weng-Lin Bayesian Rating).
+
+## What's New in v0.04 Beta
+
+This is a **stability and bug-fix** release following a server outage. **No rating math changed** — the Elo, participation-bonus, and decay systems all behave exactly as they did in v0.03.
+
+- **Fixed: game confirmations work again.** Reacting 👍 to confirm a submitted game had been silently failing — a required Discord gateway intent (`GuildMessageReactions`) was dropped in a previous build, so the bot never saw players' reactions (admin auto-submits still worked, which masked the problem). The intent is restored, so player confirmations register correctly again.
+- **Fixed: "ghost games."** Previously, if the bot restarted or crashed while a game was still awaiting confirmation, that game could be left marked as *confirmed* in the registry but never actually counted toward anyone's ratings. Games are now inserted as **pending** and only promoted to **confirmed** once their results have actually been written. A one-time startup cleanup archives any old ghost entries to a `ghost_games_archive` table. (Removing them changed **zero** ratings — ghost games never had results to begin with.)
+- **Fixed: crash-safe database shutdown.** The bot now checkpoints its SQLite write-ahead log on `SIGINT`/`SIGTERM`, so a stop, crash, or reboot can no longer strand recently-recorded games in an un-checkpointed state (the root cause of an earlier ratings rollback).
+- **Fixed: clearer admin auto-confirm message.** When an admin submits a game on players' behalf, the "Auto Confirmed" embed now clearly labels the listed numbers as each player's rating **before** the game and points to the "Results are now final!" message for the updated before→after values.
 
 ## Features
 
@@ -15,6 +24,8 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 - **EDHREC Validation** - Commander names are validated against EDHREC data
 
 ## Setup
+
+> **Requirements:** Node.js **v22.12.0 or newer** (Node 18.x is not supported). The bot needs to run on a machine that stays online continuously so league data persists.
 
 1. Clone the repository
 2. `npm install`
@@ -201,6 +212,8 @@ Show help for cEDHSkill commands. Admin-specific sections are only visible to ad
 ### Admin/Mod Commands
 
 These commands require the user's Discord ID to be listed in `ADMINS` or `MODERATORS` in the `.env` file.
+
+> **Suspicious-activity alert toggles (DM the bot):** Admins and moderators can DM the bot `!optout` to stop receiving automated suspicious-activity alerts, or `!optin` to resume them.
 
 #### `/undo`
 Revert the most recent operation (game, `/set` change, or decay cycle).
@@ -407,6 +420,17 @@ A full recalculation resets all ratings and replays every game from scratch in c
 - **Bot startup** — Automatically on the first startup, and whenever `DECAY_START_DAYS` has changed since the last run
 
 Normal `/rank` games (no `aftergame`) and `/set deck:<name>` without a `gameid` (setting a default) do **not** trigger a full recalculation.
+
+---
+
+## Troubleshooting
+
+- **Commands don't appear or didn't update:** run `npm run register-commands` again (commands are registered per-guild and update instantly).
+- **Players' 👍 confirmations aren't registering:** the bot needs the `GuildMessageReactions` gateway intent (enabled by default in v0.04). Also make sure **only one instance** of the bot is running on a given Discord token — two instances on the same token fight over events.
+- **`Unknown interaction` errors in the log:** the bot must acknowledge Discord within ~3 seconds, so this is almost always a **network/connectivity** problem (high latency or packet loss on the host), not a code bug. Check the host's internet connection, and confirm no second instance is running on the same token.
+- **"Missing Permissions" when removing reactions:** grant the bot **Manage Messages** so it can auto-clean turn-order reactions. This is optional — without it, players just remove their own old reactions manually.
+- **Commander name rejected:** names are validated against EDHREC — check spelling/formatting.
+- **Database location:** `data/cEDHSkill.db`. Use `/backup` to download a copy via DM. The bot uses SQLite in WAL mode and checkpoints on a clean shutdown.
 
 ---
 

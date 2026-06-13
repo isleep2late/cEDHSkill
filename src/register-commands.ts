@@ -20,7 +20,7 @@ if (!fs.existsSync(commandsPath)) {
 
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-console.log(`\n📦 cEDHSkill v0.03 - Command Registration`);
+console.log(`\n📦 cEDHSkill v0.04 - Command Registration`);
 console.log(`Found ${commandFiles.length} command files:\n`);
 
 const expectedCommands = [
@@ -91,7 +91,7 @@ const rest = new REST({ version: '10' }).setToken(config.token);
       { body: commands }
     );
 
-    console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.03!`);
+    console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.04!`);
     console.log('✅ Commands registered for your cEDH server only');
     console.log('💡 Commands update instantly for guild-specific registration\n');
     
@@ -133,11 +133,11 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     }
     
     console.log('');
-    console.log('📖 Changes in v0.03:');
-    console.log('   • Linear rating decay: -1 Elo/day after 6 days inactive (stops at 1050)');
-    console.log('   • Participation bonus: +1 Elo for every ranked game played');
-    console.log('   • New /timewalk command: fast-forward decay cycle for testing');
-    console.log('   • New /help command: show help for commands');
+    console.log('📖 Changes in v0.04 (stability & bug fixes — no rating math changed):');
+    console.log('   • Fixed: player 👍 game confirmations work again (restored GuildMessageReactions intent)');
+    console.log('   • Fixed: "ghost games" — games are now confirmed only after results are written');
+    console.log('   • Fixed: crash-safe shutdown — database WAL is checkpointed on SIGINT/SIGTERM');
+    console.log('   • Fixed: clearer admin auto-confirm embed (labels pre-game ratings)');
     console.log('');
     
   } catch (error) {

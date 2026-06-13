@@ -1,7 +1,9 @@
-# Environment variables
-.env
-.env.local
-.env.*.local
+# Environment variables — keep real configs LOCAL-ONLY, never on GitHub.
+# Ignores .env and backup copies (.env-GONE / .env-REALONE / .env-TESTSERVER), which
+# hold real Discord bot tokens. The placeholder template .env.example IS tracked, so
+# anyone can copy it to .env and set up their own server.
+.env*
+!.env.example
 
 # Dependencies
 node_modules/
@@ -36,3 +38,7 @@ Thumbs.db
 # Backup files
 *.backup
 backups/
+
+# Desktop helper buttons (live in ~/Desktop/cEDHSkill_buttons/; ignored if ever copied into the repo)
+Push_To_GitHub.sh
+Pull_From_GitHub.sh
