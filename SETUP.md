@@ -56,9 +56,12 @@ sudo pacman -S nodejs npm
 3. Go to the "Bot" section in the left sidebar
 4. Click "Add Bot"
 5. Under the bot's username, click "Reset Token" and copy the token (you'll need this later)
-6. Enable these Privileged Gateway Intents:
-   - Server Members Intent
-   - Message Content Intent
+6. Leave **all Privileged Gateway Intents OFF** (Presence, Server Members, Message Content).
+   The bot does not request or need any of them — it only uses the non-privileged
+   `Guilds`, `DirectMessages`, and `GuildMessageReactions` intents (see `src/bot.ts`).
+   Reading DM content (for `!optin`/`!optout`) does **not** require the Message Content
+   intent. Enabling privileged intents you don't use triggers Discord's privileged-intent
+   review once the app grows, so keep them disabled.
 7. Go to the "OAuth2" section, then "URL Generator"
 8. Select these scopes:
    - `bot`
