@@ -16,7 +16,6 @@ import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, repl
 import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers, addTimewalkDays, getActiveTimewalkEvents } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 import { logger } from '../utils/logger.js';
-import { getPlayerGamesOnDateBefore, getDeckGamesOnDateBefore } from '../db/match-utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('set')
@@ -1205,12 +1204,7 @@ async function reexecutePlayerGameWithOriginalOutcome(gameId: string, originalMa
     };
 
     const oldRating = playerRatings[match.userId];
-    let adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
-
-    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
-    const matchDate = new Date(match.matchDate);
-    const gamesAlreadyToday = await getPlayerGamesOnDateBefore(match.userId, matchDate, gameId);
-    adjustedRating = applyParticipationBonus(adjustedRating, gamesAlreadyToday);
+    const adjustedRating = ensureMinimumRatingChange(oldRating, finalRating, match.status);
 
     // Update stats based on ORIGINAL outcome
     const stats = playerStats[match.userId];
@@ -1313,12 +1307,6 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
       aggregatedRating = { mu: avgMu, sigma: minSigma };
     }
 
-    // Apply participation bonus (+1 Elo for playing ranked, max 5/day)
-    const firstMatch = originalMatches.find(m => m.deckNormalizedName === deckName);
-    const deckMatchDate = new Date(firstMatch?.matchDate || new Date());
-    const deckGamesToday = await getDeckGamesOnDateBefore(deckName, deckMatchDate, gameId);
-    const bonusRating = applyParticipationBonus(aggregatedRating, deckGamesToday);
-
     // Update stats based on ORIGINAL outcomes
     for (const status of changes.statusUpdates) {
       if (status === 'w') stats.wins++;
@@ -1331,13 +1319,13 @@ async function reexecuteDeckGameWithOriginalOutcome(gameId: string, originalMatc
       UPDATE deck_matches
       SET mu = ?, sigma = ?
       WHERE gameId = ? AND deckNormalizedName = ?
-    `, [bonusRating.mu, bonusRating.sigma, gameId, deckName]);
+    `, [aggregatedRating.mu, aggregatedRating.sigma, gameId, deckName]);
 
     await updateDeckRating(
       deckName,
       stats.displayName,
-      bonusRating.mu,
-      bonusRating.sigma,
+      aggregatedRating.mu,
+      aggregatedRating.sigma,
       stats.wins,
       stats.losses,
       stats.draws
@@ -1429,7 +1417,6 @@ async function getDeckStateBeforeSequence(deckName: string, beforeSequence: numb
 }
 
 // replayPlayerGame and replayDeckGame are now imported from rank.ts
-// to ensure participation bonus is applied consistently
 
 function ensureMinimumRatingChange(oldRating: any, newRating: any, status: string): any {
   const oldElo = calculateElo(oldRating.mu, oldRating.sigma);
@@ -1447,25 +1434,6 @@ function ensureMinimumRatingChange(oldRating: any, newRating: any, status: strin
   }
   
   return newRating;
-}
-
-const PARTICIPATION_BONUS_ELO = 1;
-const MAX_DAILY_PARTICIPATION_BONUS = 5;
-
-/**
- * Apply participation bonus (+1 Elo) to a rating during re-execution.
- * Adjusts mu to achieve +1 Elo while keeping sigma unchanged.
- * Limited to MAX_DAILY_PARTICIPATION_BONUS games per day per entity.
- * @param gamesAlreadyToday - number of games already played today before this game
- */
-function applyParticipationBonus(rating: { mu: number; sigma: number }, gamesAlreadyToday: number = 0): { mu: number; sigma: number } {
-  if (gamesAlreadyToday >= MAX_DAILY_PARTICIPATION_BONUS) {
-    return rating;
-  }
-  const currentElo = calculateElo(rating.mu, rating.sigma);
-  const bonusElo = currentElo + PARTICIPATION_BONUS_ELO;
-  const newMu = muFromElo(bonusElo, rating.sigma);
-  return { mu: newMu, sigma: rating.sigma };
 }
 
 async function handleCommanderRatingModification(

@@ -4,7 +4,7 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 
 ## What's New in v0.04 Beta
 
-This is a **stability and bug-fix** release following a server outage. **No rating math changed** — the Elo, participation-bonus, and decay systems all behave exactly as they did in v0.03.
+This is a **stability and bug-fix** release following a server outage. The one rating-math change is the **removal of the participation bonus** — playing a ranked game no longer adds any flat Elo. The core Elo and decay systems otherwise behave exactly as they did in v0.03.
 
 - **Fixed: game confirmations work again.** Reacting 👍 to confirm a submitted game had been silently failing — a required Discord gateway intent (`GuildMessageReactions`) was dropped in a previous build, so the bot never saw players' reactions (admin auto-submits still worked, which masked the problem). The intent is restored, so player confirmations register correctly again.
 - **Fixed: "ghost games."** Previously, if the bot restarted or crashed while a game was still awaiting confirmation, that game could be left marked as *confirmed* in the registry but never actually counted toward anyone's ratings. Games are now inserted as **pending** and only promoted to **confirmed** once their results have actually been written. A one-time startup cleanup archives any old ghost entries to a `ghost_games_archive` table. (Removing them changed **zero** ratings — ghost games never had results to begin with.)
@@ -15,7 +15,6 @@ This is a **stability and bug-fix** release following a server outage. **No rati
 
 - **Dual Rating Systems** - Separate rankings for players and commanders/decks
 - **OpenSkill-Based Elo** - `Elo = 1000 + 25 * (mu - 3 * sigma)`
-- **Participation Bonus** - +1 Elo per ranked game played (max 5 per day per player/deck)
 - **Rating Decay** - Sigma-based inactivity decay (increases uncertainty, preserves skill)
 - **Turn Order Tracking** - Track performance by seat position
 - **Game Injection** - Insert historical games at any point in the timeline
@@ -334,10 +333,6 @@ Elo = 1000 + 25 * (mu - 3 * sigma)
 - New players start at approximately **1000 Elo**
 - As you play more games, sigma decreases (more confidence), which raises your displayed Elo
 - Winning increases mu; losing decreases it
-
-### Participation Bonus
-
-Every ranked game awards a **+1 Elo participation bonus**, applied as a mu increase (sigma stays unchanged). This bonus is capped at **5 per day** per player and per deck — the first 5 games on a given calendar day (UTC) earn the bonus, and any games beyond that do not. The display text will show `+ 0 (daily bonus limit reached)` when the cap is hit.
 
 ### Minimum Rating Changes
 
