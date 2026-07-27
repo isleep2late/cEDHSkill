@@ -189,7 +189,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         '**🧮 OpenSkill:** https://github.com/philihp/openskill.js',
         '**📊 Research:** https://www.csie.ntu.edu.tw/~cjlin/papers/online_ranking/online_journal.pdf',
         '**📖 Thank you to LLMs** for assisting with debugging the code.',
-        '**⚔️ Shout out to ASM** for creating a ranked bot many years ago. Features such as "reaction confirmation" were inspired by this.',
+        '**⚔️ Shout out to ASM** for creating the first cEDH ranking bot many years ago, which parts of cEDHSkill drew inspiration from.',
         '**🙏 Thank you to everyone in the cEDH Bot Testing server** for enabling this project to thrive, and thank you to everyone in the cEDH community for your support in making this possible!'
       ].join('\n'));
       break;
