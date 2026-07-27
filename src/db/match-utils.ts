@@ -42,39 +42,69 @@ export async function recordMatch(
 
 export async function getRecentMatches(userId: string, limit: number = 50): Promise<any[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT * FROM matches 
-    WHERE userId = ? 
-    ORDER BY matchDate DESC 
+  return await db.all(`
+    SELECT * FROM matches
+    WHERE userId = ?
+    ORDER BY matchDate DESC
     LIMIT ?
-  `);
-  return await stmt.all(userId, limit);
+  `, userId, limit);
 }
 
 export async function getMatchesByGameId(gameId: string): Promise<any[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT * FROM matches 
-    WHERE gameId = ? 
+  return await db.all(`
+    SELECT * FROM matches
+    WHERE gameId = ?
     ORDER BY matchDate DESC
-  `);
-  return await stmt.all(gameId);
+  `, gameId);
 }
 
 export async function deleteMatchesByGameId(gameId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('DELETE FROM matches WHERE gameId = ?');
-  await stmt.run(gameId);
+  await db.run('DELETE FROM matches WHERE gameId = ?', gameId);
 }
 
-export async function updateMatchTurnOrder(matchId: string, userId: string, turnOrder: number): Promise<void> {
+/**
+ * Set (or clear, with null) a player's turn order for a recorded game.
+ * For hybrid games the player's assigned deck has a matching deck_matches
+ * row; keep its turnOrder in sync so deck turn-order stats stay accurate.
+ */
+export async function setPlayerTurnOrderForGame(gameId: string, userId: string, turnOrder: number | null): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    UPDATE matches 
-    SET turnOrder = ? 
-    WHERE id = ? AND userId = ?
-  `);
-  await stmt.run(turnOrder, matchId, userId);
+  const row = await db.get(
+    'SELECT turnOrder, assignedDeck FROM matches WHERE gameId = ? AND userId = ?',
+    [gameId, userId]
+  );
+  if (!row) return;
+
+  await db.run(
+    'UPDATE matches SET turnOrder = ? WHERE gameId = ? AND userId = ?',
+    [turnOrder, gameId, userId]
+  );
+
+  if (row.assignedDeck) {
+    // Hybrid deck rows record assignedPlayer, giving an exact per-player match.
+    const synced = await db.run(
+      'UPDATE deck_matches SET turnOrder = ? WHERE gameId = ? AND assignedPlayer = ?',
+      [turnOrder, gameId, userId]
+    );
+    if ((synced?.changes ?? 0) === 0) {
+      // Legacy rows recorded before assignedPlayer was populated: best-effort
+      // match on the deck name and the old turn value — but only when the
+      // match is unambiguous (duplicate commanders could otherwise get the
+      // wrong pilot's row updated).
+      const candidates = await db.get(
+        'SELECT COUNT(*) as count FROM deck_matches WHERE gameId = ? AND deckNormalizedName = ? AND turnOrder IS ? AND assignedPlayer IS NULL',
+        [gameId, row.assignedDeck, row.turnOrder]
+      );
+      if (candidates?.count === 1) {
+        await db.run(
+          'UPDATE deck_matches SET turnOrder = ? WHERE gameId = ? AND deckNormalizedName = ? AND turnOrder IS ? AND assignedPlayer IS NULL',
+          [turnOrder, gameId, row.assignedDeck, row.turnOrder]
+        );
+      }
+    }
+  }
 }
 
 export async function getOpponentsByGameIds(gameIds: string[], userId: string): Promise<Record<string, string[]>> {
@@ -100,49 +130,6 @@ export async function getOpponentsByGameIds(gameIds: string[], userId: string): 
 
 export async function getTotalMatches(): Promise<number> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT COUNT(DISTINCT gameId) as count FROM matches');
-  const result = await stmt.get() as { count: number };
+  const result = await db.get('SELECT COUNT(DISTINCT gameId) as count FROM matches') as { count: number };
   return result.count;
-}
-
-/**
- * Count how many active games a player has played on the same calendar day (UTC)
- * before the specified game (by gameSequence). Used for daily participation bonus limit.
- */
-export async function getPlayerGamesOnDateBefore(userId: string, matchDate: Date, currentGameId: string): Promise<number> {
-  const db = getDatabase();
-  const dateStr = matchDate.toISOString().split('T')[0];
-
-  const result = await db.get(`
-    SELECT COUNT(DISTINCT m.gameId) as count
-    FROM matches m
-    JOIN games_master gm ON m.gameId = gm.gameId
-    WHERE m.userId = ?
-    AND DATE(m.matchDate) = ?
-    AND gm.active = 1
-    AND gm.gameSequence < (SELECT gameSequence FROM games_master WHERE gameId = ?)
-  `, [userId, dateStr, currentGameId]) as { count: number } | undefined;
-
-  return result?.count ?? 0;
-}
-
-/**
- * Count how many active games a deck has played on the same calendar day (UTC)
- * before the specified game (by gameSequence). Used for daily participation bonus limit.
- */
-export async function getDeckGamesOnDateBefore(deckNormalizedName: string, matchDate: Date, currentGameId: string): Promise<number> {
-  const db = getDatabase();
-  const dateStr = matchDate.toISOString().split('T')[0];
-
-  const result = await db.get(`
-    SELECT COUNT(DISTINCT dm.gameId) as count
-    FROM deck_matches dm
-    JOIN games_master gm ON dm.gameId = gm.gameId
-    WHERE dm.deckNormalizedName = ?
-    AND DATE(dm.matchDate) = ?
-    AND gm.active = 1
-    AND gm.gameSequence < (SELECT gameSequence FROM games_master WHERE gameId = ?)
-  `, [deckNormalizedName, dateStr, currentGameId]) as { count: number } | undefined;
-
-  return result?.count ?? 0;
 }

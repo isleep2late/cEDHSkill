@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { logRatingChange } from './utils/rating-audit-utils.js';
 import { saveOperationSnapshot, DecaySnapshot, DecayPlayerState } from './utils/snapshot-utils.js';
+import { handleGameButton } from './utils/button-handlers.js';
 import { logger } from './utils/logger.js';
 
 export interface ExtendedClient extends Client {
@@ -33,21 +34,17 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.DirectMessages,
-    // REQUIRED for game confirmations. Game results are confirmed via
-    // replyMsg.createReactionCollector(...) in commands/rank.ts; reaction
-    // collectors only receive events when this intent is enabled. It was
-    // removed in 6307cf3 to cut event-flooding, which silently broke all
-    // player 👍 confirmations (admin auto-submit still worked because that's
-    // an interaction, not a reaction). Do NOT remove this again.
+    // Game confirmations and turn-order tracking now use BUTTONS
+    // (interactions), which arrive under the Guilds intent alone — the
+    // GuildMessageReactions intent required by the old emoji-reaction
+    // system is intentionally gone along with that system.
     //
     // GuildMessages/MessageContent stay OUT on purpose: they were the real
     // flood source in the 15k-member server and the bot doesn't use them
     // (messageCreate only handles DMs, which don't require those intents).
-    GatewayIntentBits.GuildMessageReactions,
   ],
-  // Message/Reaction partials let the collector still receive reactions if the
-  // confirmation message is evicted from cache during its 1-hour window.
-  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
+  // Channel partial is required for DM messageCreate events (admin/mod opt in/out).
+  partials: [Partials.Channel],
 }) as ExtendedClient;
 
 client.commands = new Collection();
@@ -292,13 +289,21 @@ export async function applyRatingDecay(
       // - Current virtual inactivity = current_clock - player_last_position
       // - After this timewalk: new_clock = current_clock + simulatedDaysOffset
       // - New inactivity = new_clock - player_last_position
-      // - NEW days past grace = new_days_past_grace - current_days_past_grace
       const currentInactivity = getPlayerVirtualInactivity(p.userId);
       const newInactivity = currentInactivity + simulatedDaysOffset;
 
       const currentDaysPastGrace = Math.max(0, currentInactivity - GRACE_DAYS);
       const newDaysPastGrace = Math.max(0, newInactivity - GRACE_DAYS);
-      daysPastGrace = newDaysPastGrace - currentDaysPastGrace; // Only decay for NEW days
+
+      // Skip when this timewalk adds no new days past grace
+      if (newDaysPastGrace <= currentDaysPastGrace) continue;
+
+      // The decay target below is measured from the pre-decay baseline
+      // (originalElo), so it must use the TOTAL days past grace. Using only
+      // this run's new days would rebase every timewalk at the full baseline,
+      // under-decaying consecutive runs (the target would never fall below
+      // the already-decayed current Elo).
+      daysPastGrace = newDaysPastGrace;
 
       daysSinceLast = newInactivity; // For logging
     } else {
@@ -541,6 +546,26 @@ async function main() {
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+    // Game confirmation / turn-order buttons (customIds prefixed "cedh:").
+    // Same SHARED-TOKEN SAFETY guard as slash commands below applies here.
+    if (interaction.isButton()) {
+      if (interaction.guildId !== config.guildId) return;
+      if (!interaction.customId.startsWith('cedh:')) return;
+      try {
+        await handleGameButton(interaction);
+      } catch (error) {
+        logger.error(`Error handling game button ${interaction.customId}:`, error);
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: '❌ There was an error handling this button.', ephemeral: true });
+          }
+        } catch {
+          // Interaction may have expired
+        }
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     // SHARED-TOKEN SAFETY: this bot account runs as several concurrent processes

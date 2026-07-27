@@ -36,18 +36,15 @@ export interface TurnOrderStats {
 export async function getOrCreateDeck(normalizedName: string, displayName: string): Promise<Deck> {
   const db = getDatabase();
   
-  const selectStmt = await db.prepare('SELECT * FROM decks WHERE normalizedName = ?');
-  let deck = await selectStmt.get(normalizedName) as Deck | undefined;
-  
+  let deck = await db.get('SELECT * FROM decks WHERE normalizedName = ?', normalizedName) as Deck | undefined;
+
   if (!deck) {
     // Use INSERT OR IGNORE to prevent race conditions if two calls happen concurrently
-    const insertStmt = await db.prepare(`
+    await db.run(`
       INSERT OR IGNORE INTO decks (normalizedName, displayName, mu, sigma, wins, losses, draws)
       VALUES (?, ?, 25.0, 8.333, 0, 0, 0)
-    `);
-
-    await insertStmt.run(normalizedName, displayName);
-    deck = await selectStmt.get(normalizedName) as Deck;
+    `, normalizedName, displayName);
+    deck = await db.get('SELECT * FROM decks WHERE normalizedName = ?', normalizedName) as Deck;
   }
   
   return deck;
@@ -63,14 +60,12 @@ export async function updateDeckRating(
   draws: number
 ): Promise<void> {
   const db = getDatabase();
-  const updateStmt = await db.prepare(`
-    UPDATE decks 
-    SET displayName = ?, mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?, 
+  await db.run(`
+    UPDATE decks
+    SET displayName = ?, mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
         updatedAt = datetime('now')
     WHERE normalizedName = ?
-  `);
-  
-  await updateStmt.run(displayName, mu, sigma, wins, losses, draws, normalizedName);
+  `, displayName, mu, sigma, wins, losses, draws, normalizedName);
 }
 
 export async function recordDeckMatch(
@@ -82,26 +77,23 @@ export async function recordDeckMatch(
   matchDate: Date,
   mu: number,
   sigma: number,
-  turnOrder?: number
+  turnOrder?: number,
+  assignedPlayer?: string | null
 ): Promise<void> {
   const db = getDatabase();
-  const insertStmt = await db.prepare(`
-    INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  
-  await insertStmt.run(matchId, gameId, normalizedName, displayName, status, matchDate.toISOString(), mu, sigma, turnOrder);
+  await db.run(`
+    INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, assignedPlayer)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, matchId, gameId, normalizedName, displayName, status, matchDate.toISOString(), mu, sigma, turnOrder ?? null, assignedPlayer ?? null);
 }
 
 export async function getDeckMatchesByGameId(gameId: string): Promise<DeckMatch[]> {
   const db = getDatabase();
-  const selectStmt = await db.prepare(`
-    SELECT * FROM deck_matches 
-    WHERE gameId = ? 
+  const matches = await db.all(`
+    SELECT * FROM deck_matches
+    WHERE gameId = ?
     ORDER BY matchDate DESC
-  `);
-  
-  const matches = await selectStmt.all(gameId) as any[];
+  `, gameId) as any[];
   return matches.map(match => ({
     ...match,
     matchDate: new Date(match.matchDate)
@@ -110,33 +102,28 @@ export async function getDeckMatchesByGameId(gameId: string): Promise<DeckMatch[
 
 export async function deleteDeckMatchesByGameId(gameId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('DELETE FROM deck_matches WHERE gameId = ?');
-  await stmt.run(gameId);
+  await db.run('DELETE FROM deck_matches WHERE gameId = ?', gameId);
 }
 
 export async function getAllDecks(): Promise<Deck[]> {
   const db = getDatabase();
-  const selectStmt = await db.prepare('SELECT * FROM decks ORDER BY mu DESC');
-  return await selectStmt.all() as Deck[];
+  return await db.all('SELECT * FROM decks ORDER BY mu DESC') as Deck[];
 }
 
 export async function getDeck(normalizedName: string): Promise<Deck | undefined> {
   const db = getDatabase();
-  const selectStmt = await db.prepare('SELECT * FROM decks WHERE normalizedName = ?');
-  return await selectStmt.get(normalizedName) as Deck | undefined;
+  return await db.get('SELECT * FROM decks WHERE normalizedName = ?', normalizedName) as Deck | undefined;
 }
 
 export async function getRecentDeckMatches(normalizedName: string, limit: number = 50): Promise<DeckMatch[]> {
   const db = getDatabase();
-  const selectStmt = await db.prepare(`
+  const matches = await db.all(`
     SELECT dm.* FROM deck_matches dm
     JOIN games_master gm ON dm.gameId = gm.gameId
     WHERE dm.deckNormalizedName = ? AND gm.active = 1
-    ORDER BY dm.matchDate DESC 
+    ORDER BY dm.matchDate DESC
     LIMIT ?
-  `);
-  
-  const matches = await selectStmt.all(normalizedName, limit) as any[];
+  `, normalizedName, limit) as any[];
   return matches.map(match => ({
     ...match,
     matchDate: new Date(match.matchDate)
@@ -145,8 +132,8 @@ export async function getRecentDeckMatches(normalizedName: string, limit: number
 
 export async function getDeckTurnOrderStats(normalizedName: string): Promise<TurnOrderStats[]> {
   const db = getDatabase();
-  const selectStmt = await db.prepare(`
-    SELECT 
+  return await db.all(`
+    SELECT
       dm.turnOrder,
       SUM(CASE WHEN dm.status = 'w' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN dm.status = 'l' THEN 1 ELSE 0 END) as losses,
@@ -157,20 +144,17 @@ export async function getDeckTurnOrderStats(normalizedName: string): Promise<Tur
     WHERE dm.deckNormalizedName = ? AND dm.turnOrder IS NOT NULL AND gm.active = 1
     GROUP BY dm.turnOrder
     ORDER BY dm.turnOrder
-  `);
-  
-  return await selectStmt.all(normalizedName) as TurnOrderStats[];
+  `, normalizedName) as TurnOrderStats[];
 }
 
 export async function getTotalDeckMatches(): Promise<number> {
   const db = getDatabase();
-  const selectStmt = await db.prepare(`
-    SELECT COUNT(DISTINCT dm.gameId) as count 
+  const result = await db.get(`
+    SELECT COUNT(DISTINCT dm.gameId) as count
     FROM deck_matches dm
     JOIN games_master gm ON dm.gameId = gm.gameId
     WHERE gm.active = 1
-  `);
-  const result = await selectStmt.get() as { count: number };
+  `) as { count: number };
   return result.count;
 }
 
@@ -183,14 +167,11 @@ export async function getDeckStats(): Promise<{
 }> {
   const db = getDatabase();
   
-  const totalDecksStmt = await db.prepare('SELECT COUNT(*) as count FROM decks');
-  const totalDecks = (await totalDecksStmt.get() as { count: number }).count;
-  
-  const decksWithGamesStmt = await db.prepare('SELECT COUNT(*) as count FROM decks WHERE wins + losses + draws > 0');
-  const decksWithGames = (await decksWithGamesStmt.get() as { count: number }).count;
-  
-  const qualifiedDecksStmt = await db.prepare('SELECT COUNT(*) as count FROM decks WHERE wins + losses + draws >= 5');
-  const qualifiedDecks = (await qualifiedDecksStmt.get() as { count: number }).count;
+  const totalDecks = (await db.get('SELECT COUNT(*) as count FROM decks') as { count: number }).count;
+
+  const decksWithGames = (await db.get('SELECT COUNT(*) as count FROM decks WHERE wins + losses + draws > 0') as { count: number }).count;
+
+  const qualifiedDecks = (await db.get('SELECT COUNT(*) as count FROM decks WHERE wins + losses + draws >= 5') as { count: number }).count;
   
   const totalMatches = await getTotalDeckMatches();
   const avgGamesPerDeck = decksWithGames > 0 ? totalMatches / decksWithGames : 0;
@@ -206,13 +187,11 @@ export async function getDeckStats(): Promise<{
 
 export async function searchDecks(searchTerm: string, limit: number = 10): Promise<Deck[]> {
   const db = getDatabase();
-  const selectStmt = await db.prepare(`
-    SELECT * FROM decks 
-    WHERE displayName LIKE ? OR normalizedName LIKE ?
-    ORDER BY mu DESC 
-    LIMIT ?
-  `);
-  
   const searchPattern = `%${searchTerm}%`;
-  return await selectStmt.all(searchPattern, searchPattern, limit) as Deck[];
+  return await db.all(`
+    SELECT * FROM decks
+    WHERE displayName LIKE ? OR normalizedName LIKE ?
+    ORDER BY mu DESC
+    LIMIT ?
+  `, searchPattern, searchPattern, limit) as Deck[];
 }

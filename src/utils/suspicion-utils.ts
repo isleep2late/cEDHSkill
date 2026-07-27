@@ -2,35 +2,28 @@ import { getDatabase } from '../db/init.js';
 
 export async function exemptPlayer(userId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('INSERT OR IGNORE INTO suspicionExempt (userId) VALUES (?)');
-  await stmt.run(userId);
+  await db.run('INSERT OR IGNORE INTO suspicionExempt (userId) VALUES (?)', userId);
 }
 
 export async function removeExemption(userId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('DELETE FROM suspicionExempt WHERE userId = ?');
-  await stmt.run(userId);
+  await db.run('DELETE FROM suspicionExempt WHERE userId = ?', userId);
 }
 
 export async function isExempt(userId: string): Promise<boolean> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT userId FROM suspicionExempt WHERE userId = ?');
-  const row = await stmt.get(userId);
+  const row = await db.get('SELECT userId FROM suspicionExempt WHERE userId = ?', userId);
   return !!row;
 }
 
 export async function setAlertOptIn(userId: string, optIn: boolean): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    INSERT OR REPLACE INTO adminOptIn (userId, optIn) VALUES (?, ?)
-  `);
-  await stmt.run(userId, optIn ? 1 : 0);
+  await db.run('INSERT OR REPLACE INTO adminOptIn (userId, optIn) VALUES (?, ?)', userId, optIn ? 1 : 0);
 }
 
 export async function getAlertOptIn(userId: string): Promise<boolean> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT optIn FROM adminOptIn WHERE userId = ?');
-  const row = await stmt.get(userId) as { optIn: number } | undefined;
+  const row = await db.get('SELECT optIn FROM adminOptIn WHERE userId = ?', userId) as { optIn: number } | undefined;
   
   if (!row) {
     // Import config to check if user is admin or moderator
