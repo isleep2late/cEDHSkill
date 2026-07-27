@@ -52,7 +52,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     case 'player':
       embed.setDescription('**Player Ranking Commands:**')
         .addFields(
-          { name: '/rank', value: 'Submit player game results (4 players, w/l/d only). Can include commanders assigned to players. Players confirm with the ✅ Confirm button; an admin/mod can supply the final missing confirmation. Turn order via the Turn 1–4 buttons (click again to rescind, claim a taken turn to take it over — works even after confirmation) OR inline (e.g., @user w 1 for Turn 1). Also supports deck-only mode when no players are mentioned.' },
+          { name: '/rank', value: 'Submit player game results (4 players, w/l/d only). Can include commanders assigned to players. Players confirm with the ✅ Confirm button; an admin/mod can supply the final missing confirmation. Turn order via the Turn 1–4 buttons (click again to rescind, claim a taken turn to take it over — works for 1 hour after submission, even once confirmed) OR inline (e.g., @user w 1 for Turn 1). Also supports deck-only mode when no players are mentioned.' },
           { name: '/list [count]', value: 'Show top N players (default 100, max 200, includes ties). Shows qualification status.' },
           { name: '/view player:@user', value: 'View detailed player stats: rating, rank, W/L/D record, top 5 decks, and turn order performance.' },
           { name: '/predict [@users...]', value: 'Predict win chances for players/decks using Elo, turn order, and hybrid predictions. Shows overall turn order win% if no input.' },

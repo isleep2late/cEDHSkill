@@ -12,7 +12,7 @@ import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '..
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
 import { recordMatch, getRecentMatches, getOpponentsByGameIds } from '../db/match-utils.js';
 import { registerPendingGame, removePendingGame, PendingPlayerGame, PendingDeckGame } from '../utils/pending-games.js';
-import { buildConfirmRow, buildTurnRow } from '../utils/button-handlers.js';
+import { buildConfirmRow, buildTurnRow, TURN_ORDER_WINDOW_MS } from '../utils/button-handlers.js';
 import { 
   getOrCreateDeck, 
   updateDeckRating, 
@@ -1579,7 +1579,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     .setDescription(
       `✅ **Results submitted by admin. Ratings updated immediately — see the "Results are now final!" message below for each player's before → after change.**\n\n` +
       `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
-      'Players can use the **Turn 1–4 buttons** below to record turn order — they keep working even after the game is finalized. Click your own turn again to rescind it; claiming a taken turn takes it over.'
+      'Players can use the **Turn 1–4 buttons** below to record turn order for up to 1 hour. Click your own turn again to rescind it; claiming a taken turn takes it over.'
     )
     .addFields(
       players.map(p => {
@@ -1623,13 +1623,20 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     await showTop50PlayersAndDecks(interaction);
   }
 
-  // Persistent turn-order buttons: clicks are validated and applied by the
-  // global cedh: button router against the database, so they keep working
-  // indefinitely — even after the game is finalized or the bot restarts.
-  try {
-    await replyMsg.edit({ components: [buildTurnRow(gameId, players.length)] });
-  } catch (error) {
-    logger.error('Failed to attach turn-order buttons to admin game message:', error);
+  // Turn-order buttons: clicks are validated and applied by the global cedh:
+  // button router against the database (restart-proof). The window lasts
+  // 1 hour from submission; injected games are backdated, so their window
+  // may already be closed — skip the buttons entirely in that case.
+  const adminTurnWindowMsLeft = (injectedTimestamp?.getTime() ?? Date.now()) + TURN_ORDER_WINDOW_MS - Date.now();
+  if (adminTurnWindowMsLeft > 0) {
+    try {
+      await replyMsg.edit({ components: [buildTurnRow(gameId, players.length)] });
+      setTimeout(() => {
+        replyMsg.edit({ components: [] }).catch(() => {});
+      }, adminTurnWindowMsLeft);
+    } catch (error) {
+      logger.error('Failed to attach turn-order buttons to admin game message:', error);
+    }
   }
 } else {
   // Non-admin block - properly structured
@@ -1638,7 +1645,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     .setDescription(
       `**Players must confirm below:**\n` +
       '• Click ✅ **Confirm** to confirm your result (players in this game only)\n' +
-      '• Click **Turn 1–4** to record your turn order (optional — the buttons keep working even after the game is confirmed)\n' +
+      '• Click **Turn 1–4** to record your turn order (optional — works for 1 hour after submission, even once the game is confirmed)\n' +
       '• Click your current turn again to **rescind** it; claiming a taken turn **takes it over**\n' +
       '• Click ❌ **Cancel** to cancel this game (submitter only)\n' +
       '• If only one confirmation is missing, an **admin/moderator** can click ✅ to push the game through\n\n' +
@@ -1678,6 +1685,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
 
   const matchId = crypto.randomUUID();
+  const submittedAtMs = Date.now();
 
   // Non-admin: wait for button confirmations, routed here from the global
   // cedh: button handler via the pending-games registry.
@@ -1760,15 +1768,23 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
         await showTop50PlayersAndDecks(interaction);
       }
 
-      // Confirmation is done: drop Confirm/Cancel but keep the turn buttons,
-      // which continue to work against the database indefinitely.
+      // Confirmation is done: drop Confirm/Cancel but keep the turn buttons
+      // for the remainder of the 1-hour window from submission (they work
+      // against the database, so a restart doesn't extend or break the
+      // deadline — the router enforces it too).
+      const turnWindowMsLeft = submittedAtMs + TURN_ORDER_WINDOW_MS - Date.now();
       const confirmedContent = pushedThroughBy
         ? `📢 Game confirmed — final confirmation supplied by admin/moderator <@${pushedThroughBy}>.`
         : '📢 Game confirmed by all players.';
       await replyMsg.edit({
         content: confirmedContent,
-        components: [buildTurnRow(gameId, players.length)]
+        components: turnWindowMsLeft > 0 ? [buildTurnRow(gameId, players.length)] : []
       }).catch(() => {});
+      if (turnWindowMsLeft > 0) {
+        setTimeout(() => {
+          replyMsg.edit({ components: [] }).catch(() => {});
+        }, turnWindowMsLeft);
+      }
     } catch (error) {
       logger.error('Error processing game results:', error);
       try {

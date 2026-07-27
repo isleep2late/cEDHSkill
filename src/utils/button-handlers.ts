@@ -22,11 +22,29 @@ import {
  * are routed here from bot.ts's InteractionCreate handler. Pending games are
  * resolved via the in-memory registry (utils/pending-games.ts); turn-order
  * clicks on already-confirmed games are resolved against the database, so
- * they keep working indefinitely — including after bot restarts.
+ * they keep working across bot restarts until the 1-hour turn-order window
+ * (measured from game submission) closes.
  */
 
 function hasModAccess(userId: string): boolean {
   return config.admins.includes(userId) || config.moderators.includes(userId);
+}
+
+/**
+ * How long turn-order buttons stay usable, measured from game submission
+ * (games_master.createdAt). Matches the pending-confirmation lifetime, so a
+ * game submitted at T accepts turn clicks until T+1h whether or not it has
+ * been confirmed yet. Enforced here (restart-proof); the message components
+ * are also stripped by best-effort timers in rank.ts.
+ */
+export const TURN_ORDER_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * games_master.createdAt is either SQLite CURRENT_TIMESTAMP
+ * ("YYYY-MM-DD HH:MM:SS", UTC) or an ISO string (injected games).
+ */
+function parseDbTimestamp(value: string): Date {
+  return new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z');
 }
 
 export function buildConfirmRow(gameId: string): ActionRowBuilder<ButtonBuilder> {
@@ -269,9 +287,10 @@ async function handlePendingDeckButton(
 
 /**
  * Turn-order clicks on games that are already confirmed. Backed entirely by
- * the database so the buttons work forever, across restarts, exactly as the
- * user-facing rules promise: one turn per player, click again to rescind,
- * claiming a taken turn overthrows the current holder.
+ * the database, so the buttons keep working across restarts until the 1-hour
+ * window (from submission, per games_master.createdAt) closes. Rules: one
+ * turn per player, click again to rescind, claiming a taken turn overthrows
+ * the current holder.
  *
  * Clicks are acknowledged immediately (deferUpdate) and then serialized per
  * game, so two players racing for the same turn cannot both claim it.
@@ -318,7 +337,7 @@ async function processConfirmedTurnClick(
   const ephemeral = (content: string) =>
     interaction.followUp({ content, ephemeral: true }).catch(() => {});
 
-  const gm = await db.get('SELECT gameType, status, active FROM games_master WHERE gameId = ?', gameId);
+  const gm = await db.get('SELECT gameType, status, active, createdAt FROM games_master WHERE gameId = ?', gameId);
   if (!gm) {
     await ephemeral('⚠️ This game no longer exists — it expired, was cancelled, or was removed.');
     return;
@@ -329,6 +348,16 @@ async function processConfirmedTurnClick(
   }
   if (gm.gameType !== 'player' || gm.status !== 'confirmed' || !gm.active) {
     await ephemeral('⚠️ Turn order can only be changed on active, confirmed player games.');
+    return;
+  }
+  if (gm.createdAt && Date.now() - parseDbTimestamp(gm.createdAt).getTime() > TURN_ORDER_WINDOW_MS) {
+    // The turn-order window has closed. Strip any stale buttons off the
+    // message so it stops inviting clicks (a restart may have killed the
+    // timer that normally does this).
+    try {
+      await interaction.editReply({ components: [] });
+    } catch {}
+    await ephemeral('⚠️ The turn-order window for this game has closed (1 hour after submission).');
     return;
   }
 
