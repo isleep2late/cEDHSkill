@@ -57,7 +57,6 @@ export function buildConfirmRow(gameId: string): ActionRowBuilder<ButtonBuilder>
     new ButtonBuilder()
       .setCustomId(`cedh:cancel:${gameId}`)
       .setLabel('Cancel')
-      .setEmoji('❌')
       .setStyle(ButtonStyle.Danger)
   );
 }
