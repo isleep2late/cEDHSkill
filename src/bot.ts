@@ -289,13 +289,21 @@ export async function applyRatingDecay(
       // - Current virtual inactivity = current_clock - player_last_position
       // - After this timewalk: new_clock = current_clock + simulatedDaysOffset
       // - New inactivity = new_clock - player_last_position
-      // - NEW days past grace = new_days_past_grace - current_days_past_grace
       const currentInactivity = getPlayerVirtualInactivity(p.userId);
       const newInactivity = currentInactivity + simulatedDaysOffset;
 
       const currentDaysPastGrace = Math.max(0, currentInactivity - GRACE_DAYS);
       const newDaysPastGrace = Math.max(0, newInactivity - GRACE_DAYS);
-      daysPastGrace = newDaysPastGrace - currentDaysPastGrace; // Only decay for NEW days
+
+      // Skip when this timewalk adds no new days past grace
+      if (newDaysPastGrace <= currentDaysPastGrace) continue;
+
+      // The decay target below is measured from the pre-decay baseline
+      // (originalElo), so it must use the TOTAL days past grace. Using only
+      // this run's new days would rebase every timewalk at the full baseline,
+      // under-decaying consecutive runs (the target would never fall below
+      // the already-decayed current Elo).
+      daysPastGrace = newDaysPastGrace;
 
       daysSinceLast = newInactivity; // For logging
     } else {

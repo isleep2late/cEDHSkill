@@ -13,7 +13,7 @@ import { logRatingChange } from '../utils/rating-audit-utils.js';
 import { normalizeCommanderName, validateCommander } from '../utils/edhrec-utils.js';
 import { saveOperationSnapshot, SetCommandSnapshot } from '../utils/snapshot-utils.js';
 import { processCommanderRatingsEnhanced, replayPlayerGame, replayDeckGame, replayCommanderRatingsForGame } from '../commands/rank.js';
-import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers, addTimewalkDays, getActiveTimewalkEvents } from '../bot.js';
+import { resetTimewalkDays, applyRatingDecay, applyDecayForPlayers, addTimewalkDays, getActiveTimewalkEvents, recordPlayerActivity } from '../bot.js';
 import { cleanupZeroPlayers, cleanupZeroDecks } from '../db/database-utils.js';
 import { logger } from '../utils/logger.js';
 
@@ -695,10 +695,15 @@ export async function recalculateAllPlayersFromScratch(): Promise<void> {
       // Replay the game (uses current ratings, which now include decay)
       await replayPlayerGame(event.gameId);
 
-      // Fix lastPlayed for participants to the game's actual date (not "now")
-      // Note: recordPlayerActivity() is already called inside replayPlayerGame()
+      // Fix lastPlayed for participants to the game's actual date (not "now"),
+      // and record their virtual-clock position (replayPlayerGame does NOT call
+      // recordPlayerActivity — only the live confirmation path does). Without
+      // this, every player replays at virtual position 0 and timewalk events
+      // replayed after their games over-decay them using the full clock value
+      // instead of days since their last game.
       for (const userId of participantIds) {
         await db.run('UPDATE players SET lastPlayed = ? WHERE userId = ?', [event.createdAt, userId]);
+        recordPlayerActivity(userId);
       }
       gameCount++;
     } else if (event.type === 'timewalk') {
@@ -1563,6 +1568,11 @@ async function handleRatingChanges(
   saveOperationSnapshot(snapshot);
 
   await updatePlayerRating(targetUserId, newMu, newSigma, newWins, newLosses, newDraws);
+
+  // updatePlayerRating grants fresh real-clock grace (lastPlayed = now); mirror
+  // that on the virtual clock, or the next /timewalk would apply the player's
+  // full accumulated virtual inactivity to the freshly set rating at once.
+  recordPlayerActivity(targetUserId);
 
   await logRatingChange({
     targetType: 'player',
