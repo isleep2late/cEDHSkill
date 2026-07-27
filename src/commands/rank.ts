@@ -19,7 +19,7 @@ import {
   recordDeckMatch,
   getAllDecks
 } from '../db/deck-utils.js';
-import { saveMatchSnapshot } from '../utils/snapshot-utils.js';
+import { saveMatchSnapshot, type DeckSnapshot } from '../utils/snapshot-utils.js';
 import { calculateElo, muFromElo } from '../utils/elo-utils.js';
 
 import { generateUniqueGameId, recordGameId } from '../utils/game-id-utils.js';
@@ -2200,7 +2200,8 @@ if (decks.length === 4) {
   }
 }
 
-async function processGameResults(
+// Exported for integration tests (tests/hybrid-undo-redo.test.ts)
+export async function processGameResults(
   players: PlayerEntry[],
   preRatings: Record<string, Rating>,
   records: Record<string, any>,
@@ -2297,9 +2298,12 @@ for (const player of players) {
 
 
   // ENHANCED: Process commanders if any are assigned
+  // Keep the returned deck snapshot data so hybrid games (player games with assigned
+  // decks) can undo/redo the deck-side changes, not just the player ratings.
+  let deckSnapshotData: HybridDeckSnapshotData | null = null;
   const playersWithCommanders = players.filter(p => p.commander);
   if (playersWithCommanders.length > 0) {
-    await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId, gameDate);
+    deckSnapshotData = await processCommanderRatingsEnhanced(playersWithCommanders, players, gameId, matchId, gameDate);
   }
 
   // Track final ratings for snapshot
@@ -2397,7 +2401,7 @@ for (const player of players) {
   await updateMatchesWithSequence(gameId, gameSequence, 'player');
 
   // Build complete match data for snapshot (needed for proper undo/redo)
-  const matchDataForSnapshot = players.map(p => ({
+  const matchDataForSnapshot: any[] = players.map(p => ({
     id: matchId,
     gameId: gameId,
     userId: p.userId,
@@ -2414,6 +2418,19 @@ for (const player of players) {
     submittedBy: submitterId
   }));
 
+  // Hybrid games: include the recorded deck_matches rows so redo can re-insert them
+  // (redo.ts restores any matchData entry that carries a deckNormalizedName)
+  if (deckSnapshotData) {
+    for (const deckMatch of deckSnapshotData.deckMatchData) {
+      matchDataForSnapshot.push({
+        ...deckMatch,
+        submittedByAdmin: submittedByAdmin,
+        submittedBy: submitterId,
+        assignedPlayer: null
+      });
+    }
+  }
+
   const gameTimestamp = gameDate.toISOString();
   await saveMatchSnapshot({
     matchId,
@@ -2421,30 +2438,37 @@ for (const player of players) {
     gameSequence,
     gameType: 'player',
     matchData: matchDataForSnapshot,
-    before: players.map(p => ({
-      userId: p.userId,
-      mu: preRatings[p.userId].mu,
-      sigma: preRatings[p.userId].sigma,
-      wins: records[p.userId].wins - (players.find(x => x.userId === p.userId)?.status === 'w' ? 1 : 0),
-      losses: records[p.userId].losses - (players.find(x => x.userId === p.userId)?.status === 'l' ? 1 : 0),
-      draws: records[p.userId].draws - (players.find(x => x.userId === p.userId)?.status === 'd' ? 1 : 0),
-      tag: userNames[p.userId],
-      turnOrder: p.turnOrder,
-      commander: p.commander || undefined,
-      lastPlayed: records[p.userId].lastPlayed // Pre-game lastPlayed
-    })),
-    after: players.map((p) => ({
-      userId: p.userId,
-      mu: finalRatings[p.userId].mu,
-      sigma: finalRatings[p.userId].sigma,
-      wins: records[p.userId].wins,
-      losses: records[p.userId].losses,
-      draws: records[p.userId].draws,
-      tag: userNames[p.userId],
-      turnOrder: p.turnOrder,
-      commander: p.commander || undefined,
-      lastPlayed: gameTimestamp // Post-game lastPlayed (game happened now)
-    }))
+    // Hybrid games: deck entries ride along so undo/redo restore deck ratings too
+    before: [
+      ...players.map(p => ({
+        userId: p.userId,
+        mu: preRatings[p.userId].mu,
+        sigma: preRatings[p.userId].sigma,
+        wins: records[p.userId].wins - (players.find(x => x.userId === p.userId)?.status === 'w' ? 1 : 0),
+        losses: records[p.userId].losses - (players.find(x => x.userId === p.userId)?.status === 'l' ? 1 : 0),
+        draws: records[p.userId].draws - (players.find(x => x.userId === p.userId)?.status === 'd' ? 1 : 0),
+        tag: userNames[p.userId],
+        turnOrder: p.turnOrder,
+        commander: p.commander || undefined,
+        lastPlayed: records[p.userId].lastPlayed // Pre-game lastPlayed
+      })),
+      ...(deckSnapshotData?.deckBefore ?? [])
+    ],
+    after: [
+      ...players.map((p) => ({
+        userId: p.userId,
+        mu: finalRatings[p.userId].mu,
+        sigma: finalRatings[p.userId].sigma,
+        wins: records[p.userId].wins,
+        losses: records[p.userId].losses,
+        draws: records[p.userId].draws,
+        tag: userNames[p.userId],
+        turnOrder: p.turnOrder,
+        commander: p.commander || undefined,
+        lastPlayed: gameTimestamp // Post-game lastPlayed (game happened now)
+      })),
+      ...(deckSnapshotData?.deckAfter ?? [])
+    ]
   });
 
   const resultEmbed = new EmbedBuilder()
@@ -2473,6 +2497,15 @@ for (const recipientId of alertRecipients) {
   return results;
 }
 
+// Deck-side snapshot data produced while processing a hybrid game's commander ratings.
+// processGameResults folds this into the game's MatchSnapshot so /undo and /redo can
+// revert deck ratings and restore deck_matches rows (same shape processDeckResults uses).
+export interface HybridDeckSnapshotData {
+  deckBefore: DeckSnapshot[];
+  deckAfter: DeckSnapshot[];
+  deckMatchData: any[];
+}
+
 // Process commander ratings with phantom opponents
 // ENHANCED: New function that processes commander ratings with phantoms, allowing unassigned turn orders
 // Handles duplicate commanders properly and maps phantom status from unassigned players
@@ -2482,7 +2515,9 @@ export async function processCommanderRatingsEnhanced(
   gameId: string,
   matchId: string,
   matchDate?: Date
-): Promise<void> {
+): Promise<HybridDeckSnapshotData> {
+  const effectiveDate = matchDate || new Date();
+
   // Create commander entries with flexible turn order assignment
   const commanderEntries: any[] = [];
 
@@ -2614,10 +2649,26 @@ export async function processCommanderRatingsEnhanced(
     else if (entry.status === 'd') deckUpdates[entry.normalizedName].drawCount++;
   }
 
+  const deckBefore: DeckSnapshot[] = [];
+  const deckAfter: DeckSnapshot[] = [];
+  const deckMatchData: any[] = [];
+
   // Update each unique commander once with aggregated results
   for (const [normalizedName, update] of Object.entries(deckUpdates)) {
     const oldR = update.oldRating;
     const rec = commanderRecords[normalizedName];
+
+    // Capture pre-game deck state before W/L/D counts are mutated below
+    deckBefore.push({
+      normalizedName,
+      displayName: rec.displayName,
+      mu: oldR.mu,
+      sigma: oldR.sigma,
+      wins: rec.wins,
+      losses: rec.losses,
+      draws: rec.draws,
+      turnOrder: update.instances[0].entry.turnOrder
+    });
 
     // For duplicates, average the mu values and take the minimum sigma
     // This properly aggregates multiple instances' rating changes
@@ -2674,6 +2725,18 @@ export async function processCommanderRatingsEnhanced(
       logger.error('Error logging commander rating change to audit trail:', auditError);
     }
 
+    // Capture post-game deck state for the snapshot
+    deckAfter.push({
+      normalizedName,
+      displayName: rec.displayName,
+      mu: aggregatedRating.mu,
+      sigma: aggregatedRating.sigma,
+      wins: rec.wins,
+      losses: rec.losses,
+      draws: rec.draws,
+      turnOrder: update.instances[0].entry.turnOrder
+    });
+
     // Record individual deck matches for each instance. assignedPlayer links
     // the hybrid deck row back to the player so post-confirmation turn-order
     // button clicks can keep deck_matches.turnOrder in sync.
@@ -2684,14 +2747,29 @@ export async function processCommanderRatingsEnhanced(
         normalizedName,
         rec.displayName,
         inst.entry.status,
-        matchDate || new Date(),
+        effectiveDate,
         aggregatedRating.mu,
         aggregatedRating.sigma,
         inst.entry.turnOrder,
         inst.entry.originalPlayer ?? null
       );
+
+      // Mirror the recorded row so redo can re-insert it after an undo
+      deckMatchData.push({
+        id: `${matchId}-deck-${inst.entry.turnOrder}`,
+        gameId: gameId,
+        deckNormalizedName: normalizedName,
+        deckDisplayName: rec.displayName,
+        status: inst.entry.status,
+        matchDate: effectiveDate.toISOString(),
+        mu: aggregatedRating.mu,
+        sigma: aggregatedRating.sigma,
+        turnOrder: inst.entry.turnOrder
+      });
     }
   }
+
+  return { deckBefore, deckAfter, deckMatchData };
 }
 
 // Helper function to find available turn order for phantoms (improved logic)
