@@ -5,6 +5,7 @@ import {
 import type { ExtendedClient } from '../bot.js';
 import { config } from '../config.js';
 import { cleanupUnconfirmedGame } from './rank.js';
+import { removePendingGame } from '../utils/pending-games.js';
 import { logger } from '../utils/logger.js';
 
 function hasModAccess(userId: string): boolean {
@@ -55,6 +56,9 @@ export async function execute(
       failed++;
       logger.info(`[SNAP] Failed to delete message ${msgId}:`, error);
     }
+
+    // Drop the pending button-confirmation state (cancels its expiry timer)
+    removePendingGame(limboData.gameId);
 
     // Clean up database records for the unconfirmed game
     try {

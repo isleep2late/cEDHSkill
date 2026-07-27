@@ -133,8 +133,9 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     }
     
     console.log('');
-    console.log('📖 Changes in v0.04 (stability & bug fixes — no rating math changed):');
-    console.log('   • Fixed: player 👍 game confirmations work again (restored GuildMessageReactions intent)');
+    console.log('📖 Changes in v0.04:');
+    console.log('   • Changed: confirmations & turn order now use BUTTONS (✅ Confirm / Turn 1–4) instead of reactions');
+    console.log('   • Changed: participation bonus removed — no flat Elo for playing a game');
     console.log('   • Fixed: "ghost games" — games are now confirmed only after results are written');
     console.log('   • Fixed: crash-safe shutdown — database WAL is checkpointed on SIGINT/SIGTERM');
     console.log('   • Fixed: clearer admin auto-confirm embed (labels pre-game ratings)');

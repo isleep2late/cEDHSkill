@@ -82,15 +82,16 @@ export async function recordDeckMatch(
   matchDate: Date,
   mu: number,
   sigma: number,
-  turnOrder?: number
+  turnOrder?: number,
+  assignedPlayer?: string | null
 ): Promise<void> {
   const db = getDatabase();
   const insertStmt = await db.prepare(`
-    INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, assignedPlayer)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  
-  await insertStmt.run(matchId, gameId, normalizedName, displayName, status, matchDate.toISOString(), mu, sigma, turnOrder);
+
+  await insertStmt.run(matchId, gameId, normalizedName, displayName, status, matchDate.toISOString(), mu, sigma, turnOrder, assignedPlayer ?? null);
 }
 
 export async function getDeckMatchesByGameId(gameId: string): Promise<DeckMatch[]> {

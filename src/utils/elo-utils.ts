@@ -23,21 +23,3 @@ export function muFromElo(targetElo: number, sigma: number): number {
 export function sigmaFromElo(targetElo: number, mu: number): number {
   return (1000 + 25 * mu - targetElo) / 75;
 }
-
-/**
- * Calculate mu and sigma adjustments to achieve exactly a target Elo change.
- * Returns new mu/sigma values that result in the desired Elo change.
- * Adjusts mu while keeping sigma stable (used for participation bonuses).
- */
-export function adjustRatingForEloChange(
-  currentMu: number,
-  currentSigma: number,
-  eloChange: number
-): { mu: number; sigma: number } {
-  const currentElo = calculateElo(currentMu, currentSigma);
-  const targetElo = currentElo + eloChange;
-
-  const newMu = muFromElo(targetElo, currentSigma);
-
-  return { mu: newMu, sigma: currentSigma };
-}
