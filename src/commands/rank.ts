@@ -1647,7 +1647,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
       '• Click ✅ **Confirm** to confirm your result (players in this game only)\n' +
       '• Click **Turn 1–4** to record your turn order (optional — works for 1 hour after submission, even once the game is confirmed)\n' +
       '• Click your current turn again to **rescind** it; claiming a taken turn **takes it over**\n' +
-      '• Click ❌ **Cancel** to cancel this game (submitter only)\n' +
+      '• Click the red **Cancel** button to cancel this game (submitter only)\n' +
       '• If only one confirmation is missing, an **admin/moderator** can click ✅ to push the game through\n\n' +
       '💡 **Tip**: You can assign turn order when submitting by adding numbers 1-4 before or after w/l/d.\n' +
       'Example: `/rank @player1 2 w @player2 1 l @player3 4 l @player4 3 l`\n\n' +
@@ -2033,7 +2033,7 @@ if (decks.length === 4) {
         ? `✅ **Results submitted by admin. Deck ratings have been updated immediately.**\n\n` +
           `🎯 **Game ID: ${gameId}**${injectionNote}`
         : 'Click ✅ **Confirm** below to confirm these deck results. Any 2 people can confirm.\n' +
-          'Click ❌ **Cancel** to cancel this deck battle (submitter only).\n\n' +
+          'Click the red **Cancel** button to cancel this deck battle (submitter only).\n\n' +
           `🎯 **Game ID: ${gameId}**${injectionNote}`
     )
     .addFields(
@@ -2089,7 +2089,7 @@ if (decks.length === 4) {
         .setTitle('⚔️ Deck Battle Results - Awaiting Confirmation')
         .setDescription(
           `Click ✅ **Confirm** below to confirm these deck results. Any 2 people can confirm.\n` +
-          `Click ❌ **Cancel** to cancel this deck battle (submitter only).\n\n` +
+          `Click the red **Cancel** button to cancel this deck battle (submitter only).\n\n` +
           `🎯 **Game ID: ${gameId}**${injectionNote}\n\n` +
           `✅ **Confirmations: ${confirmations.size}/${requiredConfirmations}**`
         );
