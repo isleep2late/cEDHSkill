@@ -18,9 +18,9 @@ if (gameId === '0' || gameId === '000000') {
 }
     
     // Check if this ID already exists in either table
-    const existsInMatches = await (await db.prepare('SELECT 1 FROM matches WHERE gameId = ? LIMIT 1')).get(gameId);
-    const existsInDeckMatches = await (await db.prepare('SELECT 1 FROM deck_matches WHERE gameId = ? LIMIT 1')).get(gameId);
-    const existsInGameIds = await (await db.prepare('SELECT 1 FROM game_ids WHERE gameId = ? LIMIT 1')).get(gameId);
+    const existsInMatches = await db.get('SELECT 1 FROM matches WHERE gameId = ? LIMIT 1', gameId);
+    const existsInDeckMatches = await db.get('SELECT 1 FROM deck_matches WHERE gameId = ? LIMIT 1', gameId);
+    const existsInGameIds = await db.get('SELECT 1 FROM game_ids WHERE gameId = ? LIMIT 1', gameId);
     
     if (!existsInMatches && !existsInDeckMatches && !existsInGameIds) {
       return gameId;
@@ -36,24 +36,23 @@ if (gameId === '0' || gameId === '000000') {
 
 export async function recordGameId(gameId: string, gameType: 'player' | 'deck'): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('INSERT OR IGNORE INTO game_ids (gameId, gameType) VALUES (?, ?)');
-  await stmt.run(gameId, gameType);
+  await db.run('INSERT OR IGNORE INTO game_ids (gameId, gameType) VALUES (?, ?)', gameId, gameType);
 }
 
 export async function getGameType(gameId: string): Promise<'player' | 'deck' | null> {
   const db = getDatabase();
   
   // First check the game_ids table
-  const gameIdRecord = await (await db.prepare('SELECT gameType FROM game_ids WHERE gameId = ?')).get(gameId);
+  const gameIdRecord = await db.get('SELECT gameType FROM game_ids WHERE gameId = ?', gameId);
   if (gameIdRecord) {
     return (gameIdRecord as any).gameType;
   }
-  
+
   // Fallback: check if it exists in matches or deck_matches
-  const existsInMatches = await (await db.prepare('SELECT 1 FROM matches WHERE gameId = ? LIMIT 1')).get(gameId);
+  const existsInMatches = await db.get('SELECT 1 FROM matches WHERE gameId = ? LIMIT 1', gameId);
   if (existsInMatches) return 'player';
-  
-  const existsInDeckMatches = await (await db.prepare('SELECT 1 FROM deck_matches WHERE gameId = ? LIMIT 1')).get(gameId);
+
+  const existsInDeckMatches = await db.get('SELECT 1 FROM deck_matches WHERE gameId = ? LIMIT 1', gameId);
   if (existsInDeckMatches) return 'deck';
   
   return null;
