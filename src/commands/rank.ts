@@ -2425,8 +2425,9 @@ for (const player of players) {
       matchDataForSnapshot.push({
         ...deckMatch,
         submittedByAdmin: submittedByAdmin,
-        submittedBy: submitterId,
-        assignedPlayer: null
+        submittedBy: submitterId
+        // assignedPlayer comes from deckMatch — preserving it lets redo's
+        // re-inserted rows keep the player link that turn-button sync uses
       });
     }
   }
@@ -2764,7 +2765,8 @@ export async function processCommanderRatingsEnhanced(
         matchDate: effectiveDate.toISOString(),
         mu: aggregatedRating.mu,
         sigma: aggregatedRating.sigma,
-        turnOrder: inst.entry.turnOrder
+        turnOrder: inst.entry.turnOrder,
+        assignedPlayer: inst.entry.originalPlayer ?? null
       });
     }
   }

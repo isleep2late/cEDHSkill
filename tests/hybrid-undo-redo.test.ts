@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 // at their defaults, while redo re-stamps them from the snapshot.)
 const DECK_MATCH_COLUMNS = [
   'id', 'gameId', 'deckNormalizedName', 'deckDisplayName',
-  'status', 'matchDate', 'mu', 'sigma', 'turnOrder'
+  'status', 'matchDate', 'mu', 'sigma', 'turnOrder', 'assignedPlayer'
 ] as const;
 
 const DECK_COLUMNS = ['normalizedName', 'displayName', 'mu', 'sigma', 'wins', 'losses', 'draws'] as const;
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cedhskill-hybrid-undo-redo-'));
   process.chdir(tempDir);
 
-  const { initDatabase, getDatabase } = await import('../src/db/init.js');
+  const { initDatabase, getDatabase, closeDatabase } = await import('../src/db/init.js');
   await initDatabase();
   const db = getDatabase();
 
@@ -146,6 +146,8 @@ async function main(): Promise<void> {
   const assignedDeck = await db.get(
     'SELECT assignedDeck FROM matches WHERE gameId = ? AND userId = ?', [gameId, 'player-1']);
   assert.equal(assignedDeck.assignedDeck, deckName, 'defaultDeck should be auto-assigned');
+  assert.equal(deckMatchesPostGame[0].assignedPlayer, 'player-1',
+    'hybrid deck_matches row must record assignedPlayer (turn-button sync depends on it)');
 
   // --- /undo
   await undoCommand.execute(fakeInteraction('admin-user'));
@@ -197,9 +199,13 @@ async function main(): Promise<void> {
   const gamePostRedo = await db.get('SELECT status FROM games_master WHERE gameId = ?', gameId);
   assert.equal(gamePostRedo.status, 'confirmed', 'redo must re-confirm the game');
 
-  // No closeDatabase(): the repo's helpers leave prepared statements open, which
-  // makes the shutdown checkpoint log a spurious SQLITE_LOCKED error. The temp
-  // database is deleted and the process exits, so skipping close is safe here.
+  const redoDeckRow = deckMatchesPostRedo[0];
+  assert.equal(redoDeckRow.assignedPlayer, 'player-1',
+    'redo must preserve assignedPlayer on the re-inserted deck_matches row');
+
+  // Clean close works since PR #69 removed the leaked prepared statements;
+  // doubles as a shutdown regression check.
+  await closeDatabase();
   fs.rmSync(tempDir, { recursive: true, force: true });
   console.log('PASS: hybrid game undo/redo round-trips deck ratings and deck_matches');
 }
