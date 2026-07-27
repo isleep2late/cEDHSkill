@@ -1526,8 +1526,7 @@ async function handleRatingChanges(
   let newElo = elo !== null ? elo : calculateElo(newMu, newSigma);
   
   if (elo !== null) {
-    newMu = 25 + (elo - 1000) / 12;
-    newSigma = 8.333;
+    newMu = muFromElo(elo, newSigma);
   }
 
   let newWins = wldRecord ? wldRecord.wins : oldWins;
@@ -1626,8 +1625,7 @@ async function handleDeckRatingChanges(
   let newElo = elo !== null ? elo : calculateElo(newMu, newSigma);
   
   if (elo !== null) {
-    newMu = 25 + (elo - 1000) / 12;
-    newSigma = 8.333;
+    newMu = muFromElo(elo, newSigma);
   }
 
   let newWins = wldRecord ? wldRecord.wins : oldWins;
