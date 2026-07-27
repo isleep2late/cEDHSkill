@@ -58,7 +58,8 @@ sudo pacman -S nodejs npm
 5. Under the bot's username, click "Reset Token" and copy the token (you'll need this later)
 6. Leave **all Privileged Gateway Intents OFF** (Presence, Server Members, Message Content).
    The bot does not request or need any of them — it only uses the non-privileged
-   `Guilds`, `DirectMessages`, and `GuildMessageReactions` intents (see `src/bot.ts`).
+   `Guilds` and `DirectMessages` intents (see `src/bot.ts`). Game confirmations and
+   turn-order selection use Discord buttons (interactions), which need no extra intents.
    Reading DM content (for `!optin`/`!optout`) does **not** require the Message Content
    intent. Enabling privileged intents you don't use triggers Discord's privileged-intent
    review once the app grows, so keep them disabled.
@@ -72,7 +73,6 @@ sudo pacman -S nodejs npm
    - Attach Files
    - Read Message History
    - Use Slash Commands
-   - **Manage Messages** (optional) - Allows the bot to remove reactions during turn order selection. The bot works fine without this, but turn order reaction cleanup won't work (users may need to manually remove their old reactions).
 10. Copy the generated URL at the bottom and open it in your browser to invite the bot to your server
 
 ---

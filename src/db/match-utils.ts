@@ -67,14 +67,47 @@ export async function deleteMatchesByGameId(gameId: string): Promise<void> {
   await stmt.run(gameId);
 }
 
-export async function updateMatchTurnOrder(matchId: string, userId: string, turnOrder: number): Promise<void> {
+/**
+ * Set (or clear, with null) a player's turn order for a recorded game.
+ * For hybrid games the player's assigned deck has a matching deck_matches
+ * row; keep its turnOrder in sync so deck turn-order stats stay accurate.
+ */
+export async function setPlayerTurnOrderForGame(gameId: string, userId: string, turnOrder: number | null): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    UPDATE matches 
-    SET turnOrder = ? 
-    WHERE id = ? AND userId = ?
-  `);
-  await stmt.run(turnOrder, matchId, userId);
+  const row = await db.get(
+    'SELECT turnOrder, assignedDeck FROM matches WHERE gameId = ? AND userId = ?',
+    [gameId, userId]
+  );
+  if (!row) return;
+
+  await db.run(
+    'UPDATE matches SET turnOrder = ? WHERE gameId = ? AND userId = ?',
+    [turnOrder, gameId, userId]
+  );
+
+  if (row.assignedDeck) {
+    // Hybrid deck rows record assignedPlayer, giving an exact per-player match.
+    const synced = await db.run(
+      'UPDATE deck_matches SET turnOrder = ? WHERE gameId = ? AND assignedPlayer = ?',
+      [turnOrder, gameId, userId]
+    );
+    if ((synced?.changes ?? 0) === 0) {
+      // Legacy rows recorded before assignedPlayer was populated: best-effort
+      // match on the deck name and the old turn value — but only when the
+      // match is unambiguous (duplicate commanders could otherwise get the
+      // wrong pilot's row updated).
+      const candidates = await db.get(
+        'SELECT COUNT(*) as count FROM deck_matches WHERE gameId = ? AND deckNormalizedName = ? AND turnOrder IS ? AND assignedPlayer IS NULL',
+        [gameId, row.assignedDeck, row.turnOrder]
+      );
+      if (candidates?.count === 1) {
+        await db.run(
+          'UPDATE deck_matches SET turnOrder = ? WHERE gameId = ? AND deckNormalizedName = ? AND turnOrder IS ? AND assignedPlayer IS NULL',
+          [turnOrder, gameId, row.assignedDeck, row.turnOrder]
+        );
+      }
+    }
+  }
 }
 
 export async function getOpponentsByGameIds(gameIds: string[], userId: string): Promise<Record<string, string[]>> {

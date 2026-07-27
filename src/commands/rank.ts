@@ -1,4 +1,5 @@
 ﻿import {
+  ButtonInteraction,
   ChatInputCommandInteraction,
   EmbedBuilder,
   SlashCommandBuilder,
@@ -9,7 +10,9 @@ import { rate, Rating, rating } from 'openskill';
 import type { ExtendedClient } from '../bot.js';
 import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '../bot.js';
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
-import { recordMatch, getRecentMatches, updateMatchTurnOrder, getOpponentsByGameIds } from '../db/match-utils.js';
+import { recordMatch, getRecentMatches, getOpponentsByGameIds } from '../db/match-utils.js';
+import { registerPendingGame, removePendingGame, PendingPlayerGame, PendingDeckGame } from '../utils/pending-games.js';
+import { buildConfirmRow, buildTurnRow } from '../utils/button-handlers.js';
 import { 
   getOrCreateDeck, 
   updateDeckRating, 
@@ -844,42 +847,6 @@ export async function replayDeckGame(gameId: string): Promise<void> {
   }
 }
 
-// Helper function to rebuild turn order data from current reactions
-async function buildTurnOrderFromReactions(message: any, players: PlayerEntry[]): Promise<Map<string, number>> {
-  const turnOrderData = new Map<string, number>();
-  const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  const validUserIds = new Set(players.map(p => p.userId));
-  
-  try {
-    const freshMessage = await message.fetch();
-    
-    for (const [emojiName, reaction] of freshMessage.reactions.cache) {
-      if (turnOrderEmojis.includes(emojiName)) {
-        const turnOrder = turnOrderEmojis.indexOf(emojiName) + 1;
-        const users = await reaction.users.fetch();
-        
-        for (const [userId, user] of users) {
-          if (user.bot) continue;
-          if (!validUserIds.has(userId)) continue;
-          
-          const playerHasTurnOrder = players.find(p => p.userId === userId)?.turnOrder !== undefined;
-          if (playerHasTurnOrder) continue;
-          
-          const isAlreadyTaken = Array.from(turnOrderData.values()).includes(turnOrder);
-          if (isAlreadyTaken) continue;
-          
-          turnOrderData.set(userId, turnOrder);
-          break;
-        }
-      }
-    }
-  } catch (error) {
-    logger.error('Error rebuilding turn order from reactions:', error);
-  }
-  
-  return turnOrderData;
-}
-
 // Show top 50 players and decks after major operations
 async function showTop50PlayersAndDecks(interaction: ChatInputCommandInteraction): Promise<void> {
   // Players
@@ -960,15 +927,6 @@ async function showTop50PlayersAndDecks(interaction: ChatInputCommandInteraction
     .setFooter({ text: 'Deck rankings updated after game injection/recalculation' });
 
   await interaction.followUp({ embeds: [playerEmbed, deckEmbed] });
-}
-
-// Helper function to update match turn orders after the fact
-async function updateMatchTurnOrders(matchId: string, turnOrderSelections: Map<string, number>): Promise<void> {
-  for (const [userId, turnOrder] of turnOrderSelections) {
-    if (turnOrder > 0) {
-      await updateMatchTurnOrder(matchId, userId, turnOrder);
-    }
-  }
 }
 
 // Ensure minimum rating changes (always +2 for winners, always -2 for losers)
@@ -1621,7 +1579,7 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     .setDescription(
       `✅ **Results submitted by admin. Ratings updated immediately — see the "Results are now final!" message below for each player's before → after change.**\n\n` +
       `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
-      'An optional turn order tracking message will appear below for 30 minutes if players want to contribute turn order data.'
+      'Players can use the **Turn 1–4 buttons** below to record turn order — they keep working even after the game is finalized. Click your own turn again to rescind it; claiming a taken turn takes it over.'
     )
     .addFields(
       players.map(p => {
@@ -1665,227 +1623,25 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     await showTop50PlayersAndDecks(interaction);
   }
 
-  // Handle turn order collection
-  const providedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
-  const missingTurnOrders = [1, 2, 3, 4].filter(t => !providedTurnOrders.has(t));
-  const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  
-  if (missingTurnOrders.length > 0) {
-    try {
-      for (const turnOrder of missingTurnOrders) {
-        try {
-          await replyMsg.react(turnOrderEmojis[turnOrder - 1]);
-        } catch (error) {
-          logger.error(`Failed to add admin reaction for turn order ${turnOrder}:`, error);
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to add admin turn order reactions:', error);
-    }
-
-    const turnOrderSelections = new Map<string, number>();
-
-const turnOrderCollector = replyMsg.createReactionCollector({
-  filter: (reaction, user) => !user.bot,
-  time: 30 * 60 * 1000
-});
-
-// Maintain clean state for admin collector too
-const adminCleanTurnOrderState = new Map<string, number>();
-
-// Add auto-assignment logic for admin games
-const checkAndApplyAdminAutoAssignment = () => {
-  const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined || adminCleanTurnOrderState.has(p.userId));
-  const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined && !adminCleanTurnOrderState.has(p.userId));
-  
-  // If exactly 3 players have turn orders and 1 doesn't, auto-assign
-  if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
-    const providedTurnOrders = new Set([
-      ...players.filter(p => p.turnOrder !== undefined).map(p => p.turnOrder!),
-      ...Array.from(adminCleanTurnOrderState.values())
-    ]);
-    
-    const allTurnOrders = [1, 2, 3, 4];
-    const missingTurnOrder = allTurnOrders.find(t => !providedTurnOrders.has(t));
-    
-    if (missingTurnOrder) {
-      const playerWithoutTurnOrder = playersWithoutTurnOrder[0];
-      adminCleanTurnOrderState.set(playerWithoutTurnOrder.userId, missingTurnOrder);
-      
-      return {
-        autoAssigned: true,
-        player: playerWithoutTurnOrder,
-        turnOrder: missingTurnOrder
-      };
-    }
-  }
-  
-  return { autoAssigned: false };
-};
-
-// Updated admin embed update function
-const updateAdminEmbedWithTurnOrders = async () => {
-  const validUsers = new Set(players.map(p => p.userId));
-  
-  // Check for auto-assignment
-  const autoAssignResult = checkAndApplyAdminAutoAssignment();
-  
-  const currentTurnOrders = Array.from(adminCleanTurnOrderState.entries())
-    .filter(([userId, order]: [string, number]) => validUsers.has(userId) && order > 0)
-    .map(([userId, order]: [string, number]) => {
-      const isAutoAssigned = autoAssignResult.autoAssigned && 
-                            autoAssignResult.player?.userId === userId;
-      return `<@${userId}>: Turn ${order}${isAutoAssigned ? ' (auto-assigned)' : ''}`;
-    })
-    .join(', ');
-  
+  // Persistent turn-order buttons: clicks are validated and applied by the
+  // global cedh: button router against the database, so they keep working
+  // indefinitely — even after the game is finalized or the bot restarts.
   try {
-    const updatedEmbed = EmbedBuilder.from(adminEmbed);
-    
-    if (currentTurnOrders) {
-      let footerText = `Turn orders recorded: ${currentTurnOrders}`;
-      
-      if (autoAssignResult.autoAssigned) {
-        footerText += ` | ✨ Auto-assigned Turn ${autoAssignResult.turnOrder} to <@${autoAssignResult.player!.userId}>`;
-      }
-      
-      updatedEmbed.setFooter({ text: footerText });
-    } else {
-      updatedEmbed.setFooter({ text: 'Turn order collection period (30 minutes)' });
-    }
-    
-    await replyMsg.edit({ embeds: [updatedEmbed] });
+    await replyMsg.edit({ components: [buildTurnRow(gameId, players.length)] });
   } catch (error) {
-    logger.error('Failed to update admin embed with turn order progress:', error);
-  }
-};
-
-turnOrderCollector.on('collect', async (reaction, user) => {
-  // Always remove unauthorized reactions immediately
-  const validUsers = new Set(players.map(p => p.userId));
-  const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  
-  if (!validUsers.has(user.id) || !turnOrderEmojis.includes(reaction.emoji.name!)) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove unauthorized admin reaction:', error);
-    }
-    return; // Exit immediately
-  }
-
-  const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
-  if (playerHasTurnOrder) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove reaction from player with existing turn order:', error);
-    }
-    return;
-  }
-
-  const turnOrder = turnOrderEmojis.indexOf(reaction.emoji.name!) + 1;
-
-  // Check if this turn order was provided inline (from command input)
-  if (!missingTurnOrders.includes(turnOrder)) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove unavailable admin turn order reaction:', error);
-    }
-    return;
-  }
-
-  // Check if this turn order is already claimed by ANOTHER user via reactions
-  const currentHolder = Array.from(adminCleanTurnOrderState.entries()).find(
-    ([otherId, otherOrder]) => otherId !== user.id && otherOrder === turnOrder
-  );
-  if (currentHolder) {
-    // Turn already taken by someone else - reject (first come, first served)
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove contested admin turn order reaction:', error);
-    }
-    return;
-  }
-
-  // If this user already had a different turn order, free it and remove old reaction
-  if (adminCleanTurnOrderState.has(user.id)) {
-    const oldTurnOrder = adminCleanTurnOrderState.get(user.id)!;
-    adminCleanTurnOrderState.delete(user.id);
-    // Remove their old turn order reaction so the spot visually opens up
-    try {
-      const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
-      const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
-      if (oldReaction) await oldReaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove old admin turn order reaction:', error);
-    }
-  }
-
-  // Claim this turn order
-  adminCleanTurnOrderState.set(user.id, turnOrder);
-
-  // Update embed using our clean state only
-  await updateAdminEmbedWithTurnOrders();
-});
-
-turnOrderCollector.on('end', async (collected, reason) => {
-  try {
-    if (reason === 'time') {
-      // Use our clean state instead of Discord reactions
-      const finalTurnOrders: [string, number][] = Array.from(adminCleanTurnOrderState.entries())
-        .filter(([userId, order]) => players.some(p => p.userId === userId) && order > 0);
-
-        // Apply any auto-assignments from the collection period
-for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
-  // Only add if this player didn't already have a turn order from the original command
-  const playerHadOriginalTurnOrder = players.find(p => p.userId === userId)?.turnOrder !== undefined;
-  if (!playerHadOriginalTurnOrder && !finalTurnOrders.some(([id]) => id === userId)) {
-    finalTurnOrders.push([userId, turnOrder]);
-  }
-}
-      
-      if (finalTurnOrders.length > 0) {
-        logger.info(`Updating ${finalTurnOrders.length} turn orders for admin game ${gameId}`);
-        for (const [userId, turnOrder] of finalTurnOrders) {
-          try {
-            await updateMatchTurnOrder(matchId, userId, turnOrder);
-          } catch (error) {
-            logger.error(`Failed to update turn order for user ${userId}:`, error);
-          }
-        }
-      }
-
-      const finalTurnOrderDisplay = finalTurnOrders
-        .map(([userId, order]) => `<@${userId}>: Turn ${order}`)
-        .join(', ');
-      
-      const finalEmbed = EmbedBuilder.from(adminEmbed);
-      if (finalTurnOrderDisplay) {
-        finalEmbed.setFooter({ text: `Final turn orders: ${finalTurnOrderDisplay} (Collection period ended)` });
-      } else {
-        finalEmbed.setFooter({ text: 'Turn order collection period ended (30 minutes)' });
-      }
-      
-      await replyMsg.edit({ embeds: [finalEmbed] });
-    }
-  } catch (error) {
-    logger.error('Error in admin turn order end handler:', error);
-  }
-});
+    logger.error('Failed to attach turn-order buttons to admin game message:', error);
   }
 } else {
   // Non-admin block - properly structured
   const nonAdminEmbed = new EmbedBuilder()
     .setTitle(`⚔️ Game Results Pending Confirmation`)
     .setDescription(
-      `**Players must confirm their participation:**\n` +
-      '• **FIRST**: Click 1️⃣, 2️⃣, 3️⃣, or 4️⃣ if you want to track your turn order (optional)\n' +
-      '• **THEN**: React with 👍 to **confirm** your result\n' +
-      '• React with ❌ to **cancel** this game (creator only)\n\n' +
-      '**Turn order tracking is optional** - you can use `/setturnorder` later if you forget.\n\n' +
+      `**Players must confirm below:**\n` +
+      '• Click ✅ **Confirm** to confirm your result (players in this game only)\n' +
+      '• Click **Turn 1–4** to record your turn order (optional — the buttons keep working even after the game is confirmed)\n' +
+      '• Click your current turn again to **rescind** it; claiming a taken turn **takes it over**\n' +
+      '• Click ❌ **Cancel** to cancel this game (submitter only)\n' +
+      '• If only one confirmation is missing, an **admin/moderator** can click ✅ to push the game through\n\n' +
       '💡 **Tip**: You can assign turn order when submitting by adding numbers 1-4 before or after w/l/d.\n' +
       'Example: `/rank @player1 2 w @player2 1 l @player3 4 l @player4 3 l`\n\n' +
       `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
@@ -1916,14 +1672,177 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
   const pinged = players.map(p => `<@${p.userId}>`).join(' ');
   const replyMsg = await interaction.editReply({
     content: `📢 Game results submitted. Waiting for confirmations from: ${pinged}`,
-    embeds: [nonAdminEmbed]
+    embeds: [nonAdminEmbed],
+    components: [buildConfirmRow(gameId), buildTurnRow(gameId, players.length)]
+  });
+
+
+  const matchId = crypto.randomUUID();
+
+  // Non-admin: wait for button confirmations, routed here from the global
+  // cedh: button handler via the pending-games registry.
+  const pending = new Set(players.map(p => p.userId));
+  // Remove the bot from pending confirmations - it can't confirm itself
+  if (client.user?.id) {
+    pending.delete(client.user.id);
+  }
+
+  // Track players in limbo (exclude the bot) so /snap can clear stuck games
+  const limboUsers = new Set(players.map(p => p.userId).filter(id => id !== client.user?.id));
+  if (players.map(p => p.userId).includes(interaction.user.id)) {
+    limboUsers.add(interaction.user.id);
+  }
+  client.limboGames.set(replyMsg.id, { gameId, gameType: 'player', players: limboUsers });
+
+  // Turn-order assignments, seeded from inline command input. Buttons mutate
+  // this map (claim / rescind / overthrow) until the game is confirmed; after
+  // confirmation the turn buttons work directly against the database.
+  const assignments = new Map<string, number>();
+  for (const p of players) {
+    if (p.turnOrder !== undefined) assignments.set(p.userId, p.turnOrder);
+  }
+
+  const renderPending = () => {
+    const remaining = Array.from(pending).map(id => `<@${id}>`).join(', ');
+    const content = pending.size > 0
+      ? `📢 Game results submitted. Waiting for confirmations from: ${remaining}`
+      : '📢 Game results submitted.';
+    const embed = EmbedBuilder.from(nonAdminEmbed);
+    const turnSummary = players
+      .filter(p => assignments.has(p.userId))
+      .map(p => `${userNames[p.userId]}: Turn ${assignments.get(p.userId)}`)
+      .join(', ');
+    if (turnSummary) {
+      embed.setFooter({ text: `Turn orders recorded: ${turnSummary}` });
+    } else {
+      embed.setFooter(null);
+    }
+    return {
+      content,
+      embeds: [embed],
+      components: [buildConfirmRow(gameId), buildTurnRow(gameId, players.length)]
+    };
+  };
+
+  const complete = async (via: ButtonInteraction, pushedThroughBy?: string) => {
+    // Keep the registry entry (processing=true) until we finish, so clicks
+    // arriving mid-processing get a clear "being processed" reply; the expiry
+    // callback checks the flag and won't fire destructively.
+    client.limboGames.delete(replyMsg.id);
+    try {
+      await via.deferUpdate();
+    } catch {
+      // Already acknowledged or expired - continue processing regardless
+    }
+
+    try {
+      // Apply button-claimed turn orders to the player entries
+      for (const p of players) {
+        const claimed = assignments.get(p.userId);
+        p.turnOrder = claimed !== undefined ? claimed : undefined;
+      }
+
+      // Auto-assign: if all but one player have turn orders, the last one is determined
+      const withTurn = players.filter(p => p.turnOrder !== undefined);
+      const withoutTurn = players.filter(p => p.turnOrder === undefined);
+      if (withoutTurn.length === 1 && withTurn.length === players.length - 1) {
+        const used = new Set(withTurn.map(p => p.turnOrder!));
+        const missing = Array.from({ length: players.length }, (_, i) => i + 1).find(t => !used.has(t));
+        if (missing) withoutTurn[0].turnOrder = missing;
+      }
+
+      await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
+
+      if (afterGameId) {
+        await recalculateAllPlayersFromScratch();
+        await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
+
+        await showTop50PlayersAndDecks(interaction);
+      }
+
+      // Confirmation is done: drop Confirm/Cancel but keep the turn buttons,
+      // which continue to work against the database indefinitely.
+      const confirmedContent = pushedThroughBy
+        ? `📢 Game confirmed — final confirmation supplied by admin/moderator <@${pushedThroughBy}>.`
+        : '📢 Game confirmed by all players.';
+      await replyMsg.edit({
+        content: confirmedContent,
+        components: [buildTurnRow(gameId, players.length)]
+      }).catch(() => {});
+    } catch (error) {
+      logger.error('Error processing game results:', error);
+      try {
+        await via.followUp({ content: '❌ An error occurred while processing game results. Please check the logs.', ephemeral: true });
+      } catch {
+        // Interaction may have expired
+      }
+    } finally {
+      removePendingGame(gameId);
+    }
+  };
+
+  const cancel = async (via: ButtonInteraction) => {
+    try {
+      client.limboGames.delete(replyMsg.id);
+      await cleanupUnconfirmedGame(gameId);
+      try {
+        await via.update({ components: [] });
+      } catch {
+        await replyMsg.edit({ components: [] }).catch(() => {});
+      }
+
+      const cancelEmbed = new EmbedBuilder()
+        .setTitle('❌ Game Cancelled')
+        .setDescription('The game creator has cancelled this pending game.')
+        .setColor(0xFF0000);
+      const chan = replyMsg.channel as TextChannel;
+      await chan.send({
+        content: `🚫 **Game Cancelled**: Game ID ${gameId} was cancelled by the submitter.`,
+        embeds: [cancelEmbed]
+      }).catch(error => logger.error('Failed to send cancellation notification:', error));
+    } finally {
+      removePendingGame(gameId);
+    }
+  };
+
+  const pendingGame: PendingPlayerGame = {
+    kind: 'player',
+    gameId,
+    messageId: replyMsg.id,
+    submitterId: interaction.user.id,
+    playerIds: players.map(p => p.userId),
+    pending,
+    assignments,
+    processing: false,
+    renderPending,
+    complete,
+    cancel
+  };
+
+  registerPendingGame(pendingGame, 60 * 60 * 1000, async () => {
+    // 1 hour passed without full confirmation
+    if (pendingGame.processing) return; // confirmation landed just before expiry
+    client.limboGames.delete(replyMsg.id);
+    await cleanupUnconfirmedGame(gameId);
+    await replyMsg.edit({ components: [] }).catch(() => {});
+
+    const timeoutEmbed = new EmbedBuilder()
+      .setTitle('⏰ Game Expired')
+      .setDescription('This game timed out after 1 hour without all players confirming.')
+      .setColor(0xFF6B6B);
+    const chan = replyMsg.channel as TextChannel;
+    await chan.send({
+      content: `⏰ **Game Expired**: ${pinged} - Your pending game timed out after 1 hour without full confirmation.`,
+      embeds: [timeoutEmbed]
+    }).catch(error => logger.error('Failed to send timeout notification:', error));
   });
 
   // Discord does not fire notifications for editReply edits, so the mentions
   // above only highlight names without pinging. Send a followUp containing the
   // mentions to trigger the notification, then delete it (ghost ping) so the
   // channel stays clean and the main reply remains the source of truth for
-  // reactions and the collector below.
+  // the confirmation buttons. Done AFTER registering the pending game so
+  // clicks landing during these REST round-trips are not dropped.
   try {
     const ghostPing = await interaction.followUp({
       content: pinged,
@@ -1933,330 +1852,6 @@ for (const [userId, turnOrder] of adminCleanTurnOrderState.entries()) {
   } catch (error) {
     logger.error('Failed to send ghost ping followUp:', error);
   }
-
-  const matchId = crypto.randomUUID();
-    // Non-admin: wait for confirmations with enhanced reaction system
-    const pending = new Set(players.map(p => p.userId));
-    // Remove the bot from pending confirmations - it can't confirm itself
-    if (client.user?.id) {
-      pending.delete(client.user.id);
-    }
-    
-    try {
-  // Add all reaction options
-  await replyMsg.react('👍');
-  await replyMsg.react('❌'); // Cancel option
-  
-  // Add turn order reactions only for positions not already specified
-  const providedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
-  const missingTurnOrders = [1, 2, 3, 4].filter(t => !providedTurnOrders.has(t));
-  const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  
-  // Only add turn order reactions if there are missing turn orders
-  if (missingTurnOrders.length > 0) {
-    for (const turnOrder of missingTurnOrders) {
-      try {
-        await replyMsg.react(turnOrderEmojis[turnOrder - 1]);
-      } catch (error) {
-        logger.error(`Failed to add reaction for turn order ${turnOrder}:`, error);
-      }
-    }
-  }
-} catch (error) {
-  logger.error('Failed to add basic reactions:', error);
-  // Continue execution even if reactions fail
-}
-
-
-    // Track players in limbo (exclude the bot)
-    const limboUsers = new Set(players.map(p => p.userId).filter(id => id !== client.user?.id));
-    if (players.map(p => p.userId).includes(interaction.user.id)) {
-      limboUsers.add(interaction.user.id);
-    }
-    client.limboGames.set(replyMsg.id, { gameId, gameType: 'player', players: limboUsers });
-
-    // Track turn order selections
-    const turnOrderSelections = new Map<string, number>();
-
- const providedTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
-const missingTurnOrders = [1, 2, 3, 4].filter(t => !providedTurnOrders.has(t));
-
-// Replace the non-admin collector with this approach that maintains its own state
-const collector = replyMsg.createReactionCollector({
-  filter: (reaction, user) => !user.bot,
-  time: 60 * 60 * 1000
-});
-
-// Add processing flag to prevent double processing
-let isProcessing = false;
-
-// Maintain our own clean state - ignore Discord reactions for display
-const cleanTurnOrderState = new Map<string, number>();
-
-// Add this function for auto-assignment logic
-const checkAndApplyAutoAssignment = () => {
-  const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined || cleanTurnOrderState.has(p.userId));
-  const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined && !cleanTurnOrderState.has(p.userId));
-  
-  // If exactly 3 players have turn orders and 1 doesn't, auto-assign
-  if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
-    const providedTurnOrders = new Set([
-      ...players.filter(p => p.turnOrder !== undefined).map(p => p.turnOrder!),
-      ...Array.from(cleanTurnOrderState.values())
-    ]);
-    
-    const allTurnOrders = [1, 2, 3, 4];
-    const missingTurnOrder = allTurnOrders.find(t => !providedTurnOrders.has(t));
-    
-    if (missingTurnOrder) {
-      const playerWithoutTurnOrder = playersWithoutTurnOrder[0];
-      cleanTurnOrderState.set(playerWithoutTurnOrder.userId, missingTurnOrder);
-      
-      return {
-        autoAssigned: true,
-        player: playerWithoutTurnOrder,
-        turnOrder: missingTurnOrder
-      };
-    }
-  }
-  
-  return { autoAssigned: false };
-};
-
-// Updated embed update function that shows auto-assignments
-const updateEmbedWithTurnOrders = async () => {
-  const validUsers = new Set(players.map(p => p.userId));
-  
-  // Check for auto-assignment
-  const autoAssignResult = checkAndApplyAutoAssignment();
-  
-  const currentTurnOrders = Array.from(cleanTurnOrderState.entries())
-    .filter(([userId, order]: [string, number]) => validUsers.has(userId) && order > 0)
-    .map(([userId, order]: [string, number]) => {
-      const isAutoAssigned = autoAssignResult.autoAssigned && 
-                            autoAssignResult.player?.userId === userId;
-      return `<@${userId}>: Turn ${order}${isAutoAssigned ? ' (auto-assigned)' : ''}`;
-    })
-    .join(', ');
-  
-  try {
-    const updatedEmbed = EmbedBuilder.from(nonAdminEmbed);
-    
-    if (currentTurnOrders) {
-      let footerText = `Turn orders recorded: ${currentTurnOrders}`;
-      
-      if (autoAssignResult.autoAssigned) {
-        footerText += `\n\n✨ Auto-assigned Turn ${autoAssignResult.turnOrder} to <@${autoAssignResult.player!.userId}> (3/4 orders provided)`;
-      }
-      
-      updatedEmbed.setFooter({ text: footerText });
-    } else {
-      updatedEmbed.setFooter(null);
-    }
-    
-    await replyMsg.edit({ embeds: [updatedEmbed] });
-  } catch (error) {
-    logger.error('Failed to update embed:', error);
-  }
-};
-
-collector.on('collect', async (reaction, user) => {
-  // Always remove unauthorized reactions immediately
-  const validUsers = new Set(players.map(p => p.userId));
-  validUsers.add(interaction.user.id);
-  const validEmojis = ['👍', '❌', '1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  
-  if (!validUsers.has(user.id) || !validEmojis.includes(reaction.emoji.name!)) {
-    try {
-      await reaction.users.remove(user.id);
-    } catch (error) {
-      logger.error('Failed to remove unauthorized reaction:', error);
-    }
-    return; // Exit immediately - don't process anything
-  }
-
-  // Handle cancellation
-  if (reaction.emoji.name === '❌' && user.id === interaction.user.id) {
-    try {
-      if (isProcessing) return; // Prevent cancellation during processing
-      collector.stop('cancelled');
-      client.limboGames.delete(replyMsg.id);
-      await cleanupUnconfirmedGame(gameId);
-
-      const cancelEmbed = new EmbedBuilder()
-        .setTitle('❌ Game Cancelled')
-        .setDescription('The game creator has cancelled this pending game.')
-        .setColor(0xFF0000);
-      
-      const chan = replyMsg.channel as TextChannel;
-      await chan.send({ 
-        content: `🚫 **Game Cancelled**: Game ID ${gameId} was cancelled by the submitter.`,
-        embeds: [cancelEmbed] 
-      });
-      return;
-    } catch (error) {
-      logger.error('Error in cancellation handler:', error);
-      return;
-    }
-  }
-
-  // Handle confirmation - ALLOW all game participants to confirm
-  if (reaction.emoji.name === '👍' && pending.has(user.id)) {
-    pending.delete(user.id);
-    
-    // Apply auto-assignment if applicable before checking completion
-    checkAndApplyAutoAssignment();
-    
-    // Update embed to show current confirmation status
-    try {
-      if (pending.size > 0) {
-        const remainingUsers = Array.from(pending).map(id => `<@${id}>`).join(', ');
-        const updatedContent = `📢 Game results submitted. Waiting for confirmations from: ${remainingUsers}`;
-        await interaction.editReply({ content: updatedContent });
-      }
-    } catch (error) {
-      logger.error('Failed to update confirmation status:', error);
-    }
-    
-    // CRITICAL FIX: Add processing guard
-    if (pending.size === 0 && !isProcessing) {
-      isProcessing = true; // Set flag immediately
-      
-      try {
-        collector.stop('confirmed');
-        client.limboGames.delete(replyMsg.id);
-
-        // Use our clean state instead of reading from Discord reactions
-        for (const player of players) {
-          if (!player.turnOrder && cleanTurnOrderState.has(player.userId)) {
-            player.turnOrder = cleanTurnOrderState.get(player.userId);
-          }
-        }
-
-        // Auto-assign logic
-        const playersWithTurnOrder = players.filter(p => p.turnOrder !== undefined);
-        const playersWithoutTurnOrder = players.filter(p => p.turnOrder === undefined);
-        
-        if (playersWithTurnOrder.length === 3 && playersWithoutTurnOrder.length === 1) {
-          const finalProvidedTurnOrders = new Set(playersWithTurnOrder.map(p => p.turnOrder!));
-          const allTurnOrders = [1, 2, 3, 4];
-          const finalMissingTurnOrder = allTurnOrders.find(t => !finalProvidedTurnOrders.has(t));
-          
-          if (finalMissingTurnOrder) {
-            playersWithoutTurnOrder[0].turnOrder = finalMissingTurnOrder;
-          }
-        }
-
-        await processGameResults(players, preRatings, records, userNames, matchId, gameId, gameSequence, numPlayers, false, interaction.user.id, replyMsg, client, isCEDHMode, gameDate);
-        
-        if (afterGameId) {
-          await recalculateAllPlayersFromScratch();
-          await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
-
-          await showTop50PlayersAndDecks(interaction);
-        }
-      } catch (error) {
-        logger.error('Error processing game results:', error);
-        isProcessing = false; // Reset flag on error
-        try {
-          await interaction.followUp({ content: '❌ An error occurred while processing game results. Please check the logs.', ephemeral: true });
-        } catch {
-          // Interaction may have expired
-        }
-      }
-    }
-    return;
-  }
-
-  // Handle turn order reactions - first come first served, users can change their own
-  const turnOrderEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
-  if (turnOrderEmojis.includes(reaction.emoji.name!)) {
-    const isParticipant = players.some(p => p.userId === user.id);
-    const playerHasTurnOrder = players.find(p => p.userId === user.id)?.turnOrder !== undefined;
-
-    if (!isParticipant || playerHasTurnOrder) {
-      try {
-        await reaction.users.remove(user.id);
-      } catch (error) {
-        logger.error('Failed to remove invalid turn order reaction:', error);
-      }
-      return;
-    }
-
-    const turnOrder = turnOrderEmojis.indexOf(reaction.emoji.name!) + 1;
-
-    // Check if this turn order is already provided inline (from command input)
-    const inlineTurnOrders = new Set(players.filter(p => p.turnOrder).map(p => p.turnOrder!));
-    if (inlineTurnOrders.has(turnOrder)) {
-      try {
-        await reaction.users.remove(user.id);
-      } catch (error) {
-        logger.error('Failed to remove unavailable turn order reaction:', error);
-      }
-      return;
-    }
-
-    // Check if this turn order is already claimed by ANOTHER user via reactions
-    const currentHolder = Array.from(cleanTurnOrderState.entries()).find(
-      ([otherId, otherOrder]) => otherId !== user.id && otherOrder === turnOrder
-    );
-    if (currentHolder) {
-      // Turn already taken by someone else - reject (first come, first served)
-      try {
-        await reaction.users.remove(user.id);
-      } catch (error) {
-        logger.error('Failed to remove contested turn order reaction:', error);
-      }
-      return;
-    }
-
-    // If this user already had a different turn order, free it and remove old reaction
-    if (cleanTurnOrderState.has(user.id)) {
-      const oldTurnOrder = cleanTurnOrderState.get(user.id)!;
-      cleanTurnOrderState.delete(user.id);
-      // Remove their old turn order reaction so the spot visually opens up
-      try {
-        const oldEmoji = turnOrderEmojis[oldTurnOrder - 1];
-        const oldReaction = replyMsg.reactions.cache.find(r => r.emoji.name === oldEmoji);
-        if (oldReaction) await oldReaction.users.remove(user.id);
-      } catch (error) {
-        logger.error('Failed to remove old turn order reaction:', error);
-      }
-    }
-
-    // Claim this turn order
-    cleanTurnOrderState.set(user.id, turnOrder);
-
-    // Update embed using our clean state only
-    await updateEmbedWithTurnOrders();
-  }
-});
-collector.on('end', async (collected, reason) => {
-  try {
-    if (reason === 'time') {
-      client.limboGames.delete(replyMsg.id);
-      await cleanupUnconfirmedGame(gameId);
-
-      const timeoutEmbed = new EmbedBuilder()
-        .setTitle('⏰ Game Expired')
-        .setDescription('This game timed out after 1 hour without all players confirming.')
-        .setColor(0xFF6B6B);
-      
-      const timeoutMsg = `⏰ **Game Expired**: ${pinged} - Your pending game timed out after 1 hour without full confirmation.`;
-      const chan = replyMsg.channel as TextChannel;
-      
-      try {
-        await chan.send({ content: timeoutMsg, embeds: [timeoutEmbed] });
-      } catch (error) {
-        logger.error('Failed to send timeout notification:', error);
-      }
-    } else if (reason === 'cancelled') {
-      return;
-    }
-  } catch (error) {
-    logger.error('Error in collector end handler:', error);
-  }
-});
 }}
 
 // Separate function for deck-only mode
@@ -2421,7 +2016,8 @@ if (decks.length === 4) {
       isAdmin
         ? `✅ **Results submitted by admin. Deck ratings have been updated immediately.**\n\n` +
           `🎯 **Game ID: ${gameId}**${injectionNote}`
-        : 'Please react with 👍 to confirm these deck results. Any 2 people can confirm.\n\n' +
+        : 'Click ✅ **Confirm** below to confirm these deck results. Any 2 people can confirm.\n' +
+          'Click ❌ **Cancel** to cancel this deck battle (submitter only).\n\n' +
           `🎯 **Game ID: ${gameId}**${injectionNote}`
     )
     .addFields(
@@ -2448,7 +2044,8 @@ if (decks.length === 4) {
     content: isAdmin
       ? '🔥 Deck battle results confirmed by admin.'
       : '📢 Deck battle results submitted. Waiting for confirmations from at least 2 people.',
-    embeds: [embed]
+    embeds: [embed],
+    components: isAdmin ? [] : [buildConfirmRow(gameId)]
   });
 
   const matchId = crypto.randomUUID();
@@ -2463,122 +2060,126 @@ if (decks.length === 4) {
       await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
     }
   } else {
-    // Add reactions for confirmation and cancellation
-    await replyMsg.react('👍');
-    await replyMsg.react('❌'); // Add cancel option
-
-    // Add processing flag to prevent double processing for deck battles
-    let isProcessingDeck = false;
-
-    // Track confirmations (any 2 people can confirm)
+    // Non-admin: wait for button confirmations via the pending-games registry.
+    // Any 2 people can confirm a deck battle; only the submitter can cancel.
     const confirmations = new Set<string>();
     const requiredConfirmations = 2;
 
-    // Track this game in limbo
+    // Track this game in limbo so /snap can clear it if it gets stuck
     client.limboGames.set(replyMsg.id, { gameId, gameType: 'deck', players: new Set([interaction.user.id]) });
 
-    const collector = replyMsg.createReactionCollector({
-      filter: (reaction, user) =>
-        (reaction.emoji.name === '👍' || reaction.emoji.name === '❌') && !user.bot,
-      time: 60 * 60 * 1000 // 1 hour timeout
-    });
+    const renderPending = () => {
+      const updatedEmbed = EmbedBuilder.from(embed)
+        .setTitle('⚔️ Deck Battle Results - Awaiting Confirmation')
+        .setDescription(
+          `Click ✅ **Confirm** below to confirm these deck results. Any 2 people can confirm.\n` +
+          `Click ❌ **Cancel** to cancel this deck battle (submitter only).\n\n` +
+          `🎯 **Game ID: ${gameId}**${injectionNote}\n\n` +
+          `✅ **Confirmations: ${confirmations.size}/${requiredConfirmations}**`
+        );
+      return {
+        content: '📢 Deck battle results submitted. Waiting for confirmations from at least 2 people.',
+        embeds: [updatedEmbed],
+        components: [buildConfirmRow(gameId)]
+      };
+    };
 
-    collector.on('collect', async (reaction, user) => {
-      // Handle cancellation (only submitter can cancel)
-      if (reaction.emoji.name === '❌' && user.id === interaction.user.id) {
-        try {
-          collector.stop('cancelled');
-          client.limboGames.delete(replyMsg.id);
-          await cleanupUnconfirmedGame(gameId);
-
-          // Notify that deck battle was cancelled
-          const cancelEmbed = new EmbedBuilder()
-            .setTitle('❌ Deck Battle Cancelled')
-            .setDescription('The deck battle submitter has cancelled this pending game.')
-            .setColor(0xFF0000);
-          
-          const cancelMsg = `🚫 **Deck Battle Cancelled**: Game ID ${gameId} - Your pending deck battle was cancelled by the submitter.`;
-          const chan = replyMsg.channel as TextChannel;
-          
-          try {
-            await chan.send({ content: cancelMsg, embeds: [cancelEmbed] });
-          } catch (error) {
-            logger.error('Failed to send deck battle cancellation notification:', error);
-          }
-          return;
-        } catch (error) {
-          logger.error('Error handling deck battle cancellation:', error);
-          return;
-        }
+    const complete = async (via: ButtonInteraction) => {
+      // Keep the registry entry (processing=true) until we finish; see the
+      // player flow for rationale.
+      client.limboGames.delete(replyMsg.id);
+      try {
+        await via.deferUpdate();
+      } catch {
+        // Already acknowledged or expired - continue processing regardless
       }
 
-      // Handle confirmation
-      if (reaction.emoji.name === '👍') {
-        confirmations.add(user.id);
-        
-        // Update the embed to show progress
-        const updatedEmbed = EmbedBuilder.from(embed)
-          .setTitle('⚔️ Deck Battle Results - Awaiting Confirmation')
+      try {
+        // Process deck results (submittedByAdmin is false for non-admin path)
+        await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg, deckGameDate);
+
+        // If this was a deck game injection, recalculate all ratings
+        if (afterGameId) {
+          await recalculateAllPlayersFromScratch();
+          await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
+        }
+
+        const confirmedEmbed = EmbedBuilder.from(embed)
+          .setTitle('⚔️ Deck Battle Results - Confirmed')
           .setDescription(
-            `Please react with 👍 to confirm these deck results. Any 2 people can confirm.\n` +
-            `React with ❌ to cancel this deck battle (submitter only).\n\n` +
-            `🎯 **Game ID: ${gameId}**${injectionNote}\n\n` +
-            `✅ **Confirmations: ${confirmations.size}/${requiredConfirmations}**`
+            `✅ **Confirmed (${confirmations.size}/${requiredConfirmations}). Deck ratings have been updated.**\n\n` +
+            `🎯 **Game ID: ${gameId}**${injectionNote}`
           );
-        
-        await replyMsg.edit({ embeds: [updatedEmbed] });
-        
-        // CRITICAL FIX: Add processing guard for deck battles too
-        if (confirmations.size >= requiredConfirmations && !isProcessingDeck) {
-          isProcessingDeck = true; // Set flag immediately
-          
-          try {
-            collector.stop('confirmed');
-            client.limboGames.delete(replyMsg.id);
-
-            // Process deck results (submittedByAdmin is false for non-admin path)
-            await processDeckResults(decks, deckRatings, deckRecords, matchId, gameId, gameSequence, false, interaction.user.id, replyMsg, deckGameDate);
-            
-            // If this was a deck game injection, recalculate all ratings
-            if (afterGameId) {
-              await recalculateAllPlayersFromScratch();
-              await recalculateAllDecksFromScratch(); // includes 0/0/0 cleanup
-            }
-          } catch (error) {
-            logger.error('Error processing deck results:', error);
-            isProcessingDeck = false; // Reset flag on error
-            try {
-              await interaction.followUp({ content: '❌ An error occurred while processing deck results. Please check the logs.', ephemeral: true });
-            } catch {
-              // Interaction may have expired
-            }
-          }
+        await replyMsg.edit({
+          content: '🔥 Deck battle results confirmed.',
+          embeds: [confirmedEmbed],
+          components: []
+        }).catch(() => {});
+      } catch (error) {
+        logger.error('Error processing deck results:', error);
+        try {
+          await via.followUp({ content: '❌ An error occurred while processing deck results. Please check the logs.', ephemeral: true });
+        } catch {
+          // Interaction may have expired
         }
+      } finally {
+        removePendingGame(gameId);
       }
-    });
+    };
 
-    collector.on('end', async (collected, reason) => {
-      if (reason === 'time') {
+    const cancel = async (via: ButtonInteraction) => {
+      try {
         client.limboGames.delete(replyMsg.id);
         await cleanupUnconfirmedGame(gameId);
-
-        const timeoutEmbed = new EmbedBuilder()
-          .setTitle('⏰ Deck Battle Expired')
-          .setDescription('This deck battle timed out after 1 hour without sufficient confirmations.')
-          .setColor(0xFF6B6B);
-        
-        const timeoutMsg = `⏰ **Deck Battle Expired**: Game ID ${gameId} - Your pending deck battle timed out after 1 hour without sufficient confirmations.`;
-        
         try {
-          const chan = replyMsg.channel as TextChannel;
-          await chan.send({ content: timeoutMsg, embeds: [timeoutEmbed] });
-        } catch (error) {
-          logger.error('Failed to send deck battle timeout notification:', error);
+          await via.update({ components: [] });
+        } catch {
+          await replyMsg.edit({ components: [] }).catch(() => {});
         }
-      } else if (reason === 'cancelled') {
-        // Already handled in the collect event
-        return;
+
+        const cancelEmbed = new EmbedBuilder()
+          .setTitle('❌ Deck Battle Cancelled')
+          .setDescription('The deck battle submitter has cancelled this pending game.')
+          .setColor(0xFF0000);
+        const chan = replyMsg.channel as TextChannel;
+        await chan.send({
+          content: `🚫 **Deck Battle Cancelled**: Game ID ${gameId} - Your pending deck battle was cancelled by the submitter.`,
+          embeds: [cancelEmbed]
+        }).catch(error => logger.error('Failed to send deck battle cancellation notification:', error));
+      } finally {
+        removePendingGame(gameId);
       }
+    };
+
+    const pendingGame: PendingDeckGame = {
+      kind: 'deck',
+      gameId,
+      messageId: replyMsg.id,
+      submitterId: interaction.user.id,
+      confirmations,
+      required: requiredConfirmations,
+      processing: false,
+      renderPending,
+      complete,
+      cancel
+    };
+
+    registerPendingGame(pendingGame, 60 * 60 * 1000, async () => {
+      // 1 hour passed without sufficient confirmations
+      if (pendingGame.processing) return; // confirmation landed just before expiry
+      client.limboGames.delete(replyMsg.id);
+      await cleanupUnconfirmedGame(gameId);
+      await replyMsg.edit({ components: [] }).catch(() => {});
+
+      const timeoutEmbed = new EmbedBuilder()
+        .setTitle('⏰ Deck Battle Expired')
+        .setDescription('This deck battle timed out after 1 hour without sufficient confirmations.')
+        .setColor(0xFF6B6B);
+      const chan = replyMsg.channel as TextChannel;
+      await chan.send({
+        content: `⏰ **Deck Battle Expired**: Game ID ${gameId} - Your pending deck battle timed out after 1 hour without sufficient confirmations.`,
+        embeds: [timeoutEmbed]
+      }).catch(error => logger.error('Failed to send deck battle timeout notification:', error));
     });
   }
 }
@@ -3057,7 +2658,9 @@ export async function processCommanderRatingsEnhanced(
       logger.error('Error logging commander rating change to audit trail:', auditError);
     }
 
-    // Record individual deck matches for each instance
+    // Record individual deck matches for each instance. assignedPlayer links
+    // the hybrid deck row back to the player so post-confirmation turn-order
+    // button clicks can keep deck_matches.turnOrder in sync.
     for (const inst of update.instances) {
       await recordDeckMatch(
         `${matchId}-deck-${inst.entry.turnOrder}`,
@@ -3068,7 +2671,8 @@ export async function processCommanderRatingsEnhanced(
         matchDate || new Date(),
         aggregatedRating.mu,
         aggregatedRating.sigma,
-        inst.entry.turnOrder
+        inst.entry.turnOrder,
+        inst.entry.originalPlayer ?? null
       );
     }
   }

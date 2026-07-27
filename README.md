@@ -6,7 +6,7 @@ A Discord bot for competitive EDH (Commander) ranked games using [OpenSkill](htt
 
 This is a **stability and bug-fix** release following a server outage. The one rating-math change is the **removal of the participation bonus** — playing a ranked game no longer adds any flat Elo. The core Elo and decay systems otherwise behave exactly as they did in v0.03.
 
-- **Fixed: game confirmations work again.** Reacting 👍 to confirm a submitted game had been silently failing — a required Discord gateway intent (`GuildMessageReactions`) was dropped in a previous build, so the bot never saw players' reactions (admin auto-submits still worked, which masked the problem). The intent is restored, so player confirmations register correctly again.
+- **Changed: confirmations and turn order now use buttons instead of reactions.** Game messages carry a ✅ Confirm / ❌ Cancel row and Turn 1–4 buttons. Only players in the game can confirm; an admin/moderator can supply the final missing confirmation; each player holds at most one turn (click again to rescind, claim a taken turn to take it over), and turn buttons keep working even after the game is confirmed — including across bot restarts. The `GuildMessageReactions` intent and the optional Manage Messages permission are no longer needed.
 - **Fixed: "ghost games."** Previously, if the bot restarted or crashed while a game was still awaiting confirmation, that game could be left marked as *confirmed* in the registry but never actually counted toward anyone's ratings. Games are now inserted as **pending** and only promoted to **confirmed** once their results have actually been written. A one-time startup cleanup archives any old ghost entries to a `ghost_games_archive` table. (Removing them changed **zero** ratings — ghost games never had results to begin with.)
 - **Fixed: crash-safe database shutdown.** The bot now checkpoints its SQLite write-ahead log on `SIGINT`/`SIGTERM`, so a stop, crash, or reboot can no longer strand recently-recorded games in an un-checkpointed state (the root cause of an earlier ratings rollback).
 - **Fixed: clearer admin auto-confirm message.** When an admin submits a game on players' behalf, the "Auto Confirmed" embed now clearly labels the listed numbers as each player's rating **before** the game and points to the "Results are now final!" message for the updated before→after values.
@@ -39,7 +39,7 @@ This is a **stability and bug-fix** release following a server outage. The one r
 5. `npm run register-commands`
 6. Start the bot using one of the methods below
 
-> **Optional:** Grant the bot **Manage Messages** permission in your Discord server to allow automatic reaction cleanup during turn order selection. The bot works without this, but players may need to manually remove their old reactions when changing turn order picks.
+> Game confirmations and turn-order selection use Discord **buttons**, which need no extra permissions or gateway intents — the old reaction-based flow (and its optional **Manage Messages** permission for reaction cleanup) is gone.
 
 ## Running the Bot
 
@@ -148,9 +148,9 @@ Submit game results for players and/or commanders.
 /rank results: Kinnan w Najeela l Tymna/Thrasios l Sisay l
 ```
 
-**Turn order:** Can be specified inline with a number after the result (`@user w 1` = Turn 1), or via emoji reactions after the game is posted.
+**Turn order:** Can be specified inline with a number after the result (`@user w 1` = Turn 1), or with the **Turn 1–4 buttons** on the game message. Each player can hold only one turn; clicking your current turn again rescinds it, and claiming a turn someone else holds takes it over. The turn buttons keep working even after the game has been fully confirmed.
 
-**Game confirmation:** After submitting, all mentioned players must react to confirm the game before ratings are applied.
+**Game confirmation:** After submitting, all mentioned players must click the ✅ **Confirm** button before ratings are applied (the submitter can cancel with ❌). If only one confirmation is missing, an admin or moderator can click ✅ Confirm to push the game through. Pending games expire after 1 hour.
 
 #### `/list`
 Show the leaderboard for players or commanders.
@@ -421,9 +421,8 @@ Normal `/rank` games (no `aftergame`) and `/set deck:<name>` without a `gameid` 
 ## Troubleshooting
 
 - **Commands don't appear or didn't update:** run `npm run register-commands` again (commands are registered per-guild and update instantly).
-- **Players' 👍 confirmations aren't registering:** the bot needs the `GuildMessageReactions` gateway intent (enabled by default in v0.04). Also make sure **only one instance** of the bot is running on a given Discord token — two instances on the same token fight over events.
+- **Confirm/Turn buttons answer "no longer active":** the pending game expired (1 hour), was cancelled/snapped, or the bot restarted before everyone confirmed — resubmit the game. Turn buttons on **confirmed** games are database-backed and always work, even across restarts. Also make sure **only one instance** of the bot is running per configured guild — the shared-token guard drops interactions from other guilds by design.
 - **`Unknown interaction` errors in the log:** the bot must acknowledge Discord within ~3 seconds, so this is almost always a **network/connectivity** problem (high latency or packet loss on the host), not a code bug. Check the host's internet connection, and confirm no second instance is running on the same token.
-- **"Missing Permissions" when removing reactions:** grant the bot **Manage Messages** so it can auto-clean turn-order reactions. This is optional — without it, players just remove their own old reactions manually.
 - **Commander name rejected:** names are validated against EDHREC — check spelling/formatting.
 - **Database location:** `data/cEDHSkill.db`. Use `/backup` to download a copy via DM. The bot uses SQLite in WAL mode and checkpoints on a clean shutdown.
 
