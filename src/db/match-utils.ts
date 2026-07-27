@@ -42,29 +42,26 @@ export async function recordMatch(
 
 export async function getRecentMatches(userId: string, limit: number = 50): Promise<any[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT * FROM matches 
-    WHERE userId = ? 
-    ORDER BY matchDate DESC 
+  return await db.all(`
+    SELECT * FROM matches
+    WHERE userId = ?
+    ORDER BY matchDate DESC
     LIMIT ?
-  `);
-  return await stmt.all(userId, limit);
+  `, userId, limit);
 }
 
 export async function getMatchesByGameId(gameId: string): Promise<any[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT * FROM matches 
-    WHERE gameId = ? 
+  return await db.all(`
+    SELECT * FROM matches
+    WHERE gameId = ?
     ORDER BY matchDate DESC
-  `);
-  return await stmt.all(gameId);
+  `, gameId);
 }
 
 export async function deleteMatchesByGameId(gameId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('DELETE FROM matches WHERE gameId = ?');
-  await stmt.run(gameId);
+  await db.run('DELETE FROM matches WHERE gameId = ?', gameId);
 }
 
 /**
@@ -133,7 +130,6 @@ export async function getOpponentsByGameIds(gameIds: string[], userId: string): 
 
 export async function getTotalMatches(): Promise<number> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT COUNT(DISTINCT gameId) as count FROM matches');
-  const result = await stmt.get() as { count: number };
+  const result = await db.get('SELECT COUNT(DISTINCT gameId) as count FROM matches') as { count: number };
   return result.count;
 }

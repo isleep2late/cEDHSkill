@@ -10,38 +10,33 @@ export interface TurnOrderStats {
 
 export async function restrictPlayer(userId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('INSERT OR IGNORE INTO restricted (userId) VALUES (?)');
-  await stmt.run(userId);
+  await db.run('INSERT OR IGNORE INTO restricted (userId) VALUES (?)', userId);
 }
 
 export async function unrestrictPlayer(userId: string): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare('DELETE FROM restricted WHERE userId = ?');
-  await stmt.run(userId);
+  await db.run('DELETE FROM restricted WHERE userId = ?', userId);
 }
 
 export async function isPlayerRestricted(userId: string): Promise<boolean> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT userId FROM restricted WHERE userId = ?');
-  const row = await stmt.get(userId);
+  const row = await db.get('SELECT userId FROM restricted WHERE userId = ?', userId);
   return !!row;
 }
 
 export async function getRestrictedPlayers(): Promise<string[]> {
   const db = getDatabase();
-  const stmt = await db.prepare('SELECT userId FROM restricted');
-  const rows = await stmt.all() as { userId: string }[];
+  const rows = await db.all('SELECT userId FROM restricted') as { userId: string }[];
   return rows.map(r => r.userId);
 }
 
 export async function getOrCreatePlayer(userId: string) {
   const db = getDatabase();
   
-  const selectStmt = await db.prepare(`
+  const row = await db.get(`
     SELECT mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed, preDecaySigma
     FROM players WHERE userId = ?
-  `);
-  const row = await selectStmt.get(userId) as any;
+  `, userId) as any;
 
   if (row) {
     return {
@@ -63,11 +58,10 @@ export async function getOrCreatePlayer(userId: string) {
     const draws = 0;
     
     // Use INSERT OR IGNORE to prevent race conditions if two calls happen concurrently
-    const insertStmt = await db.prepare(`
+    await db.run(`
       INSERT OR IGNORE INTO players (userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    await insertStmt.run(userId, mu, sigma, wins, losses, draws, 0, null);
+    `, userId, mu, sigma, wins, losses, draws, 0, null);
     
     return { userId, mu, sigma, wins, losses, draws, gamesPlayed: 0, lastPlayed: null, preDecaySigma: sigma };
   }
@@ -82,13 +76,12 @@ export async function updatePlayerRating(
   draws: number
 ): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
+  await db.run(`
     UPDATE players
     SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
         gamesPlayed = ?, lastPlayed = ?, preDecaySigma = ?
     WHERE userId = ?
-  `);
-  await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, new Date().toISOString(), sigma, userId);
+  `, mu, sigma, wins, losses, draws, wins + losses + draws, new Date().toISOString(), sigma, userId);
 }
 
 export async function updatePlayerRatingForDecay(
@@ -100,28 +93,26 @@ export async function updatePlayerRatingForDecay(
   draws: number
 ): Promise<void> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
+  await db.run(`
     UPDATE players
     SET mu = ?, sigma = ?, wins = ?, losses = ?, draws = ?,
         gamesPlayed = ?
     WHERE userId = ?
-  `);
-  await stmt.run(mu, sigma, wins, losses, draws, wins + losses + draws, userId);
+  `, mu, sigma, wins, losses, draws, wins + losses + draws, userId);
 }
 
 export async function getAllPlayers() {
   const db = getDatabase();
-  const stmt = await db.prepare(`
+  return await db.all(`
     SELECT userId, mu, sigma, wins, losses, draws, gamesPlayed, lastPlayed, preDecaySigma
     FROM players
   `);
-  return await stmt.all();
 }
 
 export async function getPlayerTurnOrderStats(userId: string): Promise<TurnOrderStats[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT 
+  return await db.all(`
+    SELECT
       m.turnOrder,
       SUM(CASE WHEN m.status = 'w' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN m.status = 'l' THEN 1 ELSE 0 END) as losses,
@@ -132,15 +123,13 @@ export async function getPlayerTurnOrderStats(userId: string): Promise<TurnOrder
     WHERE m.userId = ? AND m.turnOrder IS NOT NULL AND gm.active = 1
     GROUP BY m.turnOrder
     ORDER BY m.turnOrder
-  `);
-  
-  return await stmt.all(userId) as TurnOrderStats[];
+  `, userId) as TurnOrderStats[];
 }
 
 export async function getAllPlayerTurnOrderStats(): Promise<TurnOrderStats[]> {
   const db = getDatabase();
-  const stmt = await db.prepare(`
-    SELECT 
+  return await db.all(`
+    SELECT
       m.turnOrder,
       SUM(CASE WHEN m.status = 'w' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN m.status = 'l' THEN 1 ELSE 0 END) as losses,
@@ -151,7 +140,5 @@ export async function getAllPlayerTurnOrderStats(): Promise<TurnOrderStats[]> {
     WHERE m.turnOrder IS NOT NULL AND gm.active = 1
     GROUP BY m.turnOrder
     ORDER BY m.turnOrder
-  `);
-  
-  return await stmt.all() as TurnOrderStats[];
+  `) as TurnOrderStats[];
 }
