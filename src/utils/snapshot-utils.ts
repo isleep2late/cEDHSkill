@@ -427,11 +427,11 @@ async function undoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
         await db.run('DELETE FROM deck_matches WHERE gameId = ?', snapshot.targetId);
         for (const record of snapshot.before.deckMatchRecords) {
           await db.run(`
-            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin, assignedPlayer)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [record.id, record.gameId, record.deckNormalizedName, record.deckDisplayName,
               record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
-              record.gameSequence, record.submittedByAdmin]);
+              record.gameSequence, record.submittedByAdmin, record.assignedPlayer ?? null]);
         }
         logger.info(`[SNAPSHOT] Restored ${snapshot.before.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
       }
@@ -558,11 +558,11 @@ async function redoSetCommand(snapshot: SetCommandSnapshot): Promise<void> {
         await db.run('DELETE FROM deck_matches WHERE gameId = ?', snapshot.targetId);
         for (const record of snapshot.after.deckMatchRecords) {
           await db.run(`
-            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO deck_matches (id, gameId, deckNormalizedName, deckDisplayName, status, matchDate, mu, sigma, turnOrder, gameSequence, submittedByAdmin, assignedPlayer)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [record.id, record.gameId, record.deckNormalizedName, record.deckDisplayName,
               record.status, record.matchDate, record.mu, record.sigma, record.turnOrder,
-              record.gameSequence, record.submittedByAdmin]);
+              record.gameSequence, record.submittedByAdmin, record.assignedPlayer ?? null]);
         }
         logger.info(`[SNAPSHOT] Restored ${snapshot.after.deckMatchRecords.length} deck match record(s) for game ${snapshot.targetId}`);
       }
