@@ -31,6 +31,17 @@ function hasModAccess(userId: string): boolean {
 }
 
 /**
+ * Turn clicks are easily mistaken for confirming the game (a pending game was
+ * lost to expiry this way), so every turn click by a player whose ✅ Confirm
+ * is still outstanding carries this reminder.
+ */
+function confirmReminder(game: PendingPlayerGame, userId: string): string {
+  return game.pending.has(userId)
+    ? ' ⚠️ Turn buttons do **not** confirm the game — click ✅ Confirm to confirm your result.'
+    : '';
+}
+
+/**
  * How long turn-order buttons stay usable, measured from game submission
  * (games_master.createdAt). Matches the pending-confirmation lifetime, so a
  * game submitted at T accepts turn clicks until T+1h whether or not it has
@@ -209,6 +220,12 @@ async function handlePendingPlayerButton(
       // Clicking your own turn again rescinds it.
       game.assignments.delete(userId);
       await interaction.update(game.renderPending());
+      await interaction.followUp({
+        content:
+          `🔄 You **rescinded** Turn ${turnNumber} — you no longer have a turn recorded. ` +
+          `Click a turn button to record one.${confirmReminder(game, userId)}`,
+        ephemeral: true
+      }).catch(() => {});
       return;
     }
     if (current !== undefined) {
@@ -229,9 +246,15 @@ async function handlePendingPlayerButton(
     }
     game.assignments.set(userId, turnNumber);
     await interaction.update(game.renderPending());
+    const reminder = confirmReminder(game, userId);
     if (previousHolder) {
       await interaction.followUp({
-        content: `🔄 You took Turn ${turnNumber} from <@${previousHolder}>.`,
+        content: `🔄 You took Turn ${turnNumber} from <@${previousHolder}>.${reminder}`,
+        ephemeral: true
+      }).catch(() => {});
+    } else if (reminder) {
+      await interaction.followUp({
+        content: `🔢 Turn ${turnNumber} recorded for you.${reminder}`,
         ephemeral: true
       }).catch(() => {});
     }
@@ -372,9 +395,11 @@ async function processConfirmedTurnClick(
   }
 
   let previousHolder: string | null = null;
+  let rescinded = false;
   if (me.turnOrder === turnNumber) {
     // Clicking your own turn again rescinds it.
     await setPlayerTurnOrderForGame(gameId, userId, null);
+    rescinded = true;
   } else if (me.turnOrder != null) {
     await ephemeral(`⚠️ You already have Turn ${me.turnOrder}. Click "Turn ${me.turnOrder}" again to rescind it before choosing another.`);
     return;
@@ -412,6 +437,9 @@ async function processConfirmedTurnClick(
     logger.error(`Failed to refresh turn-order display for game ${gameId}:`, error);
   }
 
+  if (rescinded) {
+    await ephemeral(`🔄 You **rescinded** Turn ${turnNumber} — you no longer have a turn recorded for this game. Click a turn button to record one.`);
+  }
   if (previousHolder) {
     await ephemeral(`🔄 You took Turn ${turnNumber} from <@${previousHolder}>.`);
   }
