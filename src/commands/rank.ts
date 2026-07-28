@@ -1640,41 +1640,60 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   }
 } else {
   // Non-admin block - properly structured
-  const nonAdminEmbed = new EmbedBuilder()
-    .setTitle(`⚔️ Game Results Pending Confirmation`)
-    .setDescription(
-      `**Players must confirm below:**\n` +
-      '• Click ✅ **Confirm** to confirm your result (players in this game only)\n' +
-      '• Click **Turn 1–4** to record your turn order (optional — works for 1 hour after submission, even once the game is confirmed)\n' +
-      '• Click your current turn again to **rescind** it; claiming a taken turn **takes it over**\n' +
-      '• Click the red **Cancel** button to cancel this game (submitter only)\n' +
-      '• If only one confirmation is missing, an **admin/moderator** can click ✅ to push the game through\n\n' +
-      '💡 **Tip**: You can assign turn order when submitting by adding numbers 1-4 before or after w/l/d.\n' +
-      'Example: `/rank @player1 2 w @player2 1 l @player3 4 l @player4 3 l`\n\n' +
-      `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
-      '⏰ Game expires in 1 hour if not all players confirm.'
-    )
-    .addFields(
-      players.map(p => {
-        const r = preRatings[p.userId];
-        const rec = records[p.userId];
-        const turnOrderDisplay = p.turnOrder ? ` [Turn ${p.turnOrder}]` : '';
-        const commanderDisplay = p.commander ? ` 🃃 ${p.commander}` : '';
-        return {
-          name: `${userNames[p.userId]}${commanderDisplay}${turnOrderDisplay}${p.team ? ` (${p.team})` : ''}`,
-          value:
-            `Result: ${p.status?.toUpperCase() ?? '❓'}\n` +
-            (p.commander ? `Commander: ${p.commander}\n` : '') +
-            (p.turnOrder ? `Turn Order: ${p.turnOrder}\n` : '') +
-            `Elo: ${calculateElo(r.mu, r.sigma)}\n` +
-            `Mu: ${r.mu.toFixed(2)}\n` +
-            `Sigma: ${r.sigma.toFixed(2)}\n` +
-            `W/L/D: ${rec.wins}/${rec.losses}/${rec.draws}`,
-          inline: false
-        };
-      })
-    )
-    .setColor(0x00AE86);
+  // The embed is rebuilt from a turn-order getter on every render: inline
+  // turn seeds can be rescinded or overthrown by button clicks, so the
+  // "Turn Order Assigned" block and per-player [Turn N] displays must follow
+  // the live assignments, not the values baked in at submission.
+  const buildPendingEmbed = (turnOf: (p: (typeof players)[number]) => number | undefined) => {
+    const turnLines = players
+      .filter(p => turnOf(p) !== undefined)
+      .map(p => `${userNames[p.userId]}: Turn ${turnOf(p)}`);
+    let liveInfo = '';
+    if (turnLines.length > 0) {
+      liveInfo += `\n\n🔢 **Turn Order Assigned:**\n${turnLines.join('\n')}`;
+    }
+    if (commanderSummary.length > 0) {
+      liveInfo += `\n\n🃃 **Commanders Assigned:**\n${commanderSummary.join('\n')}`;
+    }
+    return new EmbedBuilder()
+      .setTitle(`⚔️ Game Results Pending Confirmation`)
+      .setDescription(
+        `**Players must confirm below:**\n` +
+        '• Click ✅ **Confirm** to confirm your result (players in this game only) — turn buttons do **not** confirm the game\n' +
+        '• Click **Turn 1–4** to record your turn order (optional — works for 1 hour after submission, even once the game is confirmed)\n' +
+        '• Click your current turn again to **rescind** it; claiming a taken turn **takes it over**\n' +
+        '• Click the red **Cancel** button to cancel this game (submitter only)\n' +
+        '• If only one confirmation is missing, an **admin/moderator** can click ✅ to push the game through\n\n' +
+        '💡 **Tip**: You can assign turn order when submitting by adding numbers 1-4 before or after w/l/d.\n' +
+        'Example: `/rank @player1 2 w @player2 1 l @player3 4 l @player4 3 l`\n\n' +
+        `🎯 **Game ID: ${gameId}**${injectionNote}${liveInfo}\n\n` +
+        '⏰ Game expires in 1 hour if not all players confirm.'
+      )
+      .addFields(
+        players.map(p => {
+          const r = preRatings[p.userId];
+          const rec = records[p.userId];
+          const turn = turnOf(p);
+          const turnOrderDisplay = turn ? ` [Turn ${turn}]` : '';
+          const commanderDisplay = p.commander ? ` 🃃 ${p.commander}` : '';
+          return {
+            name: `${userNames[p.userId]}${commanderDisplay}${turnOrderDisplay}${p.team ? ` (${p.team})` : ''}`,
+            value:
+              `Result: ${p.status?.toUpperCase() ?? '❓'}\n` +
+              (p.commander ? `Commander: ${p.commander}\n` : '') +
+              (turn ? `Turn Order: ${turn}\n` : '') +
+              `Elo: ${calculateElo(r.mu, r.sigma)}\n` +
+              `Mu: ${r.mu.toFixed(2)}\n` +
+              `Sigma: ${r.sigma.toFixed(2)}\n` +
+              `W/L/D: ${rec.wins}/${rec.losses}/${rec.draws}`,
+            inline: false
+          };
+        })
+      )
+      .setColor(0x00AE86);
+  };
+
+  const nonAdminEmbed = buildPendingEmbed(p => p.turnOrder);
 
   const pinged = players.map(p => `<@${p.userId}>`).join(' ');
   const replyMsg = await interaction.editReply({
@@ -1715,15 +1734,13 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
     const content = pending.size > 0
       ? `📢 Game results submitted. Waiting for confirmations from: ${remaining}`
       : '📢 Game results submitted.';
-    const embed = EmbedBuilder.from(nonAdminEmbed);
+    const embed = buildPendingEmbed(p => assignments.get(p.userId));
     const turnSummary = players
       .filter(p => assignments.has(p.userId))
       .map(p => `${userNames[p.userId]}: Turn ${assignments.get(p.userId)}`)
       .join(', ');
     if (turnSummary) {
       embed.setFooter({ text: `Turn orders recorded: ${turnSummary}` });
-    } else {
-      embed.setFooter(null);
     }
     return {
       content,
