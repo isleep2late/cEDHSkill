@@ -12,7 +12,7 @@ import { recordPlayerActivity, applyRatingDecay, applyDecayForPlayers } from '..
 import { getOrCreatePlayer, updatePlayerRating, isPlayerRestricted, getAllPlayers } from '../db/player-utils.js';
 import { recordMatch, getRecentMatches, getOpponentsByGameIds } from '../db/match-utils.js';
 import { registerPendingGame, removePendingGame, PendingPlayerGame, PendingDeckGame } from '../utils/pending-games.js';
-import { buildConfirmRow, buildTurnRow, TURN_ORDER_WINDOW_MS } from '../utils/button-handlers.js';
+import { buildConfirmRow, buildTurnRow, parseDbTimestamp, TURN_ORDER_WINDOW_MS } from '../utils/button-handlers.js';
 import { 
   getOrCreateDeck, 
   updateDeckRating, 
@@ -356,7 +356,10 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
       // Timestamp: 1 hour before the first game
       let injectedTimestamp: Date;
       if (firstGame?.createdAt) {
-        injectedTimestamp = new Date(new Date(firstGame.createdAt).getTime() - 60 * 60 * 1000);
+        // parseDbTimestamp: a raw new Date() would read the DB's UTC
+        // timestamp as local time, skewing the injection point by the
+        // server's UTC offset (and with it the turn-button window).
+        injectedTimestamp = new Date(parseDbTimestamp(firstGame.createdAt).getTime() - 60 * 60 * 1000);
       } else {
         injectedTimestamp = new Date();
       }
@@ -384,13 +387,14 @@ async function getNextGameSequence(afterGameId?: string): Promise<{ sequence: nu
       ? (targetGame.gameSequence + nextGame.nextSeq) / 2
       : targetGame.gameSequence + 1.0;
 
-    // Compute injected timestamp
+    // Compute injected timestamp (parseDbTimestamp: see the pre-injection
+    // branch above — raw new Date() skews DB timestamps by the UTC offset)
     let injectedTimestamp: Date | null;
-    const targetTime = new Date(targetGame.createdAt).getTime();
+    const targetTime = parseDbTimestamp(targetGame.createdAt).getTime();
 
     if (nextGame?.nextSeq && nextGame.createdAt) {
       // There IS a game after the reference game: midway point between the two
-      const nextTime = new Date(nextGame.createdAt).getTime();
+      const nextTime = parseDbTimestamp(nextGame.createdAt).getTime();
       const midpoint = Math.floor((targetTime + nextTime) / 2);
       injectedTimestamp = new Date(midpoint);
       // Round down to nearest minute
@@ -1573,13 +1577,29 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
   : '';
 
   if (submittedByAdmin) {
+  // Turns assigned inline at submission are fixed and get no button: a fully
+  // assigned game gets no turn row at all, a partial one only shows buttons
+  // for the turns still open. The embed text must match what actually gets
+  // attached (injected games are backdated, so their window may already be
+  // closed — they get no buttons either).
+  const assignedTurns = new Set<number>(
+    players.filter(p => p.turnOrder !== undefined).map(p => p.turnOrder!)
+  );
+  const adminTurnRow = buildTurnRow(gameId, players.length, assignedTurns);
+  const adminTurnWindowMsLeft = (injectedTimestamp?.getTime() ?? Date.now()) + TURN_ORDER_WINDOW_MS - Date.now();
+  const showTurnButtons = adminTurnWindowMsLeft > 0 && adminTurnRow.components.length > 0;
+  const turnButtonHint = !showTurnButtons
+    ? ''
+    : assignedTurns.size > 0
+      ? '\n\nPlayers without an assigned turn can use the turn buttons below to record theirs for up to 1 hour — turns assigned at submission are fixed. Click your own button-claimed turn again to rescind it; claiming a button-claimed turn takes it over.'
+      : '\n\nPlayers can use the **Turn 1–4 buttons** below to record turn order for up to 1 hour. Click your own turn again to rescind it; claiming a taken turn takes it over.';
+
   // Create admin-specific embed
   const adminEmbed = new EmbedBuilder()
     .setTitle(`⚔️ Game Results Auto Confirmed`)
     .setDescription(
       `✅ **Results submitted by admin. Ratings updated immediately — see the "Results are now final!" message below for each player's before → after change.**\n\n` +
-      `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}\n\n` +
-      'Players can use the **Turn 1–4 buttons** below to record turn order for up to 1 hour. Click your own turn again to rescind it; claiming a taken turn takes it over.'
+      `🎯 **Game ID: ${gameId}**${injectionNote}${additionalInfo}${turnButtonHint}`
     )
     .addFields(
       players.map(p => {
@@ -1625,17 +1645,23 @@ if (winCount === 1 && lossCount === 3 && drawCount === 0) {
 
   // Turn-order buttons: clicks are validated and applied by the global cedh:
   // button router against the database (restart-proof). The window lasts
-  // 1 hour from submission; injected games are backdated, so their window
-  // may already be closed — skip the buttons entirely in that case.
-  const adminTurnWindowMsLeft = (injectedTimestamp?.getTime() ?? Date.now()) + TURN_ORDER_WINDOW_MS - Date.now();
-  if (adminTurnWindowMsLeft > 0) {
-    try {
-      await replyMsg.edit({ components: [buildTurnRow(gameId, players.length)] });
-      setTimeout(() => {
-        replyMsg.edit({ components: [] }).catch(() => {});
-      }, adminTurnWindowMsLeft);
-    } catch (error) {
-      logger.error('Failed to attach turn-order buttons to admin game message:', error);
+  // 1 hour from submission. Only turns left unassigned at submission get a
+  // button (none at all if the admin assigned every turn, or for injected
+  // games whose backdated window has already closed).
+  if (showTurnButtons) {
+    // The processing above (a full-ledger recalculation for injected games)
+    // can outlast what's left of a backdated window — re-measure before
+    // attaching so the buttons and the strip timer track the real close.
+    const msLeftAtAttach = (injectedTimestamp?.getTime() ?? Date.now()) + TURN_ORDER_WINDOW_MS - Date.now();
+    if (msLeftAtAttach > 0) {
+      try {
+        await replyMsg.edit({ components: [adminTurnRow] });
+        setTimeout(() => {
+          replyMsg.edit({ components: [] }).catch(() => {});
+        }, msLeftAtAttach);
+      } catch (error) {
+        logger.error('Failed to attach turn-order buttons to admin game message:', error);
+      }
     }
   }
 } else {

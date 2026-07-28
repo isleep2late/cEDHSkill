@@ -12,7 +12,7 @@
     "commands:list": "tsx src/list-commands.ts",
     "commands:clear-other": "tsx src/clear-other-servers.ts",
     "dev": "tsx src/loader.ts",
-    "test": "tsx tests/decay-timewalk-regression.test.ts && tsx tests/hybrid-undo-redo.test.ts && tsx tests/turn-button-ux.test.ts"
+    "test": "tsx tests/decay-timewalk-regression.test.ts && tsx tests/hybrid-undo-redo.test.ts && tsx tests/turn-button-ux.test.ts && tsx tests/admin-turn-buttons.test.ts"
   },
   "author": "isleep2late",
   "license": "MIT",
