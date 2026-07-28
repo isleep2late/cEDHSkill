@@ -53,8 +53,10 @@ export const TURN_ORDER_WINDOW_MS = 60 * 60 * 1000;
 /**
  * games_master.createdAt is either SQLite CURRENT_TIMESTAMP
  * ("YYYY-MM-DD HH:MM:SS", UTC) or an ISO string (injected games).
+ * A raw `new Date()` on the space-separated form parses it as LOCAL time,
+ * skewing it by the server's UTC offset — always parse through this.
  */
-function parseDbTimestamp(value: string): Date {
+export function parseDbTimestamp(value: string): Date {
   return new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z');
 }
 
@@ -72,10 +74,20 @@ export function buildConfirmRow(gameId: string): ActionRowBuilder<ButtonBuilder>
   );
 }
 
-export function buildTurnRow(gameId: string, playerCount: number): ActionRowBuilder<ButtonBuilder> {
+/**
+ * Turns in `excludeTurns` get no button (used for admin auto-confirmed games,
+ * where turns assigned inline at submission are fixed). May return a row with
+ * zero components — callers must not attach an empty row to a message.
+ */
+export function buildTurnRow(
+  gameId: string,
+  playerCount: number,
+  excludeTurns?: ReadonlySet<number>
+): ActionRowBuilder<ButtonBuilder> {
   const row = new ActionRowBuilder<ButtonBuilder>();
   const count = Math.min(Math.max(playerCount, 1), 4);
   for (let turn = 1; turn <= count; turn++) {
+    if (excludeTurns?.has(turn)) continue;
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(`cedh:turn:${gameId}:${turn}`)
@@ -308,6 +320,21 @@ async function handlePendingDeckButton(
 }
 
 /**
+ * Whether the clicked message still carries a button for the given turn.
+ * Buttons the game was rendered without (turns fixed inline at submission on
+ * admin auto-confirmed games) never appear here.
+ */
+function messageHasTurnButton(interaction: ButtonInteraction, gameId: string, turn: number): boolean {
+  const target = `cedh:turn:${gameId}:${turn}`;
+  for (const row of interaction.message?.components ?? []) {
+    for (const component of (row as any).components ?? []) {
+      if ((component as any).customId === target) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Turn-order clicks on games that are already confirmed. Backed entirely by
  * the database, so the buttons keep working across restarts until the 1-hour
  * window (from submission, per games_master.createdAt) closes. Rules: one
@@ -401,6 +428,15 @@ async function processConfirmedTurnClick(
     await setPlayerTurnOrderForGame(gameId, userId, null);
     rescinded = true;
   } else if (me.turnOrder != null) {
+    // On admin auto-confirmed games, turns assigned inline at submission get
+    // no button — telling this player to "click Turn N again" would point at
+    // a button that doesn't exist. Their turn is fixed.
+    if (!messageHasTurnButton(interaction, gameId, me.turnOrder)) {
+      await ephemeral(
+        `⚠️ You already have Turn ${me.turnOrder} — it was assigned when the game was submitted, so it can't be rescinded or changed with the buttons.`
+      );
+      return;
+    }
     await ephemeral(`⚠️ You already have Turn ${me.turnOrder}. Click "Turn ${me.turnOrder}" again to rescind it before choosing another.`);
     return;
   } else {
