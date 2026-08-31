@@ -91,6 +91,64 @@ const rest = new REST({ version: '10' }).setToken(config.token);
       { body: commands }
     );
 
+    // Verify what Discord actually ended up with.
+    //
+    // The bulk-overwrite PUT above is delete-all-then-create-all, not atomic.
+    // If a second bot instance issues the same PUT concurrently, its delete can
+    // land before our creates do and BOTH sets survive - leaving every command
+    // registered twice and showing up twice in the Discord picker. That happened
+    // on 2026-08-29 (32 commands instead of 16) and went unnoticed for two days
+    // because nothing ever checked the result.
+    // Verification is best-effort: never let it abort startup. The commands are
+    // already registered above; the outer catch exits non-zero, and the launcher
+    // treats that as fatal (Restart=always would then loop).
+    try {
+      const verify = async () => {
+        const live = (await rest.get(
+          Routes.applicationGuildCommands(config.clientId, config.guildId)
+        )) as Array<{ name: string }>;
+        const counts = new Map<string, number>();
+        for (const c of live) counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+        const dupes = [...counts.entries()].filter(([, n]) => n > 1);
+        return { total: live.length, dupes };
+      };
+
+      let { total, dupes } = await verify();
+
+      if (total !== commands.length || dupes.length > 0) {
+        console.warn(`\n⚠️  Verification mismatch: expected ${commands.length} commands, Discord reports ${total}.`);
+        if (dupes.length > 0) {
+          console.warn('   Duplicated: ' + dupes.map(([n, c]) => `/${n} x${c}`).join(', '));
+        }
+        console.warn('   Re-issuing the overwrite once to collapse the set...');
+        await rest.put(
+          Routes.applicationGuildCommands(config.clientId, config.guildId),
+          { body: commands }
+        );
+        ({ total, dupes } = await verify());
+      }
+
+      if (total !== commands.length || dupes.length > 0) {
+        console.error('\n❌ COMMAND REGISTRATION IS STILL WRONG AFTER A RETRY.');
+        console.error(`   Discord reports ${total} commands; expected ${commands.length}.`);
+        if (dupes.length > 0) {
+          console.error('   Duplicated: ' + dupes.map(([n, c]) => `/${n} x${c}`).join(', '));
+        }
+        console.error('   This almost always means a SECOND bot instance is running and');
+        console.error('   registering commands at the same time. Check with:');
+        console.error('     pgrep -af "dist/loader.js"');
+        console.error('   Stop the extra copy, then run: npm run register-commands');
+        console.error('   (The bot will still start - but the server has doubled commands.)\n');
+      } else {
+        console.log(`\n🔎 Verified with Discord: exactly ${total} commands registered, no duplicates.`);
+      }
+    } catch (verifyError) {
+      console.warn('\n⚠️  Could not verify the registered command list with Discord:',
+        verifyError instanceof Error ? verifyError.message : verifyError);
+      console.warn('   Registration itself succeeded. Re-check later with:');
+      console.warn('     npm run register-commands\n');
+    }
+
     console.log(`\n🎉 Successfully registered ${commands.length} commands for cEDHSkill v0.04!`);
     console.log('✅ Commands registered for your cEDH server only');
     console.log('💡 Commands update instantly for guild-specific registration\n');
